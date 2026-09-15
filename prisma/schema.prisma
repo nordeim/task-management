@@ -1,0 +1,115 @@
+// Tuesday.com — Task Management
+// SQLite schema (sandbox-friendly); models mirror the monday.com-style domain:
+// users own boards, boards contain groups, groups contain tasks.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  avatarColor  String    @default("#00d5c0")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions  Session[]
+  boards    Board[]
+  ownedTasks Task[]     @relation("TaskOwner")
+  activities Activity[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Board {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  // Theme color hex, chosen from the fixed palette in the create-board dialog.
+  color       String   @default("#0073ea")
+  // "private" | "public" — mirrors the visibility combobox.
+  visibility  String   @default("private")
+  isFavorite  Boolean  @default(false)
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner  User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  groups Group[]
+  tasks  Task[]
+
+  @@index([ownerId])
+}
+
+model Group {
+  id        String   @id @default(cuid())
+  name      String
+  boardId   String
+  collapsed Boolean  @default(false)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  board Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tasks Task[]
+
+  @@index([boardId])
+}
+
+model Task {
+  id        String    @id @default(cuid())
+  title     String
+  // "not_started" | "working" | "done" | "stuck"
+  status    String    @default("not_started")
+  // "low" | "medium" | "high" | "critical"
+  priority  String    @default("low")
+  // Mirror of boardId for O(1) board-scoped queries without a join.
+  boardId   String
+  groupId   String
+  ownerId   String?
+  dueDate   DateTime?
+  completed Boolean   @default(false)
+  position  Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  owner User? @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([boardId])
+  @@index([groupId])
+  @@index([ownerId])
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  userId    String
+  // Discriminator for icon/color rendering, e.g. "board_created", "task_completed".
+  type      String
+  message   String
+  boardId   String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}

@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+build/
+
+# Database (SQLite runtime artifact — recreate with db:push + db:seed)
+db/*.db
+db/*.db-journal
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+dev.log
+server.log
+*.log
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+
+# Sandbox scaffolding not part of the application
+refs/
+upload/
+download/
+tool-results/
+examples/
+mini-services/
+.zscripts/
+tests/
+Caddyfile
+worklog.md
