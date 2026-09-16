@@ -1,38 +1,51 @@
 // Domain vocabulary shared by the API routes and the client views.
 // Single source of truth for status/priority metadata and board palette.
 
+// Colors probed from the live reference on 2026-09-17 (session 4) — the
+// app was redeployed after session 3 with monday.com's canonical palette.
+// Pill text is white on every status, including grey Not Started: that is
+// what the reference renders (an accepted contrast deviation for parity).
 export const TASK_STATUSES = [
-  { value: "not_started", label: "Not Started", bg: "#e8e9eb", text: "#323338" },
-  { value: "working", label: "Working on it", bg: "#fddf3d", text: "#323338" },
-  { value: "done", label: "Done", bg: "#00ca72", text: "#ffffff" },
+  { value: "not_started", label: "Not Started", bg: "#c4c4c4", text: "#ffffff" },
+  { value: "working", label: "Working on it", bg: "#ffcb00", text: "#ffffff" },
+  { value: "done", label: "Done", bg: "#00c875", text: "#ffffff" },
   { value: "stuck", label: "Stuck", bg: "#e2445c", text: "#ffffff" },
 ] as const;
 
 export type TaskStatus = (typeof TASK_STATUSES)[number]["value"];
 
 export const TASK_PRIORITIES = [
-  { value: "low", label: "Low", color: "#579bfc" },
-  { value: "medium", label: "Medium", color: "#fcc203" },
-  { value: "high", label: "High", color: "#ff642e" },
+  { value: "low", label: "Low", color: "#787d80" },
+  { value: "medium", label: "Medium", color: "#ffcb00" },
+  { value: "high", label: "High", color: "#fdab3d" },
   { value: "critical", label: "Critical", color: "#e2445c" },
 ] as const;
 
 export type TaskPriority = (typeof TASK_PRIORITIES)[number]["value"];
 
-// The six theme swatches offered by the create-board dialog.
+// The six theme swatches offered by the create/edit board dialogs
+// (probed from the reference 2026-09-17: green→#00c875, third swatch is
+// yellow, sixth is cyan — the session-3 orange/teal are gone).
 export const BOARD_COLORS = [
   { name: "Ocean Blue", value: "#0073ea" },
-  { name: "Success Green", value: "#00ca72" },
-  { name: "Warning Orange", value: "#ff642e" },
+  { name: "Success Green", value: "#00c875" },
+  { name: "Sunny Yellow", value: "#ffcb00" },
   { name: "Danger Red", value: "#e2445c" },
   { name: "Purple", value: "#a25ddb" },
-  { name: "Teal", value: "#00d5c0" },
+  { name: "Cyan", value: "#00d9ff" },
 ] as const;
 
-// Board visibility — the closed vocabulary behind the create/edit board dialogs.
+/** Whether a color belongs to the board palette (Zod-free check for shared use). */
+export function validateBoardColor(value: string): boolean {
+  return BOARD_COLORS.some((c) => c.value === value);
+}
+
+// Board visibility — the closed vocabulary behind the create/edit board
+// dialogs. Stored values stay private|public (API-stable); the reference
+// labels the open option "Shared" (probed 2026-09-17).
 export const VISIBILITY_OPTIONS = [
   { value: "private", label: "Private" },
-  { value: "public", label: "Public" },
+  { value: "public", label: "Shared" },
 ] as const;
 
 export type BoardVisibility = (typeof VISIBILITY_OPTIONS)[number]["value"];
@@ -42,12 +55,27 @@ export function isBoardVisibility(value: string): value is BoardVisibility {
   return VISIBILITY_OPTIONS.some((v) => v.value === value);
 }
 
+/** Reference display label for a stored visibility value ("private"→"Private", "public"→"Shared"). */
+export function visibilityLabel(value: string, lowercase = false): string {
+  const option = VISIBILITY_OPTIONS.find((v) => v.value === value) ?? VISIBILITY_OPTIONS[0];
+  return lowercase ? option.label.toLowerCase() : option.label;
+}
+
 export function statusMeta(value: string) {
   return TASK_STATUSES.find((s) => s.value === value) ?? TASK_STATUSES[0];
 }
 
 export function priorityMeta(value: string) {
   return TASK_PRIORITIES.find((p) => p.value === value) ?? TASK_PRIORITIES[0];
+}
+
+/**
+ * The reference priority badge recipe: background at 12.5% alpha over the
+ * solid priority color as text (8-digit hex; 0x20/0xff = 32/255 = 12.5%).
+ */
+export function priorityBadgeStyle(value: string): { backgroundColor: string; color: string } {
+  const meta = priorityMeta(value);
+  return { backgroundColor: `${meta.color}20`, color: meta.color };
 }
 
 // ---------- pure domain logic (unit-tested in domain.test.ts) ----------

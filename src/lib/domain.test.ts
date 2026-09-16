@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  BOARD_COLORS,
   TASK_PRIORITIES,
   TASK_STATUSES,
   VISIBILITY_OPTIONS,
@@ -10,12 +11,15 @@ import {
   groupSummary,
   groupTasksByPerson,
   groupTasksByStatus,
+  priorityBadgeStyle,
   priorityMeta,
   relativeBoardTime,
   resolveStatusCompletedPatch,
   sortTasks,
   statusMeta,
   timelineRange,
+  validateBoardColor,
+  visibilityLabel,
   visibleColumns,
 } from "@/lib/domain";
 import type { TaskDTO, UserDTO } from "@/lib/domain";
@@ -230,12 +234,76 @@ describe("closed vocabulary", () => {
   });
 });
 
+// ---------- reference palette (probed 2026-09-17, session 4) ----------
+
+describe("status colors (current reference)", () => {
+  it("uses the monday-canonical status hexes", () => {
+    expect(TASK_STATUSES.map((s) => s.bg)).toEqual(["#c4c4c4", "#ffcb00", "#00c875", "#e2445c"]);
+  });
+
+  it("renders white pill text for every status, matching the reference", () => {
+    for (const s of TASK_STATUSES) {
+      expect(s.text).toBe("#ffffff");
+    }
+  });
+});
+
+describe("priority colors (current reference)", () => {
+  it("uses the monday-canonical priority hexes", () => {
+    expect(TASK_PRIORITIES.map((p) => p.color)).toEqual(["#787d80", "#ffcb00", "#fdab3d", "#e2445c"]);
+  });
+});
+
+describe("priorityBadgeStyle", () => {
+  it("tints the badge background at 12.5% alpha with a solid colored text", () => {
+    expect(priorityBadgeStyle("low")).toEqual({ backgroundColor: "#787d8020", color: "#787d80" });
+    expect(priorityBadgeStyle("critical")).toEqual({ backgroundColor: "#e2445c20", color: "#e2445c" });
+  });
+
+  it("falls back to Low for unknown values", () => {
+    expect(priorityBadgeStyle("bogus").color).toBe("#787d80");
+  });
+});
+
+describe("BOARD_COLORS (current reference)", () => {
+  it("offers the six reference swatches in order", () => {
+    expect(BOARD_COLORS.map((c) => c.value)).toEqual([
+      "#0073ea",
+      "#00c875",
+      "#ffcb00",
+      "#e2445c",
+      "#a25ddb",
+      "#00d9ff",
+    ]);
+  });
+
+  it("validates only palette members", () => {
+    expect(validateBoardColor("#0073ea")).toBe(true);
+    expect(validateBoardColor("#ff642e")).toBe(false);
+  });
+});
+
 // ---------- board visibility vocabulary (edit-board dialog) ----------
 
 describe("VISIBILITY_OPTIONS", () => {
   it("offers exactly private and public", () => {
     expect(VISIBILITY_OPTIONS.map((v) => v.value)).toEqual(["private", "public"]);
-    expect(VISIBILITY_OPTIONS.map((v) => v.label)).toEqual(["Private", "Public"]);
+  });
+
+  it("labels them Private / Shared like the reference dialog", () => {
+    expect(VISIBILITY_OPTIONS.map((v) => v.label)).toEqual(["Private", "Shared"]);
+  });
+});
+
+describe("visibilityLabel", () => {
+  it("maps values to reference labels", () => {
+    expect(visibilityLabel("private")).toBe("Private");
+    expect(visibilityLabel("public")).toBe("Shared");
+  });
+
+  it("lowercases for card badges", () => {
+    expect(visibilityLabel("private", true)).toBe("private");
+    expect(visibilityLabel("public", true)).toBe("shared");
   });
 });
 
