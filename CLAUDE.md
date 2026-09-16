@@ -50,7 +50,7 @@ Follow this six-phase workflow for all implementation tasks:
 
 ### Project-Specific Principles
 
-- **One source of truth per fact.** Status/priority/color vocabulary, DTO
+- **One source of truth per fact.** Status/priority/color/visibility vocabulary, DTO
   shapes, and the `ActionResult<T>` envelope live in `src/lib/domain.ts`.
   Components and handlers derive from it; duplicated literals are a defect.
 - **The server is authoritative.** Local state patches only after the API
@@ -129,14 +129,18 @@ public demo credentials).
   seams — `statusMeta`/`priorityMeta`, the shared status↔completed coupling
   (`resolveStatusCompletedPatch`), timeline window math (`timelineRange`),
   kanban grouping (`groupTasksByStatus`/`groupTasksByPerson`), analytics
-  bars (`distributionBars`), and the saved indicator (`formatSavedAt`).
+  bars (`distributionBars`), the saved indicator (`formatSavedAt`), the board
+  toolbar pipeline (`filterTasks`/`sortTasks`), column visibility
+  (`visibleColumns`), the group footer row (`groupSummary`), and boards-card
+  relative time (`relativeBoardTime`).
 - **TDD is the rule for new logic**: write the failing test first (red),
   implement the pure function in `src/lib/domain.ts` (green), then wire it
   into components/routes. Bug fixes require a regression test that fails
   before the fix and passes after.
 - **Behavioral smoke (manual/agent-browser)**: sign in, create board + task,
-  edit a status pill, drag a kanban card, reload, confirm persistence against
-  the database — not just the UI.
+  edit a board via the Options menu, filter/hide/sort in the table, edit a
+  status pill, drag a kanban card, reload, confirm persistence against the
+  database — not just the UI.
 - **E2E (Playwright) is the tracked next step** (PAD §10): golden path
   login → board → mutation → reload → persisted. A red test is a regression
   or a wrong test — never skip to pass.
@@ -193,7 +197,7 @@ sandbox-only directories — keep it intact.
 ```
 src/app/page.tsx      auth gate → AuthedShell (client-side view switch)
 src/app/api/**        JSON route handlers, ActionResult envelopes
-src/components/app/** product UI (header, views, cells, dialogs)
+src/components/app/** product UI (header, views, cells, dialogs — incl. edit-board-dialog)
 src/components/ui/**  shadcn primitives (vendored)
 src/lib/domain.ts     vocabulary + DTOs + ActionResult + pure helpers (single source)
 src/lib/domain.test.ts Vitest unit suite over the pure seams
@@ -206,8 +210,9 @@ scripts/seed.ts       idempotent demo dataset
 ### API Design
 
 - Mutations: `POST /api/boards`, `POST /api/boards/[id]/groups`,
-  `POST /api/tasks`; updates: `PATCH /api/{boards,tasks,groups}/[id]`;
-  deletes: `DELETE` on the same. Reads: `GET /api/boards`,
+  `POST /api/tasks`; updates: `PATCH /api/{boards,tasks,groups}/[id]`
+  (boards accept title/description/color/**visibility**/isFavorite); deletes:
+  `DELETE` on the same. Reads: `GET /api/boards`,
   `GET /api/boards/[id]`, `GET /api/dashboard`, `GET /api/analytics`,
   `GET /api/users`. All authenticated by the session cookie.
 - **Invariant**: `PATCH /api/tasks/[id]` couples `status` and `completed`

@@ -1,4 +1,4 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.1
+# Tuesday.com — Master Project Architecture Document (PAD) v1.2
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
@@ -7,6 +7,32 @@
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.2 (Parity Deep-Pass, 2026-09-16)
+
+- `[SYN]` Second reference-parity pass driven by a live DOM/computed-style
+  audit of the reference app: Edit Board dialog (title/description/colors/
+  visibility), toolbar Filter (Status+Priority checkboxes), Sort popover
+  (Task Name / Created Date / Updated Date — `TaskDTO` gained `updatedAt`),
+  Show/Hide Columns, toolbar scoped to the Main Table view only, searchable
+  owner picker ("Enter name…"), native-date due-date cell, per-group footer
+  summary row, reference group-header layout, gradient KPI cards (exact probed
+  pairs + deco discs), briefcase gradient logo, nav active pills,
+  "Search everything…" header search, reference toolbar icon set,
+  boards-page folder cards with rose visibility badges and "about N hours ago"
+  timestamps, dashboard folder-tile board cards, login restyle (circular slate
+  logo, top gradient bar, mail/lock input icons, white Google button), kanban
+  lavender heading tile + large empty-column discs, mobile hamburger drawer,
+  and the demo seed renamed to `sepnetflix2023` so the greeting matches the
+  reference account. All browser-verified; edit-board persistence confirmed
+  against SQLite.
+- `[GAT]` Unit suite grew 23→46 tests: new pure seams `filterTasks`,
+  `sortTasks`, `visibleColumns`, `groupSummary`, `relativeBoardTime`, and
+  `VISIBILITY_OPTIONS` (TDD: red first).
+- `[FIX]` `PATCH /api/boards/[id]` now accepts `visibility`
+  (Zod enum private|public) — previously un-editable after creation.
+- `[DEV]` Deliberate deviations documented in §10 (reference analytics
+  priority bug, inert boards Filter button, popover persistence quirk).
 
 #### Revision Block — v1.1 (Parity & Quality Pass, 2026-09-16)
 
@@ -574,16 +600,26 @@ The client only ever sees DTOs.
 | `--border` | `#e6e9ef` | — | Hairlines |
 | `--primary` | `#0073ea` | 4.6:1 | Buttons, links, focus rings (AA) |
 | `--destructive` | `#e2445c` | 4.5:1 | Danger actions, overdue |
+| `--nav-active-bg` | `#e1e5f3` | — | Active nav pill |
+| `--nav-hover-bg` | `#f5f6f8` | — | Nav + group-header hover |
+| `--table-header-bg` | `#f5f6f8` | — | Column-header band |
+| `--table-track-bg` | `#e1e5f3` | — | Group progress track |
+| `--group-progress-fill` | `#00c875` | — | Group progress fill |
 
 Status pills carry their own pairs (bg/text): Not Started `#e8e9eb`/`#323338`,
 Working on it `#fddf3d`/`#323338`, Done `#00ca72`/white, Stuck `#e2445c`/white.
 Priority flags: Low `#579bfc`, Medium `#fcc203`, High `#ff642e`, Critical
 `#e2445c` — always paired with the 1–4 bar count so urgency never relies on
-color alone. Dashboard KPI cards: `#3b82f6`/`#22c55e`/`#f97316`/`#a855f7`.
-Analytics KPI cards (solid, white text): Total `#3b82f6`, Completion `#22c55e`
-(with internal progress bar), Overdue `#e93b3b`, Active Boards `#a855f7`.
-Quick actions: `#06b6d4`/`#22c55e`/`#f97316`/`#d946ef`. Board palette (6):
-`#0073ea`, `#00ca72`, `#ff642e`, `#e2445c`, `#a25ddb`, `#00d5c0`.
+color alone. KPI cards are **gradient pairs** (probed from the reference):
+dashboard `to right bottom` — blue `#3b82f6→#2563eb`, green `#22c55e→#16a34a`,
+orange `#f59e0b→#f97316`, purple `#a855f7→#9333ea`; analytics `to right` with
+Overdue `#ef4444→#dc2626`; each card carries translucent deco discs (64px @
+white/10 top-right, 48px @ white/5 bottom-left). Quick actions:
+`#06b6d4`/`#22c55e`/`#f97316`/`#d946ef` with a purple gradient header tile.
+Board palette (6): `#0073ea`, `#00ca72`, `#ff642e`, `#e2445c`, `#a25ddb`,
+`#00d5c0`. The header logo is a gradient tile (`#2563EB→#1D4ED8`) with a white
+briefcase icon; board cards tint the folder icon at 12.5% alpha of the board
+color.
 
 ### 5.3 Component Primitives
 
@@ -660,8 +696,8 @@ transition to 0.01ms.
 |----------|-------|----------|-----------|
 | Lint gate | 1 suite | `eslint.config.mjs` | ESLint 9, `eslint-config-next` defaults, zero rule weakening |
 | Type gate | 1 run | `tsconfig.json` | `tsc --noEmit` — strict, no overrides; `skills/` + `docs/` excluded |
-| Unit tests | 23 tests | `src/lib/domain.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt` |
-| Interactive verification | re-executed 2026-09-16 | agent-browser session | login; hero live-count; person filter (row counts); group-by sections; kanban Status+People columns; drag-to-done persisted to SQLite (status=completed agreement verified); Sun-first calendar; timeline Week/Month zoom; analytics card colors pixel-checked against the reference; header search round-trip; zero console errors |
+| Unit tests | 46 tests | `src/lib/domain.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (Task Name/Created/Updated), `visibleColumns` (Show/Hide Columns), `groupSummary` (footer row), `relativeBoardTime`, `VISIBILITY_OPTIONS` |
+| Interactive verification | re-executed 2026-09-16 (session 3) | agent-browser session | login as sepnetflix2023; Edit Board round-trip persisted to SQLite (verified, then reverted); Filter popover row counts; Hide column removal incl. summary cell; Sort label cycling; owner picker "Enter name…" search; native date input spinbuttons; toolbar absent in Kanban/Calendar; gradient cards verified via computed styles; VLM side-by-side: board table "Match" |
 
 ### 7.2 Test Patterns
 
@@ -797,7 +833,9 @@ bun run dev                # http://localhost:3000
 | Low | Members list = all users | no real multi-tenant membership model | Open — introduce BoardMember when collaboration is real |
 | Low | Search is client-side title matching only (header + board toolbar) | no deep/full-text search | Open |
 | Low | Timeline bars are single-day (due date only) | the data model has no task start dates | Open — add `startDate` to Task for span bars |
-| Info | ESLint `ignores` include sandbox-only paths | harmless in a clean clone (paths absent) | Accepted |
+| Info | Reference analytics reports Medium priority for a Low task | reference-side inconsistency | Deliberate deviation — we count actual priorities |
+| Info | Reference boards-page Filter button is inert | reference-side dead control | Deliberate deviation — our Favorites filter is functional |
+| Info | Reference popovers stay mounted after Escape | focus-management quirk | Deliberate deviation — standard Radix dismiss |
 | Info | No fake presence dots on member avatars | reference renders decorative green dots | Deliberate deviation — we do not fake presence data |
 | Info | Reference 'Unassigned' view renders an empty div | reference-side quirk | Deliberate deviation — we keep a helpful empty state |
 
@@ -808,24 +846,27 @@ bun run dev                # http://localhost:3000
 | File | ~Lines | Purpose |
 |------|--------|---------|
 | `src/app/page.tsx` | 95 | The route: auth gate + AuthedShell view switch |
-| `src/components/app/board-view.tsx` | 789 | Board detail: header + saved indicator, toolbar (person filter, group-by, sort), 5 views, all mutations |
-| `src/components/app/boards-view.tsx` | 374 | Boards grid/list, filters, delete flow |
-| `src/components/app/dashboard-view.tsx` | 406 | Home: KPIs, hero with live task count, recent boards, quick actions, activity |
-| `src/components/app/analytics-view.tsx` | 325 | Filters, solid stat cards, bar distributions, board performance |
-| `src/components/app/board-table.tsx` | 347 | Main Table: real or synthetic (group-by) sections, columns, task rows |
-| `src/components/app/board-kanban.tsx` | 297 | @dnd-kit columns grouped by Status or People (drag assigns owner) |
+| `src/components/app/board-view.tsx` | 940 | Board detail: header + saved indicator, toolbar (search, person, filter, sort, hide, group-by — Main Table only), 5 views, all mutations |
+| `src/components/app/boards-view.tsx` | 385 | Boards grid/list, search, favorites filter, reference folder cards, edit/delete flows |
+| `src/components/app/dashboard-view.tsx` | 415 | Home: gradient KPIs, hero with live task count, reference board cards, quick actions, activity |
+| `src/components/app/analytics-view.tsx` | 330 | Filters, gradient stat cards, bar distributions, board performance |
+| `src/components/app/board-table.tsx` | 420 | Main Table: dynamic columns (Show/Hide), reference group headers, task rows, footer summary row |
+| `src/components/app/board-kanban.tsx` | 300 | @dnd-kit columns grouped by Status or People (drag assigns owner) |
 | `src/components/app/board-timeline.tsx` | 197 | Gantt timeline: Day/Week/Month zoom, day columns, due-date bars |
 | `src/components/app/board-calendar.tsx` | 132 | Sun-first month grid with due-date chips |
-| `src/components/app/app-header.tsx` | 285 | Nav, global board search, honest notifications/help/settings, user menu |
-| `src/components/app/login-view.tsx` | 224 | Login/signup with honest OAuth placeholder |
+| `src/components/app/app-header.tsx` | 385 | Nav pills, gradient logo, "Search everything…" search, honest notifications/help/settings, user menu, mobile drawer |
+| `src/components/app/login-view.tsx` | 245 | Login/signup with circular slate logo, input icons, honest OAuth placeholder |
 | `src/components/app/create-board-dialog.tsx` | 191 | Board creation (fresh-mount form pattern) |
-| `src/lib/domain.ts` | 290 | Vocabulary, DTOs, ActionResult, pure helpers — the contract file |
-| `src/lib/domain.test.ts` | 224 | Vitest suite over the pure seams (23 tests) |
+| `src/components/app/edit-board-dialog.tsx` | 195 | Board editing: title/description/colors/visibility (fresh-mount form pattern) |
+| `src/components/app/owner-cell.tsx` | 155 | Searchable "Enter name…" assignment popover |
+| `src/components/app/date-cell.tsx` | 95 | Native date input, noon storage, overdue styling |
+| `src/lib/domain.ts` | 430 | Vocabulary, DTOs, ActionResult, pure helpers (filter/sort/columns/summary/time) — the contract file |
+| `src/lib/domain.test.ts` | 400 | Vitest suite over the pure seams (46 tests) |
 | `src/lib/auth.ts` | 79 | scrypt + sessions |
 | `src/lib/api-client.ts` | 31 | Typed fetch that never throws |
-| `src/app/globals.css` | 175 | Theme tokens (both modes) + global styles |
+| `src/app/globals.css` | 180 | Theme tokens (both modes) + deco discs + global styles |
 | `prisma/schema.prisma` | 115 | The six models |
-| `scripts/seed.ts` | 272 | Idempotent demo dataset |
+| `scripts/seed.ts` | 275 | Idempotent demo dataset (demo user `sepnetflix2023`) |
 
 ---
 
