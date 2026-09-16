@@ -13,10 +13,27 @@ import { StatusCell } from "@/components/app/status-cell";
 import { PriorityCell } from "@/components/app/priority-cell";
 import { OwnerCell } from "@/components/app/owner-cell";
 import { DateCell } from "@/components/app/date-cell";
-import type { BoardDetailDTO, GroupDTO, TaskDTO, TaskPriority, TaskStatus, UserDTO } from "@/lib/domain";
+import type { GroupDTO, TaskDTO, TaskPriority, TaskStatus, UserDTO } from "@/lib/domain";
+
+/** How the table rows are grouped — set from the board toolbar's Group-by popover. */
+export type TableGroupBy = "default" | "status" | "person" | "priority";
+
+/**
+ * One renderable section: either a real board group (group !== null, editable)
+ * or a synthetic section derived from status/priority/owner (read-only shell).
+ */
+export interface TableSection {
+  id: string;
+  name: string;
+  color: string;
+  tasks: TaskDTO[];
+  group: GroupDTO | null;
+}
 
 interface BoardTableProps {
-  board: BoardDetailDTO;
+  sections: TableSection[];
+  members: UserDTO[];
+  groupBy: TableGroupBy;
   onUpdateTask: (taskId: string, patch: Partial<Pick<TaskDTO, "title" | "status" | "priority" | "owner" | "dueDate" | "completed">>) => void;
   onDeleteTask: (taskId: string) => void;
   onAddTask: (groupId: string) => void;
@@ -150,8 +167,7 @@ function TaskRow({
 }
 
 function GroupSection({
-  group,
-  color,
+  section,
   members,
   onUpdateTask,
   onDeleteTask,
@@ -160,8 +176,7 @@ function GroupSection({
   onToggleCollapse,
   onDeleteGroup,
 }: {
-  group: GroupDTO;
-  color: string;
+  section: TableSection;
   members: UserDTO[];
   onUpdateTask: BoardTableProps["onUpdateTask"];
   onDeleteTask: BoardTableProps["onDeleteTask"];
@@ -170,15 +185,20 @@ function GroupSection({
   onToggleCollapse: BoardTableProps["onToggleCollapse"];
   onDeleteGroup: BoardTableProps["onDeleteGroup"];
 }) {
+  // Synthetic sections (status/priority/person) have no backing group row to
+  // edit — they are read-only shells around the same task rows.
+  const group = section.group;
   const [editingName, setEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState(group.name);
+  const [nameDraft, setNameDraft] = useState(section.name);
 
-  const total = group.tasks.length;
-  const done = group.tasks.filter((t) => t.status === "done").length;
+  const total = section.tasks.length;
+  const done = section.tasks.filter((t) => t.status === "done").length;
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+  const collapsed = group?.collapsed ?? false;
 
   function commitName() {
     setEditingName(false);
+    if (!group) return;
     const next = nameDraft.trim();
     if (next && next !== group.name) {
       onRenameGroup(group.id, next);
@@ -188,20 +208,24 @@ function GroupSection({
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border bg-card" aria-label={`Group ${group.name}`}>
+    <section className="overflow-hidden rounded-xl border bg-card" aria-label={`Group ${section.name}`}>
       {/* Group header — left accent bar like the reference app */}
       <div className="flex items-center gap-2 border-b bg-secondary/30 px-3 py-2">
-        <span className="h-6 w-1 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
-        <button
-          type="button"
-          aria-label={group.collapsed ? `Expand group ${group.name}` : `Collapse group ${group.name}`}
-          aria-expanded={!group.collapsed}
-          onClick={() => onToggleCollapse(group.id, !group.collapsed)}
-          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          {group.collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </button>
-        {editingName ? (
+        <span className="h-6 w-1 shrink-0 rounded-full" style={{ backgroundColor: section.color }} aria-hidden="true" />
+        {group ? (
+          <button
+            type="button"
+            aria-label={collapsed ? `Expand group ${section.name}` : `Collapse group ${section.name}`}
+            aria-expanded={!collapsed}
+            onClick={() => onToggleCollapse(group.id, !collapsed)}
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+        ) : (
+          <span className="w-7" aria-hidden="true" />
+        )}
+        {editingName && group ? (
           <input
             autoFocus
             aria-label="Group name"
@@ -220,31 +244,35 @@ function GroupSection({
         ) : (
           <button
             type="button"
-            onClick={() => setEditingName(true)}
-            className="rounded-sm px-1.5 py-0.5 text-sm font-semibold transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => group && setEditingName(true)}
+            className={`rounded-sm px-1.5 py-0.5 text-sm font-semibold transition-colors ${
+              group ? "hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" : "cursor-default"
+            }`}
           >
-            {group.name}
+            {section.name}
           </button>
         )}
         <span className="text-xs text-muted-foreground">
           ({total}) {pct}%
         </span>
         <div className="ml-2 hidden h-1.5 w-24 overflow-hidden rounded-full bg-secondary sm:block">
-          <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+          <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: section.color }} />
         </div>
         <div className="ml-auto flex items-center gap-1">
-          <button
-            type="button"
-            aria-label={`Delete group ${group.name}`}
-            onClick={() => onDeleteGroup(group.id)}
-            className="rounded-md p-1.5 text-muted-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {group && (
+            <button
+              type="button"
+              aria-label={`Delete group ${section.name}`}
+              onClick={() => onDeleteGroup(group.id)}
+              className="rounded-md p-1.5 text-muted-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
-      {!group.collapsed && (
+      {!collapsed && (
         <>
           {/* Column headers */}
           <div className="grid grid-cols-[36px_minmax(180px,1fr)_110px_150px_140px_130px_36px] border-b bg-card text-xs font-medium text-muted-foreground">
@@ -257,10 +285,10 @@ function GroupSection({
             <div className="py-2" aria-hidden="true" />
           </div>
 
-          {group.tasks.length === 0 ? (
+          {section.tasks.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">No items in this group</div>
           ) : (
-            group.tasks.map((task) => (
+            section.tasks.map((task) => (
               <TaskRow
                 key={task.id}
                 task={task}
@@ -271,13 +299,15 @@ function GroupSection({
             ))
           )}
 
-          <button
-            type="button"
-            onClick={() => onAddTask(group.id)}
-            className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-secondary/40 hover:text-foreground"
-          >
-            <Plus className="h-4 w-4" /> Add task
-          </button>
+          {group && (
+            <button
+              type="button"
+              onClick={() => onAddTask(group.id)}
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-secondary/40 hover:text-foreground"
+            >
+              <Plus className="h-4 w-4" /> Add task
+            </button>
+          )}
         </>
       )}
     </section>
@@ -285,16 +315,15 @@ function GroupSection({
 }
 
 export function BoardTable(props: BoardTableProps) {
-  const { board, onAddGroup } = props;
+  const { sections, onAddGroup, groupBy } = props;
 
   return (
     <div className="space-y-4">
-      {board.groups.map((group) => (
+      {sections.map((section) => (
         <GroupSection
-          key={group.id}
-          group={group}
-          color={board.color}
-          members={board.members}
+          key={section.id}
+          section={section}
+          members={props.members}
           onUpdateTask={props.onUpdateTask}
           onDeleteTask={props.onDeleteTask}
           onAddTask={props.onAddTask}
@@ -304,13 +333,15 @@ export function BoardTable(props: BoardTableProps) {
         />
       ))}
 
-      <button
-        type="button"
-        onClick={onAddGroup}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-secondary/40 hover:text-foreground"
-      >
-        <Plus className="h-4 w-4" /> Add New Group
-      </button>
+      {groupBy === "default" && (
+        <button
+          type="button"
+          onClick={onAddGroup}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-secondary/40 hover:text-foreground"
+        >
+          <Plus className="h-4 w-4" /> Add New Group
+        </button>
+      )}
     </div>
   );
 }

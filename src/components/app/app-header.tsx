@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, HelpCircle, Settings } from "lucide-react";
+import { Bell, HelpCircle, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -14,8 +14,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useApp } from "@/components/app/app-context";
+import { api } from "@/lib/api-client";
+import { toast } from "@/hooks/use-toast";
 import type { ViewName } from "@/components/app/app-context";
+import type { BoardSummaryDTO } from "@/lib/domain";
 
 const NAV_ITEMS: { label: string; view: ViewName }[] = [
   { label: "Dashboard", view: "dashboard" },
@@ -23,21 +31,60 @@ const NAV_ITEMS: { label: string; view: ViewName }[] = [
   { label: "Analytics", view: "analytics" },
 ];
 
+function initialsOf(name: string): string {
+  return (
+    name
+      .split(" ")
+      .map((part) => part[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "?"
+  );
+}
+
 export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string }) {
   const { user, view, navigate, signOut } = useApp();
   const [search, setSearch] = useState("");
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [boards, setBoards] = useState<BoardSummaryDTO[] | null>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
-  const initials = user.name
-    .split(" ")
-    .map((part) => part[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  // Fetch the board list lazily, the first time the user actually searches —
+  // the header never queries the API on page load.
+  useEffect(() => {
+    if (!searchOpen || boards) return;
+    let cancelled = false;
+    api<BoardSummaryDTO[]>("/api/boards").then((result) => {
+      if (!cancelled && result.ok) setBoards(result.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchOpen, boards]);
+
+  const query = search.trim().toLowerCase();
+  const matches =
+    query && boards
+      ? boards
+          .filter(
+            (b) =>
+              b.title.toLowerCase().includes(query) ||
+              (b.description ?? "").toLowerCase().includes(query),
+          )
+          .slice(0, 6)
+      : [];
+
+  function openBoard(boardId: string) {
+    setSearch("");
+    setSearchOpen(false);
+    searchRef.current?.blur();
+    navigate("board", boardId);
+  }
 
   return (
-    <header className="sticky top-0 z-50 border-b bg-card">
+    <header className="sticky top-0 z-40 border-b bg-card">
       <div className="mx-auto flex h-16 max-w-[1400px] items-center justify-between gap-4 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-6 lg:gap-10">
           <Link
@@ -80,46 +127,102 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Global search — jump straight to a matching board. */}
           <div className="relative hidden md:block">
-            <Input
-              type="search"
-              aria-label="Search"
-              placeholder={searchPlaceholder ?? "Search"}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-9 w-44 border-input bg-card pl-9 text-sm lg:w-56"
-            />
-            <svg
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-              aria-hidden="true"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
-            </svg>
+            <Popover open={searchOpen && query.length > 0} onOpenChange={setSearchOpen}>
+              <PopoverTrigger asChild>
+                <div className="relative">
+                  <Input
+                    ref={searchRef}
+                    type="search"
+                    role="searchbox"
+                    aria-label="Search boards"
+                    placeholder={searchPlaceholder ?? "Search"}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && matches.length > 0) {
+                        e.preventDefault();
+                        openBoard(matches[0].id);
+                      }
+                      if (e.key === "Escape") {
+                        setSearch("");
+                        setSearchOpen(false);
+                      }
+                    }}
+                    className="h-9 w-44 border-input bg-card pl-9 text-sm lg:w-56"
+                  />
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                </div>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72 p-1.5" onOpenAutoFocus={(e) => e.preventDefault()}>
+                {boards === null ? (
+                  <p className="px-2 py-3 text-sm text-muted-foreground">Searching…</p>
+                ) : matches.length === 0 ? (
+                  <p className="px-2 py-3 text-sm text-muted-foreground">
+                    No boards match “{search.trim()}”.
+                  </p>
+                ) : (
+                  <ul className="max-h-72 overflow-auto" aria-label="Search results">
+                    {matches.map((board) => (
+                      <li key={board.id}>
+                        <button
+                          type="button"
+                          onClick={() => openBoard(board.id)}
+                          className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
+                        >
+                          <span
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white"
+                            style={{ backgroundColor: board.color }}
+                            aria-hidden="true"
+                          >
+                            {board.title.slice(0, 1).toUpperCase()}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium">{board.title}</span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {board.doneCount}/{board.taskCount} done
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </PopoverContent>
+            </Popover>
           </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative h-9 w-9 text-muted-foreground"
-            aria-label={`Notifications${showNotifications ? ", unread" : ""}`}
-            onClick={() => setShowNotifications((v) => !v)}
-          >
-            <Bell className="h-5 w-5" />
-            {showNotifications && (
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive" />
-            )}
-          </Button>
+          <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative h-9 w-9 text-muted-foreground"
+                aria-label="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-72 p-0">
+              <p className="border-b px-3 py-2.5 text-sm font-semibold">Notifications</p>
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                No new notifications.
+                <span className="mt-0.5 block text-xs">Board activity will show up here.</span>
+              </p>
+            </PopoverContent>
+          </Popover>
           <Button
             variant="ghost"
             size="icon"
             className="hidden h-9 w-9 text-muted-foreground sm:inline-flex"
             aria-label="Help"
-            onClick={() => navigate("dashboard")}
+            onClick={() =>
+              toastNotConfigured("Help center is not configured on this deployment.")
+            }
           >
             <HelpCircle className="h-5 w-5" />
           </Button>
@@ -128,7 +231,9 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
             size="icon"
             className="hidden h-9 w-9 text-muted-foreground sm:inline-flex"
             aria-label="Settings"
-            onClick={() => navigate("dashboard")}
+            onClick={() =>
+              toastNotConfigured("Settings are not configured on this deployment.")
+            }
           >
             <Settings className="h-5 w-5" />
           </Button>
@@ -145,7 +250,7 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
                     className="text-sm font-semibold text-white"
                     style={{ backgroundColor: user.avatarColor }}
                   >
-                    {initials || "U"}
+                    {initialsOf(user.name)}
                   </AvatarFallback>
                 </Avatar>
               </button>
@@ -156,8 +261,12 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
                 <p className="truncate text-xs text-muted-foreground">{user.email}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate("dashboard")}>Your Profile</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate("dashboard")}>Settings</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toastNotConfigured("Profiles are not configurable on this deployment.")}>
+                Your Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toastNotConfigured("Settings are not configured on this deployment.")}>
+                Settings
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
                 Sign out
@@ -168,4 +277,9 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
       </div>
     </header>
   );
+}
+
+/** Honest "not configured" feedback — same contract as Integrate/Automate. */
+function toastNotConfigured(message: string) {
+  toast({ title: "Not available", description: message });
 }

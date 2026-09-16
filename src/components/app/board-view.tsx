@@ -3,13 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  ArrowUpDown,
   BarChart3,
-  CalendarDays,
   Calendar as CalendarIcon,
+  Check,
   Filter,
   GanttChartSquare,
   KanbanSquare,
   Plus,
+  Rows3,
   Search,
   Sigma,
   Star,
@@ -18,7 +20,6 @@ import {
   UsersRound,
   Zap,
   EyeOff,
-  ArrowUpDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,18 +41,35 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
 import { useApp } from "@/components/app/app-context";
 import { api } from "@/lib/api-client";
-import { resolveStatusCompletedPatch } from "@/lib/domain";
-import { format } from "date-fns";
-import type { BoardDetailDTO, TaskPriority, TaskStatus, UserDTO } from "@/lib/domain";
+import { formatSavedAt, resolveStatusCompletedPatch, TASK_PRIORITIES, TASK_STATUSES } from "@/lib/domain";
+import type { BoardDetailDTO, TaskDTO, TaskPriority, TaskStatus, UserDTO } from "@/lib/domain";
 import { BoardTable } from "@/components/app/board-table";
 import { BoardKanban } from "@/components/app/board-kanban";
 import { BoardCalendar } from "@/components/app/board-calendar";
+import { BoardTimeline } from "@/components/app/board-timeline";
 import { CreateTaskDialog } from "@/components/app/create-task-dialog";
 
 type BoardSubView = "table" | "kanban" | "calendar" | "timeline" | "unassigned";
+
+/** How the Main Table groups its rows — mirrors the reference 'Group by' menu. */
+type GroupByMode = "default" | "status" | "person" | "priority";
+
+const GROUP_BY_OPTIONS: { value: GroupByMode; label: string }[] = [
+  { value: "default", label: "Default Groups" },
+  { value: "status", label: "Status" },
+  { value: "person", label: "Person" },
+  { value: "priority", label: "Priority" },
+];
+
+type SortDir = "none" | "asc" | "desc";
 
 const SUB_VIEWS: { value: BoardSubView; label: string; icon: typeof Table2 }[] = [
   { value: "table", label: "Main Table", icon: Table2 },
@@ -88,8 +106,10 @@ export function BoardView({ boardId }: { boardId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [subView, setSubView] = useState<BoardSubView>("table");
   const [search, setSearch] = useState("");
-  const [sortDesc, setSortDesc] = useState(false);
-  const [showPersonOnly, setShowPersonOnly] = useState(false);
+  const [sortDir, setSortDir] = useState<SortDir>("none");
+  const [personFilter, setPersonFilter] = useState<string | null>(null);
+  const [groupBy, setGroupBy] = useState<GroupByMode>("default");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [taskDialog, setTaskDialog] = useState<{ open: boolean; groupId: string | null }>({
     open: false,
     groupId: null,
@@ -104,6 +124,7 @@ export function BoardView({ boardId }: { boardId: string }) {
     if (result.ok && result.data) {
       setBoard(result.data);
       setError(null);
+      setLastSavedAt(new Date());
     } else {
       setError(result.error ?? "Request failed");
     }
@@ -129,14 +150,69 @@ export function BoardView({ boardId }: { boardId: string }) {
     if (query) {
       tasks = tasks.filter((t) => t.title.toLowerCase().includes(query));
     }
-    if (showPersonOnly) {
-      tasks = tasks.filter((t) => t.owner === null);
+    if (personFilter) {
+      tasks = tasks.filter((t) => t.owner?.id === personFilter);
     }
-    if (sortDesc) {
-      tasks = [...tasks].sort((a, b) => a.title.localeCompare(b.title));
+    if (sortDir !== "none") {
+      tasks = [...tasks].sort((a, b) =>
+        sortDir === "asc"
+          ? a.title.localeCompare(b.title)
+          : b.title.localeCompare(a.title),
+      );
     }
     return tasks;
-  }, [allTasks, search, showPersonOnly, sortDesc]);
+  }, [allTasks, search, personFilter, sortDir]);
+
+  /** The table renders either the board's real groups or synthetic sections
+   *  built from the Group-by choice — same row component either way. */
+  const tableSections = useMemo(() => {
+    const byId = new Map(visibleTasks.map((t) => [t.id, t]));
+    const filtered = (tasks: TaskDTO[]) => tasks.filter((t) => byId.has(t.id));
+    if (groupBy === "default") {
+      return (board?.groups ?? []).map((g) => ({
+        id: g.id,
+        name: g.name,
+        color: board?.color ?? "#0073ea",
+        tasks: filtered(g.tasks),
+        group: g,
+      }));
+    }
+    if (groupBy === "status") {
+      return TASK_STATUSES.map((s) => ({
+        id: `status-${s.value}`,
+        name: s.label,
+        color: s.bg,
+        tasks: visibleTasks.filter((t) => t.status === s.value),
+        group: null,
+      }));
+    }
+    if (groupBy === "priority") {
+      return [...TASK_PRIORITIES].reverse().map((p) => ({
+        id: `priority-${p.value}`,
+        name: p.label,
+        color: p.color,
+        tasks: visibleTasks.filter((t) => t.priority === p.value),
+        group: null,
+      }));
+    }
+    const sections = [
+      {
+        id: "person-unassigned",
+        name: "Unassigned",
+        color: "#6b7385",
+        tasks: visibleTasks.filter((t) => t.owner === null),
+        group: null,
+      },
+      ...(board?.members ?? []).map((m) => ({
+        id: `person-${m.id}`,
+        name: m.name,
+        color: m.avatarColor,
+        tasks: visibleTasks.filter((t) => t.owner?.id === m.id),
+        group: null,
+      })),
+    ];
+    return sections;
+  }, [board, visibleTasks, groupBy]);
 
   // ---------- mutations: every one patches local state after the API confirms ----------
 
@@ -172,6 +248,7 @@ export function BoardView({ boardId }: { boardId: string }) {
             }
           : prev,
       );
+      setLastSavedAt(new Date());
     },
     [],
   );
@@ -187,6 +264,7 @@ export function BoardView({ boardId }: { boardId: string }) {
         ? { ...prev, groups: prev.groups.map((g) => ({ ...g, tasks: g.tasks.filter((t) => t.id !== taskId) })) }
         : prev,
     );
+    setLastSavedAt(new Date());
   }, []);
 
   const addGroup = useCallback(async () => {
@@ -210,6 +288,7 @@ export function BoardView({ boardId }: { boardId: string }) {
     setBoard((prev) =>
       prev ? { ...prev, groups: prev.groups.map((g) => (g.id === groupId ? { ...g, name } : g)) } : prev,
     );
+    setLastSavedAt(new Date());
   }, []);
 
   const toggleCollapse = useCallback(async (groupId: string, collapsed: boolean) => {
@@ -232,6 +311,7 @@ export function BoardView({ boardId }: { boardId: string }) {
       return;
     }
     setBoard((prev) => (prev ? { ...prev, groups: prev.groups.filter((g) => g.id !== groupId) } : prev));
+    setLastSavedAt(new Date());
     toast({ title: "Group deleted", description: "Its tasks were removed too." });
   }, []);
 
@@ -247,6 +327,7 @@ export function BoardView({ boardId }: { boardId: string }) {
       return;
     }
     setBoard((prev) => (prev ? { ...prev, isFavorite: next } : prev));
+    setLastSavedAt(new Date());
   }, [board]);
 
   const renameBoard = useCallback(async () => {
@@ -260,6 +341,7 @@ export function BoardView({ boardId }: { boardId: string }) {
       return;
     }
     setBoard((prev) => (prev ? { ...prev, title: next } : prev));
+    setLastSavedAt(new Date());
   }, [board, titleDraft]);
 
   if (error) {
@@ -289,11 +371,6 @@ export function BoardView({ boardId }: { boardId: string }) {
 
   const total = allTasks.length;
   const currentViewLabel = SUB_VIEWS.find((v) => v.value === subView)?.label ?? "Main table";
-
-  // Timeline: tasks with due dates sorted chronologically, laid out as rows.
-  const timelineTasks = [...allTasks]
-    .filter((t) => t.dueDate !== null)
-    .sort((a, b) => new Date(a.dueDate ?? 0).getTime() - new Date(b.dueDate ?? 0).getTime());
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-4 p-4 sm:p-6 lg:p-8">
@@ -379,6 +456,22 @@ export function BoardView({ boardId }: { boardId: string }) {
             <span className="hidden sm:inline">{board.isFavorite ? "Remove from favorites" : "Add to favorites"}</span>
           </Button>
 
+          <span className="hidden text-muted-foreground/50 xl:inline" aria-hidden="true">|</span>
+
+          {/* Item count + autosave indicator, mirroring the reference header. */}
+          <span className="hidden items-center gap-1.5 text-sm text-muted-foreground xl:flex">
+            <span>
+              {total} item{total === 1 ? "" : "s"}
+            </span>
+            <span aria-hidden="true" className="text-muted-foreground/40">▪</span>
+            {lastSavedAt && (
+              <span>
+                Saved <span aria-hidden="true">{formatSavedAt(lastSavedAt)}</span>
+                <span className="sr-only">at {formatSavedAt(lastSavedAt)}</span>
+              </span>
+            )}
+          </span>
+
           <span className="hidden items-center gap-0.5 xl:flex" aria-label="Board members">
             {board.members.slice(0, 4).map((member, i) => (
               <Avatar key={member.id} className="h-8 w-8 border-2 border-card" style={{ marginLeft: i === 0 ? 0 : -8 }}>
@@ -450,15 +543,61 @@ export function BoardView({ boardId }: { boardId: string }) {
           />
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className={showPersonOnly ? "border-primary text-primary" : "text-muted-foreground"}
-          aria-pressed={showPersonOnly}
-          onClick={() => setShowPersonOnly((v) => !v)}
-        >
-          <UsersRound className="mr-1 h-4 w-4" /> Person
-        </Button>
+        {/* Filter by Person — single-select member filter like the reference. */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={personFilter ? "border-primary text-primary" : "text-muted-foreground"}
+            >
+              <UsersRound className="mr-1 h-4 w-4" /> Person
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-64 p-0">
+            <div className="border-b px-3 py-2.5 text-sm font-bold">Filter by Person</div>
+            <ul role="listbox" aria-label="Filter by person" className="max-h-64 overflow-auto p-1">
+              {board.members.length === 0 ? (
+                <li className="px-2 py-3 text-sm text-muted-foreground">No people assigned yet</li>
+              ) : (
+                board.members.map((member) => {
+                  const selected = personFilter === member.id;
+                  return (
+                    <li key={member.id}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        onClick={() => setPersonFilter(selected ? null : member.id)}
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
+                      >
+                        <Avatar className="h-6 w-6">
+                          <AvatarFallback
+                            className="text-[10px] font-semibold text-white"
+                            style={{ backgroundColor: member.avatarColor }}
+                          >
+                            {initialsOf(member.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="min-w-0 flex-1 truncate">{member.name}</span>
+                        {selected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                      </button>
+                    </li>
+                  );
+                })
+              )}
+            </ul>
+            {personFilter && (
+              <button
+                type="button"
+                onClick={() => setPersonFilter(null)}
+                className="w-full border-t px-3 py-2 text-left text-sm text-primary hover:bg-secondary"
+              >
+                Clear person filter
+              </button>
+            )}
+          </PopoverContent>
+        </Popover>
         <Button variant="outline" size="sm" className="text-muted-foreground">
           <Filter className="mr-1 h-4 w-4" /> Filter
         </Button>
@@ -466,23 +605,54 @@ export function BoardView({ boardId }: { boardId: string }) {
           variant="outline"
           size="sm"
           className="text-muted-foreground"
-          aria-pressed={sortDesc}
-          onClick={() => setSortDesc((v) => !v)}
+          aria-pressed={sortDir !== "none"}
+          title={sortDir === "asc" ? "Sorted A–Z" : sortDir === "desc" ? "Sorted Z–A" : "Sort by title"}
+          onClick={() => setSortDir((d) => (d === "none" ? "asc" : d === "asc" ? "desc" : "none"))}
         >
-          <ArrowUpDown className="mr-1 h-4 w-4" /> Sort
+          <ArrowUpDown className="mr-1 h-4 w-4" /> Sort{sortDir !== "none" ? `: ${sortDir === "asc" ? "A–Z" : "Z–A"}` : ""}
         </Button>
         <Button variant="outline" size="sm" className="text-muted-foreground" onClick={() => setSearch("")}>
           <EyeOff className="mr-1 h-4 w-4" /> Hide
         </Button>
-        <span className="ml-auto text-xs text-muted-foreground">
-          {total} item{total === 1 ? "" : "s"}
-        </span>
+        {/* Group by — regroups the Main Table rows like the reference. */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={groupBy !== "default" ? "border-primary text-primary" : "text-muted-foreground"}
+            >
+              <Rows3 className="mr-1 h-4 w-4" /> Group by
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-52 p-1.5">
+            <p className="px-2 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Group By</p>
+            <ul role="listbox" aria-label="Group table by">
+              {GROUP_BY_OPTIONS.map((option) => (
+                <li key={option.value}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={groupBy === option.value}
+                    onClick={() => setGroupBy(option.value)}
+                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
+                  >
+                    {option.label}
+                    {groupBy === option.value && <Check className="h-4 w-4 text-primary" />}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* View body */}
       {subView === "table" && (
         <BoardTable
-          board={board}
+          sections={tableSections}
+          members={board.members}
+          groupBy={groupBy}
           onUpdateTask={(taskId, patch) => void updateTask(taskId, patch)}
           onDeleteTask={(taskId) => void deleteTask(taskId)}
           onAddTask={(groupId) => setTaskDialog({ open: true, groupId })}
@@ -496,62 +666,22 @@ export function BoardView({ boardId }: { boardId: string }) {
       {subView === "kanban" && (
         <BoardKanban
           tasks={visibleTasks}
+          members={board.members}
           onStatusChange={(taskId, status) => void updateTask(taskId, { status })}
+          onOwnerChange={(taskId, ownerId) => {
+            const member = ownerId ? board.members.find((m) => m.id === ownerId) ?? null : null;
+            void updateTask(taskId, { owner: member });
+          }}
           onAddTask={() => setTaskDialog({ open: true, groupId: null })}
         />
       )}
 
       {subView === "calendar" && (
-        <BoardCalendar tasks={allTasks} onAddTask={() => setTaskDialog({ open: true, groupId: null })} />
+        <BoardCalendar tasks={visibleTasks} onAddTask={() => setTaskDialog({ open: true, groupId: null })} />
       )}
 
       {subView === "timeline" && (
-        <div className="overflow-hidden rounded-xl border bg-card">
-          <div className="flex items-center justify-between border-b px-4 py-3">
-            <h2 className="text-base font-semibold">Timeline</h2>
-            <p className="text-xs text-muted-foreground">{timelineTasks.length} scheduled tasks</p>
-          </div>
-          {timelineTasks.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">
-              No tasks with due dates — set a due date to see them on the timeline.
-            </p>
-          ) : (
-            <ul className="divide-y">
-              {timelineTasks.map((task) => {
-                const due = task.dueDate ? new Date(task.dueDate) : null;
-                const overdue = due !== null && due < new Date() && task.status !== "done";
-                return (
-                  <li key={task.id} className="flex items-center gap-3 px-4 py-2.5">
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: board.color }}
-                      aria-hidden="true"
-                    />
-                    <span className={`min-w-0 flex-1 truncate text-sm ${task.completed ? "text-muted-foreground line-through" : ""}`}>
-                      {task.title}
-                    </span>
-                    {task.owner && (
-                      <span
-                        className="hidden h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold text-white sm:flex"
-                        style={{ backgroundColor: task.owner.avatarColor }}
-                      >
-                        {initialsOf(task.owner.name)}
-                      </span>
-                    )}
-                    <span
-                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        overdue ? "bg-destructive/10 text-destructive" : "bg-secondary text-muted-foreground"
-                      }`}
-                    >
-                      <CalendarDays className="mr-1 inline h-3 w-3" aria-hidden="true" />
-                      {due ? format(due, "MMM d, yyyy") : "—"}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
+        <BoardTimeline tasks={visibleTasks} onAddTask={() => setTaskDialog({ open: true, groupId: null })} />
       )}
 
       {subView === "unassigned" && (

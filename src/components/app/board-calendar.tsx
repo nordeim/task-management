@@ -4,10 +4,10 @@ import { useMemo, useState } from "react";
 import { addMonths, format, isSameDay, isSameMonth, startOfMonth, subMonths } from "date-fns";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { TaskDTO, TaskStatus } from "@/lib/domain";
+import type { TaskDTO } from "@/lib/domain";
 import { statusMeta } from "@/lib/domain";
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 interface BoardCalendarProps {
   tasks: TaskDTO[];
@@ -23,11 +23,10 @@ export function BoardCalendar({ tasks, onAddTask, onOpenTask }: BoardCalendarPro
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
 
   const cells = useMemo(() => {
-    // Build a Mon-first 6-week grid covering the month in view.
+    // Sun-first 6-week grid covering the month in view, matching the reference.
     const first = startOfMonth(cursor);
-    const startOffset = (first.getDay() + 6) % 7; // Mon=0 … Sun=6
     const gridStart = new Date(first);
-    gridStart.setDate(first.getDate() - startOffset);
+    gridStart.setDate(first.getDate() - first.getDay()); // Sun=0
     return Array.from({ length: 42 }, (_, i) => {
       const day = new Date(gridStart);
       day.setDate(gridStart.getDate() + i);
@@ -56,9 +55,6 @@ export function BoardCalendar({ tasks, onAddTask, onOpenTask }: BoardCalendarPro
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Previous month" onClick={() => setCursor((c) => subMonths(c, 1))}>
             <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setCursor(startOfMonth(new Date()))}>
-            Today
           </Button>
           <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Next month" onClick={() => setCursor((c) => addMonths(c, 1))}>
             <ChevronRight className="h-4 w-4" />
@@ -128,19 +124,6 @@ export function BoardCalendar({ tasks, onAddTask, onOpenTask }: BoardCalendarPro
                 )}
               </ul>
             </div>
-          );
-        })}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-4 border-t px-4 py-3">
-        <span className="text-xs font-medium text-muted-foreground">Legend:</span>
-        {(["not_started", "working", "done", "stuck"] as TaskStatus[]).map((status) => {
-          const meta = statusMeta(status);
-          return (
-            <span key={status} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: meta.bg }} aria-hidden="true" />
-              {meta.label}
-            </span>
           );
         })}
       </div>

@@ -13,12 +13,24 @@ import {
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { format } from "date-fns";
 import { CalendarDays, Plus, User as UserIcon } from "lucide-react";
-import { TASK_STATUSES } from "@/lib/domain";
-import type { TaskDTO, TaskStatus } from "@/lib/domain";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { TASK_PRIORITIES, TASK_STATUSES, groupTasksByPerson, groupTasksByStatus, priorityMeta, statusMeta } from "@/lib/domain";
+import type { TaskDTO, TaskStatus, UserDTO } from "@/lib/domain";
+
+export type KanbanGroupMode = "status" | "person";
 
 interface KanbanProps {
   tasks: TaskDTO[];
+  members: UserDTO[];
   onStatusChange: (taskId: string, status: TaskStatus) => void;
+  onOwnerChange: (taskId: string, ownerId: string | null) => void;
   onAddTask: () => void;
 }
 
@@ -41,6 +53,7 @@ function KanbanCard({ task }: { task: TaskDTO }) {
   });
   const dueDate = task.dueDate ? new Date(task.dueDate) : null;
   const overdue = dueDate !== null && dueDate < new Date() && task.status !== "done";
+  const priorityIndex = TASK_PRIORITIES.findIndex((p) => p.value === task.priority);
 
   return (
     <div
@@ -80,17 +93,15 @@ function KanbanCard({ task }: { task: TaskDTO }) {
             </span>
           )}
         </div>
-        {/* Priority rendered as filled dots matching the table's bar colors. */}
-        <span className="flex items-center gap-1" aria-label={`Priority ${task.priority}`}>
-          {["low", "medium", "high", "critical"].map((level, i) => (
+        {/* Priority rendered as filled dots — count + color both derive from
+            TASK_PRIORITIES so the vocabulary stays closed. */}
+        <span className="flex items-center gap-1" aria-label={`Priority ${priorityMeta(task.priority).label}`}>
+          {TASK_PRIORITIES.map((level, i) => (
             <span
-              key={level}
+              key={level.value}
               className="h-1.5 w-1.5 rounded-full"
               style={{
-                backgroundColor:
-                  i <= ["low", "medium", "high", "critical"].indexOf(task.priority)
-                    ? { low: "#579bfc", medium: "#fcc203", high: "#ff642e", critical: "#e2445c" }[task.priority]
-                    : "#d0d4e1",
+                backgroundColor: i <= (priorityIndex === -1 ? 0 : priorityIndex) ? priorityMeta(task.priority).color : "#d0d4e1",
               }}
             />
           ))}
@@ -100,19 +111,46 @@ function KanbanCard({ task }: { task: TaskDTO }) {
   );
 }
 
-function KanbanColumn({
-  status,
-  tasks,
-  onAddTask,
-}: {
-  status: (typeof TASK_STATUSES)[number];
+/** The reference's empty-column placeholder: a soft disc, a plus, a hint. */
+function EmptyColumnHint({ color, onAddTask }: { color: string; onAddTask: () => void }) {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed py-8">
+      <button
+        type="button"
+        aria-label="Add a task to this column"
+        onClick={onAddTask}
+        className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        style={{ backgroundColor: color }}
+      >
+        <Plus className="h-5 w-5" />
+      </button>
+      <p className="text-xs text-muted-foreground">Drag tasks here or click + to add new</p>
+    </div>
+  );
+}
+
+interface ColumnSpec {
+  id: string;
+  label: string;
+  sublabel: string | null;
+  dotColor: string;
   tasks: TaskDTO[];
+  avatar?: UserDTO | null;
+}
+
+function KanbanColumn({
+  column,
+  onAddTask,
+  children,
+}: {
+  column: ColumnSpec;
   onAddTask: () => void;
+  children: React.ReactNode;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status.value });
+  const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
-    <div className="flex w-72 shrink-0 flex-col rounded-xl border bg-secondary/30 sm:w-full" data-status={status.value}>
+    <div className="flex w-72 shrink-0 flex-col rounded-xl border bg-secondary/30 sm:w-full" data-column={column.id}>
       <div
         ref={setNodeRef}
         className={`flex min-h-[280px] flex-1 flex-col rounded-xl p-3 transition-colors ${
@@ -120,50 +158,75 @@ function KanbanColumn({
         }`}
       >
         <div className="mb-3 flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: status.bg }} aria-hidden="true" />
-            <h3 className="text-sm font-semibold">{status.label}</h3>
+          <div className="flex min-w-0 items-center gap-2">
+            {column.avatar ? (
+              <Avatar className="h-6 w-6">
+                <AvatarFallback
+                  className="text-[9px] font-semibold text-white"
+                  style={{ backgroundColor: column.avatar.avatarColor }}
+                >
+                  {initialsOf(column.avatar.name)}
+                </AvatarFallback>
+              </Avatar>
+            ) : (
+              <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: column.dotColor }} aria-hidden="true" />
+            )}
+            <h3 className="truncate text-sm font-semibold">{column.label}</h3>
             <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-              {tasks.length}
+              {column.tasks.length}
             </span>
           </div>
           <button
             type="button"
-            aria-label={`Add task to ${status.label}`}
+            aria-label={`Add task to ${column.label}`}
             onClick={onAddTask}
             className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
           >
             <Plus className="h-4 w-4" />
           </button>
         </div>
+        {column.sublabel && <p className="-mt-2 mb-2 px-1 text-[11px] text-muted-foreground">{column.sublabel}</p>}
         <div className="flex flex-col gap-2">
-          {tasks.map((task) => (
+          {column.tasks.map((task) => (
             <KanbanCard key={task.id} task={task} />
           ))}
-          {tasks.length === 0 && (
-            <p className="rounded-lg border border-dashed py-6 text-center text-xs text-muted-foreground">
-              Drop tasks here
-            </p>
-          )}
+          {column.tasks.length === 0 && <EmptyColumnHint color={column.dotColor} onAddTask={onAddTask} />}
         </div>
+        {children}
       </div>
     </div>
   );
 }
 
-export function BoardKanban({ tasks, onStatusChange, onAddTask }: KanbanProps) {
+export function BoardKanban({ tasks, members, onStatusChange, onOwnerChange, onAddTask }: KanbanProps) {
   const [activeTask, setActiveTask] = useState<TaskDTO | null>(null);
+  const [groupMode, setGroupMode] = useState<KanbanGroupMode>("status");
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-  const byStatus = useMemo(() => {
-    const map = new Map<string, TaskDTO[]>();
-    for (const status of TASK_STATUSES) map.set(status.value, []);
-    for (const task of tasks) {
-      const bucket = map.get(task.status);
-      if (bucket) bucket.push(task);
-    }
-    return map;
+  const statusColumns = useMemo(() => {
+    const grouped = groupTasksByStatus(tasks);
+    return TASK_STATUSES.map((status) => ({
+      id: `status:${status.value}`,
+      label: status.label,
+      sublabel: null,
+      dotColor: status.bg,
+      tasks: grouped.get(status.value) ?? [],
+      avatar: null,
+    })) satisfies ColumnSpec[];
   }, [tasks]);
+
+  const personColumns = useMemo(() => {
+    return groupTasksByPerson(tasks, members).map((column) => ({
+      id: `person:${column.key}`,
+      label: column.label,
+      sublabel: column.sublabel,
+      dotColor: column.user ? column.user.avatarColor : statusMeta("not_started").bg,
+      tasks: column.tasks,
+      avatar: column.user,
+    })) satisfies ColumnSpec[];
+  }, [tasks, members]);
+
+  const columns = groupMode === "status" ? statusColumns : personColumns;
 
   function handleDragStart(event: DragStartEvent) {
     const task = event.active.data.current?.task as TaskDTO | undefined;
@@ -176,31 +239,59 @@ export function BoardKanban({ tasks, onStatusChange, onAddTask }: KanbanProps) {
     if (!over) return;
     const task = active.data.current?.task as TaskDTO | undefined;
     if (!task) return;
-    const targetStatus = over.id as string;
-    if (targetStatus !== task.status) {
-      onStatusChange(task.id, targetStatus as TaskStatus);
+    const target = String(over.id);
+
+    if (target.startsWith("status:")) {
+      const status = target.slice("status:".length);
+      if (status !== task.status) onStatusChange(task.id, status as TaskStatus);
+      return;
+    }
+    if (target.startsWith("person:")) {
+      const key = target.slice("person:".length);
+      const nextOwner = key === "unassigned" ? null : key;
+      if ((task.owner?.id ?? null) !== nextOwner) onOwnerChange(task.id, nextOwner);
     }
   }
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-4 lg:overflow-visible">
-        {TASK_STATUSES.map((status) => (
-          <KanbanColumn
-            key={status.value}
-            status={status}
-            tasks={byStatus.get(status.value) ?? []}
-            onAddTask={onAddTask}
-          />
-        ))}
+    <div className="overflow-hidden rounded-xl border bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
+        <div>
+          <h2 className="text-base font-semibold">Kanban Board</h2>
+          <p className="text-xs text-muted-foreground">Drag and drop to manage your tasks</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Group by:</span>
+          <Select value={groupMode} onValueChange={(v) => setGroupMode(v as KanbanGroupMode)}>
+            <SelectTrigger className="h-8 w-32" aria-label="Group kanban by">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="status">Status</SelectItem>
+              <SelectItem value="person">People</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
-      <DragOverlay>
-        {activeTask ? (
-          <div className="w-64 rotate-2 rounded-lg border bg-card p-3 shadow-lg">
-            <p className="text-sm font-medium">{activeTask.title}</p>
+
+      <div className="p-3">
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <div className="flex gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-4 lg:overflow-visible">
+            {columns.map((column) => (
+              <KanbanColumn key={column.id} column={column} onAddTask={onAddTask}>
+                {null}
+              </KanbanColumn>
+            ))}
           </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+          <DragOverlay>
+            {activeTask ? (
+              <div className="w-64 rotate-2 rounded-lg border bg-card p-3 shadow-lg">
+                <p className="text-sm font-medium">{activeTask.title}</p>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
+    </div>
   );
 }

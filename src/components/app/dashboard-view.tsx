@@ -9,6 +9,8 @@ import {
   CheckCircle2,
   Clock,
   FolderKanban,
+  Globe,
+  Lock,
   Plus,
   Sparkles,
   TrendingUp,
@@ -53,6 +55,15 @@ function timeAgo(iso: string): string {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** The reference renders "Updated Sep 15, 2026" on board cards. */
+function formatUpdatedDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) {
@@ -137,7 +148,12 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
               <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
                 {greeting()}, {firstName}!
               </h1>
-              <p className="mt-1 text-muted-foreground">Ready to make today productive?</p>
+              <p className="mt-1 text-muted-foreground">
+                Ready to make today productive?
+                {stats && stats.pendingTasks > 0
+                  ? ` You have ${stats.pendingTasks} task${stats.pendingTasks === 1 ? "" : "s"} waiting.`
+                  : ""}
+              </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -244,14 +260,20 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                           {board.title.slice(0, 1).toUpperCase()}
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="flex items-center gap-2">
+                          <span className="flex flex-wrap items-center gap-2">
                             <span className="truncate font-semibold">{board.title}</span>
-                            <span className="hidden shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground sm:inline">
+                            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+                              {board.visibility === "private" ? (
+                                <Lock className="h-3 w-3" aria-hidden="true" />
+                              ) : (
+                                <Globe className="h-3 w-3" aria-hidden="true" />
+                              )}
                               {board.visibility}
                             </span>
                           </span>
                           <span className="mt-0.5 block truncate text-sm text-muted-foreground">
-                            {board.description ?? `${board.taskCount} tasks`}
+                            Updated {formatUpdatedDate(board.updatedAt)}
+                            {board.description ? ` — ${board.description}` : ` — ${board.taskCount} tasks`}
                           </span>
                           <span className="mt-2 flex items-center gap-2">
                             <span className="h-1.5 w-28 overflow-hidden rounded-full bg-secondary">
@@ -261,7 +283,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                               />
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {board.doneCount}/{board.taskCount} done · {timeAgo(board.updatedAt)}
+                              {board.doneCount}/{board.taskCount} done · {pct}%
                             </span>
                           </span>
                         </span>

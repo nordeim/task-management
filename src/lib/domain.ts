@@ -157,22 +157,14 @@ export function groupTasksByPerson(tasks: TaskDTO[], members: UserDTO[]): Person
   return columns;
 }
 
-/** One bar row of an analytics distribution (dot + label + bar + count). */
-export interface DistributionBar {
-  key: string;
-  label: string;
-  count: number;
-  color: string;
-  /** Share of the total, 0-100 (integer). */
-  pct: number;
-}
-
-export function distributionBars(
-  dist: { key: string; label: string; count: number; color: string }[],
-): DistributionBar[] {
+/** Analytics distribution input: any shape carrying label/count/color. */
+export function distributionBars<T extends { label: string; count: number; color: string }>(
+  dist: T[],
+): (T & { pct: number })[] {
   const total = dist.reduce((sum, d) => sum + d.count, 0);
   return dist.map((d) => ({
     ...d,
+    /** Share of the total, 0-100 (integer). */
     pct: total === 0 ? 0 : Math.round((d.count / total) * 100),
   }));
 }

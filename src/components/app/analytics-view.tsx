@@ -20,9 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { useApp } from "@/components/app/app-context";
 import { api } from "@/lib/api-client";
+import { distributionBars } from "@/lib/domain";
 import type { AnalyticsDTO, BoardSummaryDTO } from "@/lib/domain";
 
 const TIME_WINDOWS = [
@@ -30,6 +30,15 @@ const TIME_WINDOWS = [
   { value: "30", label: "Last 30 days" },
   { value: "90", label: "Last 90 days" },
 ];
+
+// Solid colored KPI cards matching the reference analytics page. Colors come
+// from the documented KPI palette (README design tokens).
+const STAT_CARDS = [
+  { key: "totalTasks", label: "Total Tasks", hint: "Active tasks tracked", bg: "#3b82f6", icon: ClipboardList },
+  { key: "completionRate", label: "Completion Rate", hint: null, bg: "#22c55e", icon: CheckCircle2, suffix: "%" },
+  { key: "overdueTasks", label: "Overdue Tasks", hint: "Need attention", bg: "#e93b3b", icon: AlertTriangle },
+  { key: "activeBoards", label: "Active Boards", hint: "Boards in use", bg: "#a855f7", icon: FolderKanban },
+] as const;
 
 export function AnalyticsView() {
   const { navigate } = useApp();
@@ -73,12 +82,12 @@ export function AnalyticsView() {
     };
   }, [load]);
 
-  const statusChart = useMemo(
-    () => data?.statusDistribution.filter((s) => s.count > 0) ?? [],
+  const statusBars = useMemo(
+    () => (data ? distributionBars(data.statusDistribution) : []),
     [data],
   );
-  const priorityChart = useMemo(
-    () => data?.priorityDistribution.filter((p) => p.count > 0) ?? [],
+  const priorityBars = useMemo(
+    () => (data ? distributionBars(data.priorityDistribution) : []),
     [data],
   );
 
@@ -134,61 +143,39 @@ export function AnalyticsView() {
         </div>
       </div>
 
-      {/* Stats row */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <ClipboardList className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-muted-foreground">Total Tasks</p>
-              <p className="text-2xl font-bold">{stats ? stats.totalTasks : "—"}</p>
-              <p className="text-xs text-muted-foreground">Active tasks tracked</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-4">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#00ca72]/10 text-[#00ca72]">
-                <CheckCircle2 className="h-5 w-5" />
+      {/* Stats row — solid colored cards like the reference */}
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Key metrics">
+        {STAT_CARDS.map((card) => {
+          const Icon = card.icon;
+          const raw = stats ? stats[card.key] : null;
+          const value = raw === null ? null : `${raw}${"suffix" in card ? card.suffix : ""}`;
+          return (
+            <div
+              key={card.key}
+              className="stat-card-deco relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-xl p-5 text-white shadow-sm"
+              style={{ backgroundColor: card.bg }}
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
+                {stats ? <Icon className="h-5 w-5" /> : <Skeleton className="h-5 w-5 bg-white/30" />}
               </span>
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-muted-foreground">Completion Rate</p>
-                <p className="text-2xl font-bold">{stats ? `${stats.completionRate}%` : "—"}</p>
-              </div>
+              <span>
+                <span className="block text-sm font-medium opacity-90">{card.label}</span>
+                <span className="block text-3xl font-bold">{value ?? "—"}</span>
+                {card.hint && <span className="block text-xs opacity-80">{card.hint}</span>}
+              </span>
+              {"suffix" in card && (
+                <Progress
+                  value={stats?.completionRate ?? 0}
+                  className="h-1.5 [&>div]:bg-white"
+                  aria-label="Completion rate"
+                />
+              )}
             </div>
-            <Progress value={stats?.completionRate ?? 0} className="mt-3 h-1.5" aria-label="Completion rate" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
-              <AlertTriangle className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-muted-foreground">Overdue Tasks</p>
-              <p className="text-2xl font-bold">{stats ? stats.overdueTasks : "—"}</p>
-              <p className="text-xs text-muted-foreground">Need attention</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-              <FolderKanban className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-muted-foreground">Active Boards</p>
-              <p className="text-2xl font-bold">{stats ? stats.activeBoards : "—"}</p>
-              <p className="text-xs text-muted-foreground">Boards in use</p>
-            </div>
-          </CardContent>
-        </Card>
+          );
+        })}
       </section>
 
-      {/* Distribution charts */}
+      {/* Distribution charts — horizontal bars like the reference */}
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
@@ -199,45 +186,40 @@ export function AnalyticsView() {
           </CardHeader>
           <CardContent>
             {!data ? (
-              <Skeleton className="h-56 w-full" />
-            ) : statusChart.length === 0 ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-8 w-full" />
+                ))}
+              </div>
+            ) : statusBars.every((b) => b.count === 0) ? (
               <p className="py-12 text-center text-sm text-muted-foreground">
                 No tasks in this window yet
               </p>
             ) : (
-              <div className="flex flex-col items-center gap-4 sm:flex-row">
-                <div className="h-52 w-52 shrink-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={statusChart}
-                        dataKey="count"
-                        nameKey="label"
-                        innerRadius={48}
-                        outerRadius={72}
-                        paddingAngle={2}
-                        strokeWidth={0}
-                      >
-                        {statusChart.map((entry) => (
-                          <Cell key={entry.status} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ borderRadius: 8, border: "1px solid #e6e9ef", fontSize: 12 }}
+              <ul className="space-y-4">
+                {statusBars.map((bar) => (
+                  <li key={bar.status}>
+                    <div className="mb-1.5 flex items-center gap-2 text-sm">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: bar.color }} aria-hidden="true" />
+                      <span className="flex-1 text-muted-foreground">{bar.label}</span>
+                      <span className="font-semibold">{bar.count}</span>
+                    </div>
+                    <div
+                      className="h-2 overflow-hidden rounded-full bg-secondary"
+                      role="progressbar"
+                      aria-valuenow={bar.pct}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`${bar.label}: ${bar.count} tasks, ${bar.pct}%`}
+                    >
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${bar.pct}%`, backgroundColor: bar.color }}
                       />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <ul className="w-full flex-1 space-y-2">
-                  {data.statusDistribution.map((s) => (
-                    <li key={s.status} className="flex items-center gap-2 text-sm">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
-                      <span className="flex-1 text-muted-foreground">{s.label}</span>
-                      <span className="font-semibold">{s.count}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </CardContent>
         </Card>
@@ -251,45 +233,40 @@ export function AnalyticsView() {
           </CardHeader>
           <CardContent>
             {!data ? (
-              <Skeleton className="h-56 w-full" />
-            ) : priorityChart.length === 0 ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-8 w-full" />
+                ))}
+              </div>
+            ) : priorityBars.every((b) => b.count === 0) ? (
               <p className="py-12 text-center text-sm text-muted-foreground">
                 No tasks in this window yet
               </p>
             ) : (
-              <div className="flex flex-col items-center gap-4 sm:flex-row">
-                <div className="h-52 w-52 shrink-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={priorityChart}
-                        dataKey="count"
-                        nameKey="label"
-                        innerRadius={48}
-                        outerRadius={72}
-                        paddingAngle={2}
-                        strokeWidth={0}
-                      >
-                        {priorityChart.map((entry) => (
-                          <Cell key={entry.priority} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ borderRadius: 8, border: "1px solid #e6e9ef", fontSize: 12 }}
+              <ul className="space-y-4">
+                {priorityBars.map((bar) => (
+                  <li key={bar.priority}>
+                    <div className="mb-1.5 flex items-center gap-2 text-sm">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: bar.color }} aria-hidden="true" />
+                      <span className="flex-1 text-muted-foreground">{bar.label}</span>
+                      <span className="font-semibold">{bar.count}</span>
+                    </div>
+                    <div
+                      className="h-2 overflow-hidden rounded-full bg-secondary"
+                      role="progressbar"
+                      aria-valuenow={bar.pct}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`${bar.label}: ${bar.count} tasks, ${bar.pct}%`}
+                    >
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${bar.pct}%`, backgroundColor: bar.color }}
                       />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <ul className="w-full flex-1 space-y-2">
-                  {data.priorityDistribution.map((p) => (
-                    <li key={p.priority} className="flex items-center gap-2 text-sm">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: p.color }} />
-                      <span className="flex-1 text-muted-foreground">{p.label}</span>
-                      <span className="font-semibold">{p.count}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </CardContent>
         </Card>
