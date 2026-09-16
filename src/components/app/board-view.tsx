@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
+  ArrowLeft,
   ArrowUpNarrowWide,
   Calendar as CalendarIcon,
   Check,
@@ -433,18 +434,32 @@ export function BoardView({ boardId }: { boardId: string }) {
   const currentViewLabel = SUB_VIEWS.find((v) => v.value === subView)?.label ?? "Main table";
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-4 p-4 sm:p-6 lg:p-8">
-      {/* Board header — reference layout: colored Table2 tile, h1 title, view
-          dropdown, favorite, items/Saved indicator, then the action buttons. */}
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <span
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-lg"
-            style={{ backgroundColor: board.color }}
-            aria-hidden="true"
-          >
-            <Table2 className="h-5 w-5 text-white" />
-          </span>
+    <div className="mx-auto max-w-full space-y-4 p-4 sm:p-6 lg:p-8">
+      {/* Board header — reference layout (probed 2026-09-17): left column
+          stacks [back arrow + colored tile + title] over [view dropdown |
+          favorites | items ▪ Saved]; the right group holds Analytics /
+          Integrate / Automate and the overlapping member avatar row. */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex min-w-0 items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 text-muted-foreground"
+              aria-label="Back to boards"
+              onClick={() => navigate("boards")}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <span
+              className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-lg"
+              style={{ backgroundColor: board.color }}
+              aria-hidden="true"
+            >
+              <Table2 className="h-5 w-5 text-white" />
+              {/* Reference detail: translucent shine across the tile. */}
+              <span className="absolute inset-0 bg-white/20" />
+            </span>
           {editingTitle ? (
             <input
               autoFocus
@@ -463,7 +478,7 @@ export function BoardView({ boardId }: { boardId: string }) {
               className="rounded-md border-none bg-accent px-2 py-1 text-xl font-bold outline-none ring-1 ring-primary/40"
             />
           ) : (
-            <h1 className="flex items-center gap-1.5">
+            <h1 className="group flex min-w-0 items-center gap-2 text-xl font-bold text-[#323338]">
               <button
                 type="button"
                 onClick={() => {
@@ -471,16 +486,18 @@ export function BoardView({ boardId }: { boardId: string }) {
                   setEditingTitle(true);
                 }}
                 title="Rename board"
-                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-left text-xl font-bold transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left transition-colors hover:text-[#0073EA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {board.title}
-                <Pencil className="h-3.5 w-3.5 text-muted-foreground/60" aria-hidden="true" />
+                <span className="truncate">{board.title}</span>
+                {/* Reference detail: pencil revealed on hover only. */}
+                <Pencil className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
               </button>
             </h1>
           )}
+          </div>
 
-          <span className="hidden text-muted-foreground/50 xl:inline" aria-hidden="true">|</span>
-
+          {/* Row 2 — view dropdown | favorites | items ▪ Saved. */}
+          <div className="flex flex-wrap items-center gap-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
@@ -504,7 +521,7 @@ export function BoardView({ boardId }: { boardId: string }) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <span className="hidden text-muted-foreground/50 xl:inline" aria-hidden="true">|</span>
+          <span className="text-muted-foreground/50" aria-hidden="true">|</span>
 
           <Button
             variant="ghost"
@@ -513,43 +530,24 @@ export function BoardView({ boardId }: { boardId: string }) {
             onClick={() => void toggleFavorite()}
             aria-pressed={board.isFavorite}
           >
-            <Star className={`h-4 w-4 ${board.isFavorite ? "fill-[#fcc203] text-[#fcc203]" : ""}`} />
-            <span className="hidden sm:inline">{board.isFavorite ? "Remove from favorites" : "Add to favorites"}</span>
+            <Star className={`h-4 w-4 ${board.isFavorite ? "fill-[#ca8a04] text-[#ca8a04]" : ""}`} />
+            <span className="hidden sm:inline">{board.isFavorite ? "Favorited" : "Add to favorites"}</span>
           </Button>
 
-          <span className="hidden text-muted-foreground/50 xl:inline" aria-hidden="true">|</span>
+          <span className="text-muted-foreground/50" aria-hidden="true">|</span>
 
           {/* Item count + autosave indicator, mirroring the reference header. */}
-          <span className="hidden items-center gap-1.5 text-sm text-muted-foreground xl:flex">
+          <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <span>
               {total} item{total === 1 ? "" : "s"}
             </span>
             <span aria-hidden="true" className="text-muted-foreground/40">▪</span>
             {lastSavedAt && <span>Saved {formatSavedAt(lastSavedAt)}</span>}
           </span>
-
-          <span className="hidden items-center gap-0.5 xl:flex" aria-label="Board members">
-            {board.members.slice(0, 4).map((member, i) => (
-              <Avatar key={member.id} className="h-8 w-8 border-2 border-card" style={{ marginLeft: i === 0 ? 0 : -8 }}>
-                <AvatarFallback
-                  className="text-[10px] font-semibold text-white"
-                  style={{ backgroundColor: member.avatarColor }}
-                >
-                  {initialsOf(member.name)}
-                </AvatarFallback>
-              </Avatar>
-            ))}
-            {board.members.length > 4 && (
-              <span
-                className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-card bg-secondary text-[10px] font-semibold text-muted-foreground"
-                style={{ marginLeft: -8 }}
-              >
-                +{board.members.length - 4}
-              </span>
-            )}
-          </span>
+          </div>
         </div>
 
+        {/* Right group — action buttons, then the overlapping member avatars. */}
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" className="text-muted-foreground" onClick={() => navigate("analytics")}>
             <TrendingUp className="mr-1 h-4 w-4" /> Analytics
@@ -585,6 +583,63 @@ export function BoardView({ boardId }: { boardId: string }) {
               className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#a25ddb]"
             />
           </Button>
+
+          {/* Member avatars — reference layout: overlapping row that opens a
+              member list. Presence dots are decorative chrome (aria-hidden). */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label="Board members"
+                className="flex items-center gap-2 rounded-full px-1 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="flex items-center -space-x-2">
+                  {board.members.slice(0, 4).map((member) => (
+                    <span key={member.id} className="relative">
+                      <Avatar className="h-8 w-8 border-2 border-card">
+                        <AvatarFallback
+                          className="text-xs font-medium text-white"
+                          style={{ backgroundColor: member.avatarColor }}
+                        >
+                          {initialsOf(member.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span
+                        aria-hidden="true"
+                        className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-[#00c875]"
+                      />
+                    </span>
+                  ))}
+                  {board.members.length > 4 && (
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-card bg-secondary text-[10px] font-semibold text-muted-foreground">
+                      +{board.members.length - 4}
+                    </span>
+                  )}
+                </span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-56 p-0">
+              <div className="border-b px-3 py-2.5 text-sm font-bold">Board Members</div>
+              <ul className="max-h-64 overflow-auto p-1" aria-label="Board members">
+                {board.members.map((member) => (
+                  <li
+                    key={member.id}
+                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm"
+                  >
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback
+                        className="text-[10px] font-semibold text-white"
+                        style={{ backgroundColor: member.avatarColor }}
+                      >
+                        {initialsOf(member.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="min-w-0 flex-1 truncate">{member.name}</span>
+                  </li>
+                ))}
+              </ul>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -878,6 +933,7 @@ export function BoardView({ boardId }: { boardId: string }) {
           members={board.members}
           groupBy={groupBy}
           hiddenColumns={hiddenColumns}
+          boardColor={board.color}
           onUpdateTask={(taskId, patch) => void updateTask(taskId, patch)}
           onDeleteTask={(taskId) => void deleteTask(taskId)}
           onAddTask={(groupId) => setTaskDialog({ open: true, groupId })}
