@@ -15,6 +15,12 @@ db/*.db-journal
 .env.local
 .env.*.local
 
+# Key material — never enters the tree (rotate if it ever does)
+*.key
+ssh-key.txt
+id_ed25519
+id_rsa
+
 # Logs
 dev.log
 server.log

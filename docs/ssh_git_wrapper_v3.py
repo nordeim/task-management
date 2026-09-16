@@ -5,13 +5,16 @@ ssh_git_wrapper_v3.py — push to GitHub over SSH with an externally-supplied ke
 Why this exists
 ---------------
 The repo's canonical remote for pushes is the SSH URL
-(`git@github.com:nordeim/design-brand-strategy.git`), but cloning happens over
+(`git@github.com:nordeim/task-management.git`), but cloning happens over
 HTTPS and sandbox/CI environments rarely have a resident `~/.ssh` identity.
 This wrapper lets an operator push without permanently installing a key:
 
   1. Take an OpenSSH private key from a file, stdin, or the `SSH_KEY` env var
      (NEVER from a file committed inside the repo — the .gitignore already
-     rejects `*.key` / `ssh-key.txt` for exactly this reason).
+     rejects `*.key` / `ssh-key.txt` for exactly this reason). Keys pasted
+     through chat transcripts sometimes arrive with the first line redacted
+     to `[REDACTED:ssh_private_key]`; the wrapper normalizes that back to a
+     real OpenSSH BEGIN line before use.
   2. Materialize it into a 0600 temp file OUTSIDE the repo.
   3. Point `GIT_SSH_COMMAND` at it (IdentitiesOnly, accept-new host keys).
   4. Push `main` (or the requested ref) to the SSH remote.
@@ -31,7 +34,7 @@ Usage
 Options
 -------
   --remote <url>    SSH remote to push to
-                    (default git@github.com:nordeim/design-brand-strategy.git)
+                    (default git@github.com:nordeim/task-management.git)
   --branch <name>   Branch to push (default: main — the operator contract for
                     this repo is main-only, no feature branches)
   --set-url         Also persist the SSH URL as origin's push URL in .git/config
@@ -53,9 +56,13 @@ import subprocess
 import sys
 import tempfile
 
-DEFAULT_REMOTE = "git@github.com:nordeim/design-brand-strategy.git"
+DEFAULT_REMOTE = "git@github.com:nordeim/task-management.git"
 DEFAULT_BRANCH = "main"
-KEY_MARKER = "-----BEGIN OPENSSH PRIVATE KEY-----"
+OPENSSH_BEGIN = "-----BEGIN OPENSSH PRIVATE KEY-----"
+OPENSSH_END = "-----END OPENSSH PRIVATE KEY-----"
+# Keys pasted through chat/issue transcripts sometimes arrive with the BEGIN
+# line replaced by this redaction placeholder; it is normalized back below.
+REDACTED_MARKER = "[REDACTED:ssh_private_key]"
 
 
 def die(code: int, message: str) -> None:
@@ -82,8 +89,14 @@ def read_key(args: argparse.Namespace) -> str:
         die(1, "no key source: pass --key-file PATH, --key-stdin, or set $SSH_KEY")
 
     key = key.strip() + "\n"
-    if KEY_MARKER not in key:
-        die(2, "key does not look like an OpenSSH private key (missing BEGIN marker)")
+    # Normalize: restore a redacted BEGIN line, then require proper delimiters.
+    key = key.replace(REDACTED_MARKER, OPENSSH_BEGIN)
+    if OPENSSH_BEGIN not in key or OPENSSH_END not in key:
+        die(
+            2,
+            "key does not look like an OpenSSH private key "
+            f"(missing {OPENSSH_BEGIN} / {OPENSSH_END} markers)",
+        )
     return key
 
 
