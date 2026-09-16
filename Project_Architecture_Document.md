@@ -1,12 +1,30 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.0
+# Tuesday.com — Master Project Architecture Document (PAD) v1.1
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
 **Companion Documents:** `README.md` (onboarding), `AGENTS.md` (agent gotchas), `CLAUDE.md` (workflow contract)
-**Last Updated:** 2026-09-15
+**Last Updated:** 2026-09-16
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.1 (Parity & Quality Pass, 2026-09-16)
+
+- `[SYN]` Gantt timeline (Day/Week/Month zoom), kanban Status/People
+  grouping with drag-to-assign, table Group-by + Filter-by-Person, board
+  header "items ▪ Saved" indicator, Sun-first calendar, solid analytics
+  cards with bar distributions, dashboard hero live task count, honest
+  header controls (global search, notifications, toasts) — all
+  browser-verified against the live reference app.
+- `[GAT]` Quality gates restored to honest strictness: ESLint runs
+  `eslint-config-next` defaults with zero rule weakening; `tsconfig` drops
+  the `noImplicitAny` override and excludes `skills/`/`docs/` from the
+  compile; a Vitest unit suite (23 tests) covers the pure domain seams.
+- `[DEP]` 16 unused dependencies removed (incl. recharts + the vendored
+  chart scaffold and sidebar, both dead).
+- `[FIX]` `docs/ssh_git_wrapper_v3.py` repaired — it previously rejected
+  every real OpenSSH key (a redaction-mangled marker check); it now
+  validates proper BEGIN/END delimiters and normalizes redacted keys.
 
 #### Revision Block — v1.0 (Initial Release)
 
@@ -67,7 +85,6 @@ being cloned is `https://tuesdaycom-a6700714.base44.app/`.
 | Database | SQLite | 3 | Zero-config single-file persistence; adequate for single-owner workloads (ADR-002) |
 | Input validation | Zod | 4 | Every API body parsed before use; 400 with first issue message |
 | Drag & drop | @dnd-kit/core | 6.3.1 | Pointer-sensor DnD with activation distance; persists status changes (ADR-007) |
-| Charts | recharts | 2.15.4 | Donut distributions on the analytics page |
 | Dates | date-fns | 4.1.0 | Formatting + month-grid math; noon-storage convention (§3.3 P3) |
 | Icons | lucide-react | 0.525.0 | Icon vocabulary matched to the reference app |
 | Font | Inter | via `next/font` | Reference app's typographic feel; Latin subset |
@@ -314,7 +331,8 @@ imports nothing from the app).
 │   ├── date-cell.tsx             ← calendar popover, noon storage, overdue styling
 │   ├── create-board-dialog.tsx   ← title/description/6 colors/visibility; form mounts inside DialogContent
 │   ├── create-task-dialog.tsx    ← title + group select; same fresh-mount pattern
-│   └── analytics-view.tsx        ← board + window filters, 4 stat cards, 2 donuts, performance list
+│   ├── analytics-view.tsx        ← board + window filters, 4 solid stat cards, bar distributions, performance list
+│   └── board-timeline.tsx        ← Gantt timeline: Day/Week/Month zoom, day columns, due-date bars
 ├── src/lib/
 │   ├── domain.ts                 ← TASK_STATUSES, TASK_PRIORITIES, BOARD_COLORS, DTOs, ActionResult
 │   ├── auth.ts                   ← scrypt hash/verify, session create/destroy, getSessionUser
@@ -348,11 +366,8 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
   // …Zod parse → 400 on failure …
 
   const patch: Record<string, unknown> = { ...parsed.data };
-  if (parsed.data.status !== undefined) {
-    patch.completed = parsed.data.status === "done";   // THE coupling
-  } else if (parsed.data.completed !== undefined) {
-    patch.status = parsed.data.completed ? "done" : "not_started";
-  }
+  // THE coupling — one exported pure function, shared by server and client.
+  Object.assign(patch, resolveStatusCompletedPatch(parsed.data));
   await db.task.update({ where: { id }, data: patch });
   return NextResponse.json({ ok: true, data: null });
 }
@@ -360,20 +375,17 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
 
 ```typescript
 // src/components/app/board-view.tsx (excerpt) — Layer 5 mirrors the coupling
-const localPatch: TaskPatch = { ...patch };
-if (patch.status !== undefined) {
-  localPatch.completed = patch.status === "done";
-} else if (patch.completed !== undefined) {
-  localPatch.status = patch.completed ? "done" : "not_started";
-}
+const localPatch = resolveStatusCompletedPatch(patch);
 setBoard((prev) => /* map the task with localPatch */);
 ```
 
 *Why this pattern:* `status` and `completed` are one fact in two columns.
-The server owns the coupling; the client mirrors it **after** confirmation so
+The coupling lives in ONE unit-tested function
+(`resolveStatusCompletedPatch`, `src/lib/domain.ts`); the server applies it
+in the PATCH handler and the client mirrors it **after** confirmation so
 the checkbox, status pill, kanban column, group progress, and analytics
 percentages can never disagree. Any new mutation path (bulk edit, import)
-must reproduce both halves.
+calls the same function — there is no second copy to forget.
 
 **P2 — Lint-compliant data loading (effects that fetch)**
 
@@ -567,9 +579,11 @@ Status pills carry their own pairs (bg/text): Not Started `#e8e9eb`/`#323338`,
 Working on it `#fddf3d`/`#323338`, Done `#00ca72`/white, Stuck `#e2445c`/white.
 Priority flags: Low `#579bfc`, Medium `#fcc203`, High `#ff642e`, Critical
 `#e2445c` — always paired with the 1–4 bar count so urgency never relies on
-color alone. KPI cards: `#3b82f6`/`#22c55e`/`#f97316`/`#a855f7`. Quick
-actions: `#06b6d4`/`#22c55e`/`#f97316`/`#d946ef`. Board palette (6): `#0073ea`,
-`#00ca72`, `#ff642e`, `#e2445c`, `#a25ddb`, `#00d5c0`.
+color alone. Dashboard KPI cards: `#3b82f6`/`#22c55e`/`#f97316`/`#a855f7`.
+Analytics KPI cards (solid, white text): Total `#3b82f6`, Completion `#22c55e`
+(with internal progress bar), Overdue `#e93b3b`, Active Boards `#a855f7`.
+Quick actions: `#06b6d4`/`#22c55e`/`#f97316`/`#d946ef`. Board palette (6):
+`#0073ea`, `#00ca72`, `#ff642e`, `#e2445c`, `#a25ddb`, `#00d5c0`.
 
 ### 5.3 Component Primitives
 
@@ -644,31 +658,35 @@ transition to 0.01ms.
 
 | Category | Count | Location | Framework |
 |----------|-------|----------|-----------|
-| Lint gate | 1 suite | `eslint.config.mjs` | ESLint 9 + next/core-web-vitals + react-hooks (incl. `set-state-in-effect`) |
-| Type gate | 1 run | `tsconfig.json` | `tsc --noEmit` — 0 errors under `src/` |
-| Automated unit/E2E | 0 | — | Not yet established (§10, first debt item) |
-| Interactive verification | executed 2026-09-15 | agent-browser session | login, signup, signout; board create/rename/favorite/delete; task create/status/priority/owner/date edits; kanban drag persisted to DB; calendar/timeline/unassigned views; analytics; empty states; 390px mobile viewport; zero console errors |
+| Lint gate | 1 suite | `eslint.config.mjs` | ESLint 9, `eslint-config-next` defaults, zero rule weakening |
+| Type gate | 1 run | `tsconfig.json` | `tsc --noEmit` — strict, no overrides; `skills/` + `docs/` excluded |
+| Unit tests | 23 tests | `src/lib/domain.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt` |
+| Interactive verification | re-executed 2026-09-16 | agent-browser session | login; hero live-count; person filter (row counts); group-by sections; kanban Status+People columns; drag-to-done persisted to SQLite (status=completed agreement verified); Sun-first calendar; timeline Week/Month zoom; analytics card colors pixel-checked against the reference; header search round-trip; zero console errors |
 
-### 7.2 Test Patterns (for the suite that comes next)
+### 7.2 Test Patterns
 
-- **Pure seams first**: `statusMeta`/`priorityMeta`, the status↔completed
-  coupling (as a pure function if extracted), analytics aggregation math.
-- **Handler-level**: mount each route handler's Zod reject paths (400 shapes)
-  and ownership misses (404 vs 401) — they are table-driven tests.
-- **E2E golden path (Playwright)**: login → open board → edit status pill →
-  drag kanban card → reload → assert persistence; create board via dialog;
-  analytics renders with seeded numbers.
+- **TDD at the pure seams**: failing test in `src/lib/domain.test.ts` first
+  (red), implementation in `src/lib/domain.ts` (green), then wire into
+  components/routes. Bug fixes add a regression test that fails before and
+  passes after.
+- **Handler-level (next)**: mount each route handler's Zod reject paths (400
+  shapes) and ownership misses (404 vs 401) — they are table-driven tests.
+- **E2E golden path (Playwright, next)**: login → open board → edit status
+  pill → drag kanban card → reload → assert persistence; create board via
+  dialog; analytics renders with seeded numbers.
 
 ### 7.3 Coverage Thresholds
 
-None configured yet. When a suite lands, gate the pure domain module
-(`domain.ts` helpers + any extracted coupling function) at 100% lines and
+Not yet configured. The pure domain module is fully exercised by the unit
+suite; when coverage tooling lands, gate `domain.ts` helpers at 100% lines and
 handlers at their reject paths.
 
 ### 7.4 Pre-Push Checklist
 
 - [ ] `bun run lint` exits 0
-- [ ] `bun run typecheck` — no errors under `src/`
+- [ ] `bun run typecheck` — no errors (skills/docs excluded)
+- [ ] `bun run test` — full unit suite green
+- [ ] `bun run build` — production build green
 - [ ] Dev server boots; login as demo user; one mutation round trip works
 - [ ] No console errors on dashboard / board / analytics
 - [ ] `git status` clean of `.env`, `db/*.db`, logs
@@ -772,13 +790,16 @@ bun run dev                # http://localhost:3000
 
 | Priority | Issue | Impact | Status |
 |----------|-------|--------|--------|
-| Medium | No automated test suite | regressions rely on manual verification | Open — Playwright golden path is the first spec |
+| Medium | No E2E suite (unit suite exists) | golden-path regressions rely on manual verification | Open — Playwright is the next spec (§7.2) |
 | Medium | No login rate limiting | brute-force surface on public deployments | Open — add per-email+IP limiter before internet exposure |
 | Low | Browser back button doesn't traverse views | view state lives in React context | Open — mirror view into `location.hash` if needed |
 | Low | Google OAuth / password reset / Integrate / Automate are unconfigured states | features absent, honestly surfaced | By design until credentials exist |
 | Low | Members list = all users | no real multi-tenant membership model | Open — introduce BoardMember when collaboration is real |
-| Low | Search is client-side title matching only | no description/deep search | Open |
+| Low | Search is client-side title matching only (header + board toolbar) | no deep/full-text search | Open |
+| Low | Timeline bars are single-day (due date only) | the data model has no task start dates | Open — add `startDate` to Task for span bars |
 | Info | ESLint `ignores` include sandbox-only paths | harmless in a clean clone (paths absent) | Accepted |
+| Info | No fake presence dots on member avatars | reference renders decorative green dots | Deliberate deviation — we do not fake presence data |
+| Info | Reference 'Unassigned' view renders an empty div | reference-side quirk | Deliberate deviation — we keep a helpful empty state |
 
 ---
 
@@ -786,22 +807,25 @@ bun run dev                # http://localhost:3000
 
 | File | ~Lines | Purpose |
 |------|--------|---------|
-| `src/app/page.tsx` | 100 | The route: auth gate + AuthedShell view switch |
-| `src/components/app/board-view.tsx` | 660 | Board detail: header, toolbar, 5 views, all mutations |
-| `src/components/app/boards-view.tsx` | 375 | Boards grid/list, filters, delete flow |
-| `src/components/app/dashboard-view.tsx` | 385 | Home: KPIs, recent boards, quick actions, activity |
-| `src/components/app/analytics-view.tsx` | 350 | Filters, stat cards, donuts, board performance |
-| `src/components/app/board-table.tsx` | 320 | Main Table: groups, columns, task rows |
-| `src/components/app/login-view.tsx` | 225 | Login/signup with honest OAuth placeholder |
-| `src/components/app/create-board-dialog.tsx` | 190 | Board creation (fresh-mount form pattern) |
-| `src/components/app/board-kanban.tsx` | 205 | @dnd-kit status columns |
-| `src/components/app/board-calendar.tsx` | 150 | Month grid with due-date chips |
-| `src/lib/domain.ts` | 190 | Vocabulary, DTOs, ActionResult — the contract file |
-| `src/lib/auth.ts` | 90 | scrypt + sessions |
-| `src/lib/api-client.ts` | 35 | Typed fetch that never throws |
-| `src/app/globals.css` | 150 | Theme tokens (both modes) + global styles |
+| `src/app/page.tsx` | 95 | The route: auth gate + AuthedShell view switch |
+| `src/components/app/board-view.tsx` | 789 | Board detail: header + saved indicator, toolbar (person filter, group-by, sort), 5 views, all mutations |
+| `src/components/app/boards-view.tsx` | 374 | Boards grid/list, filters, delete flow |
+| `src/components/app/dashboard-view.tsx` | 406 | Home: KPIs, hero with live task count, recent boards, quick actions, activity |
+| `src/components/app/analytics-view.tsx` | 325 | Filters, solid stat cards, bar distributions, board performance |
+| `src/components/app/board-table.tsx` | 347 | Main Table: real or synthetic (group-by) sections, columns, task rows |
+| `src/components/app/board-kanban.tsx` | 297 | @dnd-kit columns grouped by Status or People (drag assigns owner) |
+| `src/components/app/board-timeline.tsx` | 197 | Gantt timeline: Day/Week/Month zoom, day columns, due-date bars |
+| `src/components/app/board-calendar.tsx` | 132 | Sun-first month grid with due-date chips |
+| `src/components/app/app-header.tsx` | 285 | Nav, global board search, honest notifications/help/settings, user menu |
+| `src/components/app/login-view.tsx` | 224 | Login/signup with honest OAuth placeholder |
+| `src/components/app/create-board-dialog.tsx` | 191 | Board creation (fresh-mount form pattern) |
+| `src/lib/domain.ts` | 290 | Vocabulary, DTOs, ActionResult, pure helpers — the contract file |
+| `src/lib/domain.test.ts` | 224 | Vitest suite over the pure seams (23 tests) |
+| `src/lib/auth.ts` | 79 | scrypt + sessions |
+| `src/lib/api-client.ts` | 31 | Typed fetch that never throws |
+| `src/app/globals.css` | 175 | Theme tokens (both modes) + global styles |
 | `prisma/schema.prisma` | 115 | The six models |
-| `scripts/seed.ts` | 275 | Idempotent demo dataset |
+| `scripts/seed.ts` | 272 | Idempotent demo dataset |
 
 ---
 

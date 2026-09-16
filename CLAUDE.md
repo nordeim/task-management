@@ -14,9 +14,9 @@ Next.js process over Prisma + SQLite. Maintained as a solo/private project,
 built and verified by AI coding agents under the contract below.
 
 **Stack**: Bun · Next.js 16.1.3 (App Router, Turbopack) · React 19.2 ·
-TypeScript 5 (strict) · Tailwind CSS 4.1 (CSS-first `@theme inline`, no
-tailwind.config.js) · shadcn/ui (new-york) on Radix · Prisma 6.19 + SQLite ·
-Zod 4 · @dnd-kit 6 · recharts 2 · date-fns 4 · lucide-react.
+TypeScript 5 (strict, no overrides) · Tailwind CSS 4.1 (CSS-first `@theme
+inline`, no tailwind.config.js) · shadcn/ui (new-york) on Radix · Prisma 6.19 +
+SQLite · Zod 4 · @dnd-kit 6 · date-fns 4 · lucide-react · Vitest (unit).
 
 ## Core Identity & Purpose
 
@@ -116,21 +116,30 @@ public demo credentials).
 | `bun run dev` | Development server on :3000 |
 | `bun run build` | Standalone production build |
 | `bun run start` | Serve the standalone build |
-| `bun run lint` | ESLint — must exit 0 |
-| `bun run typecheck` | `tsc --noEmit` — no errors under `src/` |
+| `bun run lint` | ESLint — must exit 0 (`eslint-config-next` defaults, no rule weakening) |
+| `bun run typecheck` | `tsc --noEmit` — no errors; `skills/` and `docs/` excluded from the compile |
+| `bun run test` | Vitest unit suite over the pure domain seams |
 | `bun run db:push` / `db:seed` / `db:generate` | Schema sync / demo data / client regen |
 
 ## Testing Strategy
 
-- **Gate before every delivery**: `bun run lint && bun run typecheck` — both
-  green or the work is not done.
+- **Gate before every delivery**: `bun run lint && bun run typecheck &&
+  bun run test` — all green or the work is not done.
+- **Unit suite (Vitest)**: colocated `src/lib/*.test.ts` covering the pure
+  seams — `statusMeta`/`priorityMeta`, the shared status↔completed coupling
+  (`resolveStatusCompletedPatch`), timeline window math (`timelineRange`),
+  kanban grouping (`groupTasksByStatus`/`groupTasksByPerson`), analytics
+  bars (`distributionBars`), and the saved indicator (`formatSavedAt`).
+- **TDD is the rule for new logic**: write the failing test first (red),
+  implement the pure function in `src/lib/domain.ts` (green), then wire it
+  into components/routes. Bug fixes require a regression test that fails
+  before the fix and passes after.
 - **Behavioral smoke (manual/agent-browser)**: sign in, create board + task,
-  edit a status pill, drag a kanban card, reload, confirm persistence. During
-  development these were executed and verified against the database directly.
-- **No automated suite yet** (known gap, tracked in the PAD §11). When adding
-  one: unit-test the pure seams first (`src/lib/domain.ts` helpers, analytics
-  aggregation), then Playwright the golden path. A red test is a regression or
-  a wrong test — never skip to pass.
+  edit a status pill, drag a kanban card, reload, confirm persistence against
+  the database — not just the UI.
+- **E2E (Playwright) is the tracked next step** (PAD §10): golden path
+  login → board → mutation → reload → persisted. A red test is a regression
+  or a wrong test — never skip to pass.
 
 ## Code Quality Standards
 
@@ -185,8 +194,9 @@ sandbox-only directories — keep it intact.
 src/app/page.tsx      auth gate → AuthedShell (client-side view switch)
 src/app/api/**        JSON route handlers, ActionResult envelopes
 src/components/app/** product UI (header, views, cells, dialogs)
-src/components/ui/**  shadcn primitives (unmodified)
-src/lib/domain.ts     vocabulary + DTOs + ActionResult (single source)
+src/components/ui/**  shadcn primitives (vendored)
+src/lib/domain.ts     vocabulary + DTOs + ActionResult + pure helpers (single source)
+src/lib/domain.test.ts Vitest unit suite over the pure seams
 src/lib/auth.ts       scrypt + cookie sessions
 src/lib/api-client.ts typed fetch (never throws)
 prisma/schema.prisma  User · Session · Board · Group · Task · Activity

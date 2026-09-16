@@ -9,9 +9,9 @@
 ![License](https://img.shields.io/badge/license-Private-important)
 
 A monday.com-style work management platform: multi-group task boards with five
-views (Main Table, Kanban, Calendar, Timeline, Unassigned), inline cell
-editing, drag-and-drop status changes, and an analytics dashboard — built as a
-single Next.js application on SQLite.
+views (Main Table, Kanban, Calendar, Gantt Timeline, Unassigned), inline cell
+editing, drag-and-drop status changes and owner assignment, and an analytics
+dashboard — built as a single Next.js application on SQLite.
 
 ## Overview
 
@@ -29,12 +29,12 @@ SQLite for persistence — which makes the whole product cloneable with
 
 | Feature | What it does |
 |---------|--------------|
-| 📋 Main Table view | monday-style spreadsheet: groups with colored accent bars, item counts, live completion percentages, per-row checkbox / priority flag / status pill / owner avatar / due date — all editable inline |
-| 🗂 Kanban view | Status columns (Not Started / Working on it / Done / Stuck) with pointer-based drag-and-drop that persists status changes to the database |
-| 📅 Calendar view | Month grid with tasks pinned to their due dates, color-coded by status, overdue-safe date handling (noon storage) |
-| 📈 Timeline & Unassigned views | Chronological due-date list plus a filter for tasks with no owner |
-| 📊 Analytics dashboard | Total tasks, completion rate, overdue count, active boards, status + priority donut distributions, and per-board performance bars, filterable by board and time window (7/30/90 days) |
-| 🏠 Dashboard home | Time-of-day greeting, four colored KPI stat cards, recent boards with progress, quick actions, and an activity feed |
+| 📋 Main Table view | monday-style spreadsheet: groups with colored accent bars, item counts, live completion percentages, per-row checkbox / priority flag / status pill / owner avatar / due date — all editable inline, regroupable by Status / Person / Priority |
+| 🗂 Kanban view | Status columns (Not Started / Working on it / Done / Stuck) or People columns (Unassigned + one per member) with pointer-based drag-and-drop that persists status **and** owner changes to the database |
+| 📅 Calendar view | Sun-first month grid with tasks pinned to their due dates, color-coded by status, overdue-safe date handling (noon storage) |
+| 📈 Timeline & Unassigned views | Gantt-style timeline with Day/Week/Month zoom, day columns, and status-colored bars on due dates, plus a filter for tasks with no owner |
+| 📊 Analytics dashboard | Solid colored KPI cards (total tasks, completion rate with progress bar, overdue count, active boards), status + priority horizontal-bar distributions, and per-board performance, filterable by board and time window (7/30/90 days) |
+| 🏠 Dashboard home | Time-of-day greeting with live task count, four colored KPI stat cards, recent boards with lock/globe visibility pills and progress, quick actions, and an activity feed |
 | 🔐 Email + password auth | scrypt-hashed passwords, opaque session tokens in httpOnly cookies (30-day TTL), login/signup/sign-out flows |
 | 🎨 Board themes | Six board colors (Ocean Blue, Success Green, Warning Orange, Danger Red, Purple, Teal) driving accents across every surface |
 
@@ -50,8 +50,7 @@ SQLite for persistence — which makes the whole product cloneable with
 | ORM | Prisma | 6.19.2 | Schema, client, `db:push` |
 | Database | SQLite | 3 | Zero-config persistence at `db/custom.db` |
 | Validation | Zod | 4 | Every API input parsed before use |
-| Drag & drop | @dnd-kit/core | 6.3.1 | Kanban card status changes |
-| Charts | recharts | 2.15.4 | Analytics donut distributions |
+| Drag & drop | @dnd-kit/core | 6.3.1 | Kanban card status changes and owner assignment |
 | Dates | date-fns | 4.1.0 | Formatting and month grid math |
 | Icons | lucide-react | 0.525.0 | Icon system |
 | Package manager | Bun | ≥1.1 | Installs, runs scripts and the seed |
@@ -89,13 +88,13 @@ auth check and avoids route-level navigation entirely.
 │       ├── 📂 tasks/route.ts · 📂 tasks/[id]/route.ts
 │       ├── 📂 dashboard/route.ts · 📂 analytics/route.ts · 📂 users/route.ts
 ├── 📂 components/
-│   ├── 📂 app/                        ← product UI (16 components)
+│   ├── 📂 app/                        ← product UI (17 components)
 │   │   ├── 📄 app-header.tsx · app-context.tsx · login-view.tsx
 │   │   ├── 📄 dashboard-view.tsx · boards-view.tsx · board-view.tsx
-│   │   ├── 📄 board-table.tsx · board-kanban.tsx · board-calendar.tsx
+│   │   ├── 📄 board-table.tsx · board-kanban.tsx · board-calendar.tsx · board-timeline.tsx
 │   │   ├── 📄 status-cell.tsx · priority-cell.tsx · owner-cell.tsx · date-cell.tsx
 │   │   └── 📄 create-board-dialog.tsx · create-task-dialog.tsx · analytics-view.tsx
-│   └── 📂 ui/                         ← shadcn primitives (unmodified scaffold)
+│   └── 📂 ui/                         ← shadcn primitives (vendored scaffold)
 ├── 📂 lib/
 │   ├── 📄 domain.ts                   ← statuses, priorities, colors, DTOs, ActionResult
 │   ├── 📄 auth.ts                     ← scrypt hashing + cookie sessions
@@ -167,15 +166,17 @@ buttons.
 
 | Check | Command | Notes |
 |-------|---------|-------|
-| Lint | `bun run lint` | ESLint 9 flat config + `next/core-web-vitals`; must exit 0 |
-| Types | `bun run typecheck` | `tsc --noEmit`; must report no errors in `src/` |
-| Smoke (manual) | sign in as the demo user, drag a kanban card, reload | status change persists — verified against the database during development |
+| Lint | `bun run lint` | ESLint 9 flat config, `eslint-config-next` defaults with **no rule weakening**; must exit 0 |
+| Types | `bun run typecheck` | `tsc --noEmit`; strict mode fully on; `skills/` and `docs/` excluded — the vendored skill library is outside every gate |
+| Unit tests | `bun run test` | Vitest, colocated `src/lib/*.test.ts` over the pure domain seams (status↔completed coupling, timeline window math, kanban grouping, distribution bars, saved-indicator format) |
+| Build | `bun run build` | Standalone production build |
+| Smoke (manual/agent-browser) | sign in as the demo user, drag a kanban card, reload | status change persists — verified against the database during development |
 
-There is no automated unit/E2E suite yet — the app was verified
-interactively (login, signup, board/task CRUD, kanban drag-and-drop persisted
-to SQLite, calendar, analytics, mobile viewport). Adding Playwright specs for
-the golden path is the natural next step; see
-`Project_Architecture_Document.md` §8.
+The TDD rule for new logic: write the failing test in `src/lib/*.test.ts`
+first (red), implement the pure function in `src/lib/domain.ts` (green),
+then wire it into components/routes. A red test is a regression or a wrong
+test — never skip to pass. Playwright specs for the golden path remain the
+natural next step; see `Project_Architecture_Document.md` §7 and §10.
 
 ## Design System
 

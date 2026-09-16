@@ -12,20 +12,22 @@ Run from the repo root. **Bun** is the package manager (`bun.lock` is committed)
 | `bun run db:push` | Create/migrate `./db/custom.db` from `prisma/schema.prisma` (SQLite) |
 | `bun run db:seed` | Idempotent seed via `scripts/seed.ts` — demo account + 4 boards + 25 tasks; safe to re-run |
 | `bun run dev` | Dev server on :3000 (Turbopack) |
-| `bun run lint` | ESLint 9 flat config — must exit 0 before pushing |
-| `bun run typecheck` | `tsc --noEmit` — must report no errors under `src/` |
+| `bun run lint` | ESLint 9 flat config (`eslint-config-next` defaults, **zero rule weakening**) — must exit 0 before pushing |
+| `bun run typecheck` | `tsc --noEmit` — must report no errors; `skills/` and `docs/` are excluded from the compile |
+| `bun run test` | Vitest unit suite over the pure domain seams — red first, then implement |
 | `bun run build` | Standalone production build (also copies static assets into `.next/standalone`) |
 | `bun run start` | Serve the standalone build on :3000 |
 | `cat /secure/key \| python3 docs/ssh_git_wrapper_v3.py --key-stdin --remote git@github.com:nordeim/task-management.git` | The only sanctioned push path (see `docs/how-to-git-push-using-ssh-wrapper_SKILL.md`) |
 
-Order for a clean check: `bun run lint && bun run typecheck`. After schema edits: `bun run db:push` (then re-seed if you wiped the DB). `DATABASE_URL` must be set (`.env`, from `.env.example`) or every Prisma call fails at import time.
+Order for a clean check: `bun run lint && bun run typecheck && bun run test`. After schema edits: `bun run db:push` (then re-seed if you wiped the DB). `DATABASE_URL` must be set (`.env`, from `.env.example`) or every Prisma call fails at import time. The `skills/` folder is the owner's vendored skill library — it is excluded from lint, typecheck, tests, and build; never let it into a gate.
 
 ## Architecture invariants
 
 - **Single user-visible route.** Everything lives in `src/app/page.tsx`: an auth gate that boots `/api/auth/me`, then `<AuthedShell>` switching client-side between dashboard / boards / board / analytics views held in `AppProvider` context (`src/components/app/app-context.tsx`). Do not add page routes — the sandbox only exposes `/`, and the whole point is that no surface renders outside the session check.
 - **All mutations return the `ActionResult<T>` envelope** (`{ ok: true, data } | { ok: false, error }`, defined in `src/lib/domain.ts`). Route handlers never throw across the boundary; the client (`src/lib/api-client.ts`) never parses throws. New endpoints follow the same contract.
-- **`status` ↔ `completed` are one fact in two columns.** The server couples them in `PATCH /api/tasks/[id]`, and the client mirrors the coupling in `board-view.tsx` `updateTask` before patching local state. If you write a new mutation path (bulk edit, import, automation), keep both in sync or the table checkbox, kanban, and analytics will disagree.
+- **`status` ↔ `completed` are one fact in two columns.** The coupling is the exported `resolveStatusCompletedPatch` in `src/lib/domain.ts`; the server applies it in `PATCH /api/tasks/[id]` and the client mirrors it in `board-view.tsx` after confirmation. If you write a new mutation path (bulk edit, import, automation), call the same function or the table checkbox, kanban, and analytics will disagree.
 - **Every API input is Zod-parsed** (`loginSchema`, `createBoardSchema`, `updateTaskSchema`, …). Reject with a 400 + human-readable message from `parsed.error.issues[0]`; never fall back to raw `body as T`.
+- **Pure logic lives in `src/lib/domain.ts` and is unit-tested** (`src/lib/domain.test.ts`). New logic follows TDD: failing test first, then the implementation. The status↔completed coupling is ONE exported function (`resolveStatusCompletedPatch`) consumed by both the PATCH handler and the client mirror — new mutation paths must call it instead of re-deriving the coupling.
 - **Auth is cookie+session-table.** scrypt hashes (`src/lib/auth.ts`), opaque 32-byte tokens in the httpOnly `tuesday_session` cookie, 30-day TTL, lazy expiry cleanup on read. Ownership checks are `findFirst({ where: { id, ownerId: user.id } })` — a missing row means 404, which is also the not-authorized answer (no existence leak).
 - **Domain vocabulary is closed.** Statuses, priorities, and the six board colors are `const` arrays in `src/lib/domain.ts`. UI components and API validation both derive from them — never hardcode a status string in a component.
 
@@ -43,10 +45,12 @@ Order for a clean check: `bun run lint && bun run typecheck`. After schema edits
 
 ## Money-sharp edges in this domain
 
-- Due dates are stored at **local noon** (`date-cell.tsx` sets 12:00 before `toISOString`) so timezone edges never shift the rendered day. Keep that when adding date inputs.
+- Due dates are stored at **local noon** (`date-cell.tsx` sets 12:00 before `toISOString`) so timezone edges never shift the rendered day. Keep that when adding date inputs. The timeline's day columns rely on the same noon-stable comparison.
 - Group collapse is **optimistic** (`toggleCollapse` patches UI first, reverts on API failure). New optimistic paths must have the same revert-on-failure shape.
 - The analytics `days` window bounds tasks by `updatedAt`; **board performance deliberately ignores the window** (a board isn't "inactive" because nothing was edited). Preserve that asymmetry — it mirrors the reference product.
 - `boards/route.ts` aggregates task counts with ONE grouped query + in-memory join, not per-board queries. Keep it that way as boards grow.
+- Kanban drag IDs are namespaced (`status:<value>`, `person:<id|unassigned>`) so the same DnD context serves both groupings; parse the prefix in `onDragEnd`.
+- The timeline grid math (`timelineRange`) is a pure, unit-tested function in `domain.ts` — week windows start Monday, month windows span calendar days. Change the grid, change the tests first.
 
 ## Conventions that differ from defaults
 
