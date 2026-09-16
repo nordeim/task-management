@@ -13,7 +13,7 @@ import { StatusCell } from "@/components/app/status-cell";
 import { PriorityCell } from "@/components/app/priority-cell";
 import { OwnerCell } from "@/components/app/owner-cell";
 import { DateCell } from "@/components/app/date-cell";
-import { groupSummary, visibleColumns } from "@/lib/domain";
+import { groupSummary, visibleColumns, TASK_STATUSES } from "@/lib/domain";
 import type { ColumnKey, GroupDTO, TaskDTO, TaskPriority, TaskStatus, UserDTO } from "@/lib/domain";
 
 /** How the table rows are grouped — set from the board toolbar's Group-by popover. */
@@ -37,6 +37,8 @@ interface BoardTableProps {
   groupBy: TableGroupBy;
   /** Columns turned off by the toolbar's Hide popover. */
   hiddenColumns: ColumnKey[];
+  /** Board color — drives the group-header left accent bar (reference). */
+  boardColor: string;
   onUpdateTask: (taskId: string, patch: Partial<Pick<TaskDTO, "title" | "status" | "priority" | "owner" | "dueDate" | "completed">>) => void;
   onDeleteTask: (taskId: string) => void;
   onAddTask: (groupId: string) => void;
@@ -46,10 +48,10 @@ interface BoardTableProps {
   onAddGroup: () => void;
 }
 
-/** Fixed pixel widths per column — the Task column is the flexible one. */
+/** Fixed pixel widths per column — probed from the reference (Task 250, Priority 120). */
 const COLUMN_WIDTHS: Record<ColumnKey, string> = {
-  task: "minmax(180px,1fr)",
-  priority: "110px",
+  task: "minmax(250px,1fr)",
+  priority: "120px",
   status: "150px",
   owner: "150px",
   dueDate: "130px",
@@ -90,7 +92,7 @@ function TaskRow({
   }
 
   return (
-    <div className="group grid items-center border-b border-border/60 bg-card py-1.5 transition-colors last:border-b-0 hover:bg-secondary/40" style={{ gridTemplateColumns: grid }}>
+    <div className="group grid min-h-12 items-center border-b border-border/60 bg-card py-1.5 transition-colors last:border-b-0 hover:bg-[#F5F6F8]" style={{ gridTemplateColumns: grid }}>
       <div className="flex justify-center">
         <Checkbox
           aria-label={task.completed ? `Mark "${task.title}" not done` : `Mark "${task.title}" done`}
@@ -101,7 +103,7 @@ function TaskRow({
               status: checked === true ? "done" : "not_started",
             })
           }
-          className="data-[state=checked]:border-[#00ca72] data-[state=checked]:bg-[#00ca72] data-[state=checked]:text-white"
+          className="data-[state=checked]:border-[#00c875] data-[state=checked]:bg-[#00c875] data-[state=checked]:text-white"
         />
       </div>
 
@@ -127,7 +129,7 @@ function TaskRow({
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className={`w-full truncate rounded-sm px-1.5 py-0.5 text-left text-sm transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              className={`w-full truncate rounded-sm px-1.5 py-0.5 text-left text-base font-medium transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 task.completed ? "text-muted-foreground line-through" : ""
               }`}
               title={task.title}
@@ -198,7 +200,7 @@ function TaskRow({
   );
 }
 
-/** The per-group footer row: "N items" + priority count badges + dash cells. */
+/** The per-group footer row: "N items" + priority badges + status bars + dashes. */
 function SummaryRow({
   tasks,
   columns,
@@ -209,6 +211,15 @@ function SummaryRow({
   grid: string;
 }) {
   const summary = useMemo(() => groupSummary(tasks), [tasks]);
+  // One bar per status with a non-zero count — reference renders w-2 h-4
+  // rounded-sm chips titled "N <Status>" instead of text.
+  const statusBars = useMemo(
+    () =>
+      TASK_STATUSES.map((s) => ({ ...s, count: tasks.filter((t) => t.status === s.value).length })).filter(
+        (s) => s.count > 0,
+      ),
+    [tasks],
+  );
   return (
     <div
       className="grid items-center border-t border-[#E1E5F3] bg-gray-50 text-xs text-muted-foreground"
@@ -236,9 +247,21 @@ function SummaryRow({
               {summary.priorities.length === 0 && <span className="px-1">-</span>}
             </span>
           )}
-          {col.key === "status" && (
-            <span className="px-1">{summary.done > 0 ? `${summary.done} done` : "-"}</span>
-          )}
+          {col.key === "status" &&
+            (statusBars.length > 0 ? (
+              <span className="flex flex-wrap items-center gap-0.5">
+                {statusBars.map((s) => (
+                  <span
+                    key={s.value}
+                    className="h-4 w-2 rounded-sm"
+                    style={{ backgroundColor: s.bg }}
+                    title={`${s.count} ${s.label}`}
+                  />
+                ))}
+              </span>
+            ) : (
+              <span className="px-1">-</span>
+            ))}
           {col.key === "owner" && <span className="px-1">-</span>}
           {col.key === "dueDate" && <span className="px-1">-</span>}
         </div>
@@ -252,6 +275,7 @@ function GroupSection({
   section,
   members,
   columns,
+  boardColor,
   onUpdateTask,
   onDeleteTask,
   onAddTask,
@@ -262,6 +286,7 @@ function GroupSection({
   section: TableSection;
   members: UserDTO[];
   columns: { key: ColumnKey; label: string }[];
+  boardColor: string;
   onUpdateTask: BoardTableProps["onUpdateTask"];
   onDeleteTask: BoardTableProps["onDeleteTask"];
   onAddTask: BoardTableProps["onAddTask"];
@@ -294,10 +319,13 @@ function GroupSection({
 
   return (
     <section className="overflow-hidden rounded-xl border border-[#E1E5F3] bg-card shadow-sm" aria-label={`Group ${section.name}`}>
-      {/* Group header — reference layout: p-4 row with h3 + (count) on the left
-          and the colored dot, count, progress bar, percentage, and delete on
-          the right (no left accent bar). */}
-      <div className="flex items-center justify-between border-b border-[#E1E5F3] p-4 transition-colors hover:bg-[#F5F6F8]">
+      {/* Group header — reference layout (probed 2026-09-17): p-4 row with a
+          4px left accent in the BOARD color, h3 + (count) on the left and the
+          grey count dot, progress bar, percentage, and delete on the right. */}
+      <div
+        className="relative flex items-center justify-between border-b border-[#E1E5F3] p-4 transition-colors hover:bg-[#F5F6F8]"
+        style={{ borderLeft: `4px solid ${boardColor}` }}
+      >
         <div className="flex items-center gap-3">
           {group ? (
             <button
@@ -345,9 +373,9 @@ function GroupSection({
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1">
+            {/* Reference renders a neutral grey count dot, not a section color. */}
             <span
-              className="h-3 w-3 rounded-full"
-              style={{ backgroundColor: section.color }}
+              className="h-3 w-3 rounded-full bg-[#c4c4c4]"
               aria-hidden="true"
             />
             <span className="text-xs text-[#676879]">{total}</span>
@@ -365,8 +393,9 @@ function GroupSection({
             <button
               type="button"
               aria-label={`Delete group ${section.name}`}
+              title="Delete group"
               onClick={() => onDeleteGroup(group.id)}
-              className="rounded-md p-1.5 text-[#676879] transition-colors hover:bg-destructive/10 hover:text-destructive"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-red-500 opacity-50 transition-opacity hover:bg-red-100 hover:text-red-600 hover:opacity-100"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -407,11 +436,11 @@ function GroupSection({
           )}
 
           {group && (
-            <div className="flex-1 px-3 py-2">
+            <div className="border-t border-[#E1E5F3] p-4">
               <button
                 type="button"
                 onClick={() => onAddTask(group.id)}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-[#E1E5F3] hover:text-foreground"
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#0073EA] bg-background px-4 py-2 text-sm font-medium text-[#0073EA] shadow-sm transition-colors hover:bg-[#0073EA]/10"
               >
                 <Plus className="h-4 w-4" /> Add task
               </button>
@@ -426,7 +455,7 @@ function GroupSection({
 }
 
 export function BoardTable(props: BoardTableProps) {
-  const { sections, onAddGroup, groupBy, hiddenColumns } = props;
+  const { sections, onAddGroup, groupBy, hiddenColumns, boardColor } = props;
   const columns = useMemo(() => visibleColumns(hiddenColumns), [hiddenColumns]);
 
   return (
@@ -437,6 +466,7 @@ export function BoardTable(props: BoardTableProps) {
           section={section}
           members={props.members}
           columns={columns}
+          boardColor={boardColor}
           onUpdateTask={props.onUpdateTask}
           onDeleteTask={props.onDeleteTask}
           onAddTask={props.onAddTask}
@@ -450,7 +480,7 @@ export function BoardTable(props: BoardTableProps) {
         <button
           type="button"
           onClick={onAddGroup}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-[#F5F6F8] hover:text-foreground"
+          className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-primary text-sm font-medium text-muted-foreground transition-colors hover:bg-[#F5F6F8] hover:text-foreground"
         >
           <Plus className="h-4 w-4" /> Add New Group
         </button>
