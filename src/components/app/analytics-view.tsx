@@ -94,7 +94,7 @@ export function AnalyticsView() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-[1400px] p-6">
+      <div className="mx-auto max-w-7xl p-6">
         <Card>
           <CardContent className="py-10 text-center">
             <p className="mb-2 font-medium">Could not load analytics</p>
@@ -109,7 +109,7 @@ export function AnalyticsView() {
   const stats = data?.stats;
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Analytics Dashboard</h1>
@@ -197,26 +197,28 @@ export function AnalyticsView() {
                 No tasks in this window yet
               </p>
             ) : (
-              <ul className="space-y-4">
+              <ul className="space-y-3">
                 {statusBars.map((bar) => (
-                  <li key={bar.status}>
-                    <div className="mb-1.5 flex items-center gap-2 text-sm">
+                  <li key={bar.status} className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
                       <span className="h-4 w-4 shrink-0 rounded-full" style={{ backgroundColor: bar.color }} aria-hidden="true" />
-                      <span className="flex-1 text-muted-foreground">{bar.label}</span>
-                      <span className="font-semibold">{bar.count}</span>
+                      <span className="text-sm font-medium">{bar.label}</span>
                     </div>
-                    <div
-                      className="h-2 overflow-hidden rounded-full bg-secondary"
-                      role="progressbar"
-                      aria-valuenow={bar.pct}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-label={`${bar.label}: ${bar.count} tasks, ${bar.pct}%`}
-                    >
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${bar.pct}%`, backgroundColor: bar.color }}
-                      />
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="h-2 w-24 overflow-hidden rounded-full bg-gray-200"
+                        role="progressbar"
+                        aria-valuenow={bar.pct}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-label={`${bar.label}: ${bar.count} tasks, ${bar.pct}%`}
+                      >
+                        <span
+                          className="block h-full rounded-full transition-all duration-500"
+                          style={{ width: `${bar.pct}%`, backgroundColor: bar.color }}
+                        />
+                      </span>
+                      <span className="w-12 text-sm text-gray-600">{bar.count}</span>
                     </div>
                   </li>
                 ))}
@@ -243,26 +245,28 @@ export function AnalyticsView() {
                 No tasks in this window yet
               </p>
             ) : (
-              <ul className="space-y-4">
+              <ul className="space-y-3">
                 {priorityBars.map((bar) => (
-                  <li key={bar.priority}>
-                    <div className="mb-1.5 flex items-center gap-2 text-sm">
+                  <li key={bar.priority} className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
                       <span className="h-4 w-4 shrink-0 rounded-full" style={{ backgroundColor: bar.color }} aria-hidden="true" />
-                      <span className="flex-1 text-muted-foreground">{bar.label}</span>
-                      <span className="font-semibold">{bar.count}</span>
+                      <span className="text-sm font-medium">{bar.label}</span>
                     </div>
-                    <div
-                      className="h-2 overflow-hidden rounded-full bg-secondary"
-                      role="progressbar"
-                      aria-valuenow={bar.pct}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-label={`${bar.label}: ${bar.count} tasks, ${bar.pct}%`}
-                    >
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${bar.pct}%`, backgroundColor: bar.color }}
-                      />
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="h-2 w-24 overflow-hidden rounded-full bg-gray-200"
+                        role="progressbar"
+                        aria-valuenow={bar.pct}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-label={`${bar.label}: ${bar.count} tasks, ${bar.pct}%`}
+                      >
+                        <span
+                          className="block h-full rounded-full transition-all duration-500"
+                          style={{ width: `${bar.pct}%`, backgroundColor: bar.color }}
+                        />
+                      </span>
+                      <span className="w-12 text-sm text-gray-600">{bar.count}</span>
                     </div>
                   </li>
                 ))}

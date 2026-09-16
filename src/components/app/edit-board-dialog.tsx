@@ -167,7 +167,7 @@ function EditBoardForm({
                     ) : (
                       <Globe className="h-4 w-4" />
                     )}
-                    {option.value === "private" ? "Private — only you can access" : "Public — visible to the team"}
+                    {option.value === "private" ? "Private — only you can access" : "Shared — visible to the team"}
                   </span>
                 </SelectItem>
               ))}

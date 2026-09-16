@@ -140,7 +140,7 @@ function CreateBoardForm({
               </SelectItem>
               <SelectItem value="public">
                 <span className="flex items-center gap-2">
-                  <Globe className="h-4 w-4" /> Public — visible to the team
+                  <Globe className="h-4 w-4" /> Shared — visible to the team
                 </span>
               </SelectItem>
             </SelectContent>

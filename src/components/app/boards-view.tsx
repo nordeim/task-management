@@ -39,7 +39,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useApp } from "@/components/app/app-context";
 import { api } from "@/lib/api-client";
-import { relativeBoardTime } from "@/lib/domain";
+import { relativeBoardTime, visibilityLabel } from "@/lib/domain";
 import { EditBoardDialog } from "@/components/app/edit-board-dialog";
 import type { BoardSummaryDTO } from "@/lib/domain";
 
@@ -107,7 +107,7 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-[1400px] p-6">
+      <div className="mx-auto max-w-7xl p-6">
         <Card>
           <CardContent className="py-10 text-center">
             <p className="mb-2 font-medium">Could not load your boards</p>
@@ -120,7 +120,7 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">My Boards</h1>
@@ -256,7 +256,7 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
                       ) : (
                         <Globe className="h-3 w-3" aria-hidden="true" />
                       )}
-                      {board.visibility}
+                      {visibilityLabel(board.visibility, true)}
                     </span>
                   </div>
 
@@ -275,7 +275,7 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span className="flex items-center gap-1.5">
                       {board.isFavorite && (
-                        <Star className="h-3 w-3 fill-[#fcc203] text-[#fcc203]" aria-label="Favorite" />
+                        <Star className="h-3 w-3 fill-[#ca8a04] text-[#ca8a04]" aria-label="Favorite" />
                       )}
                       {relativeBoardTime(new Date(board.updatedAt))}
                     </span>
