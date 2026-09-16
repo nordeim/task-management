@@ -29,18 +29,18 @@ SQLite for persistence — which makes the whole product cloneable with
 
 | Feature | What it does |
 |---------|--------------|
-| 📋 Main Table view | monday-style spreadsheet: groups with colored dot + live progress, per-row checkbox / priority combobox / status pill / owner avatar / due date — all editable inline, regroupable by Status / Person / Priority, with a per-group footer summary row ("N items", priority count badges) |
+| 📋 Main Table view | monday-style spreadsheet: groups with a 4px board-color left accent, live progress, per-row checkbox / tinted priority badge / status pill (white text) / owner avatar / due date — all editable inline, regroupable by Status / Person / Priority, with a per-group footer summary row ("N items", priority count badges, status count bars) |
 | 🔍 Board toolbar | Search + Filter by Person + **Filter Items** (Status & Priority checkboxes) + **Sort By** (Task Name / Created Date / Updated Date, cycling asc-desc-off) + **Show/Hide Columns** + Group by — all mirroring the reference; the toolbar renders only in the Main Table view |
 | 🗂 Kanban view | Status columns (Not Started / Working on it / Done / Stuck) or People columns (Unassigned + one per member) with pointer-based drag-and-drop that persists status **and** owner changes to the database |
 | 📅 Calendar view | Sun-first month grid with tasks pinned to their due dates, color-coded by status, overdue-safe date handling (noon storage) |
 | 📈 Timeline & Unassigned views | Gantt-style timeline with Day/Week/Month zoom, day columns, and status-colored bars on due dates, plus a filter for tasks with no owner |
 | 📊 Analytics dashboard | Gradient KPI cards (total tasks, completion rate with progress bar, overdue count, active boards), status + priority horizontal-bar distributions, and per-board performance, filterable by board and time window (7/30/90 days) |
 | 🏠 Dashboard home | Time-of-day greeting with live task count, four gradient KPI stat cards with deco circles, recent boards with folder tiles and visibility badges, quick actions, and an activity feed |
-| ✏️ Board management | Create **and edit** boards (title, description, 6 colors, Private/Public visibility) from the boards page Options menu; rename inline from the board header |
+| ✏️ Board management | Create **and edit** boards (title, description, 6 colors, Private/Shared visibility) from the boards page Options menu; rename inline from the board header |
 | 👤 Owner picker | Searchable "Enter name…" assignment popover that filters members by name or email |
 | 📅 Due dates | Native date input (matches the reference), stored at local noon so timezone edges never shift the rendered day |
 | 🔐 Email + password auth | scrypt-hashed passwords, opaque session tokens in httpOnly cookies (30-day TTL), login/signup/sign-out flows |
-| 🎨 Board themes | Six board colors (Ocean Blue, Success Green, Warning Orange, Danger Red, Purple, Teal) driving accents across every surface |
+| 🎨 Board themes | Six board colors (Ocean Blue, Success Green, Sunny Yellow, Danger Red, Purple, Cyan) driving accents across every surface |
 | 📱 Responsive shell | Desktop nav with active-state pills plus a mobile hamburger drawer; global "Search everything…" board search |
 
 ## Architecture
@@ -173,7 +173,7 @@ buttons.
 |-------|---------|-------|
 | Lint | `bun run lint` | ESLint 9 flat config, `eslint-config-next` defaults with **no rule weakening**; must exit 0 |
 | Types | `bun run typecheck` | `tsc --noEmit`; strict mode fully on; `skills/` and `docs/` excluded — the vendored skill library is outside every gate |
-| Unit tests | `bun run test` | Vitest, colocated `src/lib/*.test.ts` over the pure domain seams (status↔completed coupling, timeline window math, kanban grouping, distribution bars, saved-indicator format, task filter/sort pipeline, column visibility, group summary, relative time) |
+| Unit tests | `bun run test` | Vitest, colocated `src/lib/*.test.ts` over the pure domain seams (status↔completed coupling, timeline window math, kanban grouping, distribution bars, saved-indicator format, task filter/sort pipeline, column visibility, group summary, relative time, reference palette, priority badge recipe, visibility labels) |
 | Build | `bun run build` | Standalone production build |
 | Smoke (manual/agent-browser) | sign in as the demo user, edit a board, filter/hide/sort, drag a kanban card, reload | changes persist — verified against the database during development |
 
@@ -187,7 +187,7 @@ natural next step; see `Project_Architecture_Document.md` §7 and §10.
 
 | Token | Hex | Usage |
 |-------|-----|-------|
-| `--background` | `#f5f7fa` | App background |
+| `--background` | `#f5f6f8` | App background |
 | `--card` | `#ffffff` | Cards, header, table rows |
 | `--foreground` | `#323338` | Primary text |
 | `--muted-foreground` | `#6b7385` | Secondary text |
@@ -199,25 +199,27 @@ natural next step; see `Project_Architecture_Document.md` §7 and §10.
 | `--table-track-bg` | `#e1e5f3` | Group progress track |
 | `--group-progress-fill` | `#00c875` | Group progress fill |
 
-| Status pill | Background | Text |
-|-------------|-----------|------|
-| Not Started | `#e8e9eb` | `#323338` |
-| Working on it | `#fddf3d` | `#323338` |
-| Done | `#00ca72` | white |
-| Stuck | `#e2445c` | white |
+| Status pill (all white text) | Background |
+|-------------|-----------|
+| Not Started | `#c4c4c4` |
+| Working on it | `#ffcb00` |
+| Done | `#00c875` |
+| Stuck | `#e2445c` |
 
-Priority flags run Low → Critical in `#579bfc`, `#fcc203`, `#ff642e`,
-`#e2445c` — always paired with the 1–4 bar count so urgency never relies on
- color alone. KPI stat cards are **gradient pairs** probed from the reference:
-dashboard `to right bottom` (blue `#3b82f6→#2563eb`, green `#22c55e→#16a34a`,
-orange `#f59e0b→#f97316`, purple `#a855f7→#9333ea`), analytics `to right` (same
-pairs, Overdue `#ef4444→#dc2626`), each carrying translucent white deco discs
-(64px @ white/10, 48px @ white/5). Quick actions: `#06b6d4`/`#22c55e`/
-`#f97316`/`#d946ef`. Board palette (6): `#0073ea`, `#00ca72`, `#ff642e`,
-`#e2445c`, `#a25ddb`, `#00d5c0`. The header logo is a gradient tile
-(`#2563EB→#1D4ED8`) with a white briefcase icon. Typography is **Inter** (Latin)
-via `next/font`, falling back to the system stack. `prefers-reduced-motion`
-collapses all animations.
+Priorities render as **tinted text badges** (background at 12.5% alpha over
+the solid color, which is also the text color): Low `#787d80`, Medium
+`#ffcb00`, High `#fdab3d`, Critical `#e2445c` — via the unit-tested
+`priorityBadgeStyle`. KPI stat cards are **gradient pairs** probed from the
+reference: dashboard `to right bottom` (blue `#3b82f6→#2563eb`, green
+`#22c55e→#16a34a`, orange `#f59e0b→#f97316`, purple `#a855f7→#9333ea`),
+analytics `to right` (same pairs, Overdue `#ef4444→#dc2626`), each carrying
+translucent white deco discs (64px @ white/10, 48px @ white/5). Quick
+actions: `#06b6d4`/`#22c55e`/`#f97316`/`#d946ef`. Board palette (6):
+`#0073ea`, `#00c875`, `#ffcb00`, `#e2445c`, `#a25ddb`, `#00d9ff`. The header
+logo is a gradient tile (`#2563EB→#1D4ED8`) with a white briefcase icon.
+Typography is **Inter** (Latin) via `next/font`, falling back to the system
+stack. `prefers-reduced-motion` collapses all animations. Page containers:
+`max-w-7xl` on dashboard/boards/analytics, `max-w-full` on the board detail.
 
 ## Deployment (pushing to GitHub)
 

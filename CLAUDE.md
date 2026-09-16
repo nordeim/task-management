@@ -131,8 +131,10 @@ public demo credentials).
   kanban grouping (`groupTasksByStatus`/`groupTasksByPerson`), analytics
   bars (`distributionBars`), the saved indicator (`formatSavedAt`), the board
   toolbar pipeline (`filterTasks`/`sortTasks`), column visibility
-  (`visibleColumns`), the group footer row (`groupSummary`), and boards-card
-  relative time (`relativeBoardTime`).
+  (`visibleColumns`), the group footer row (`groupSummary`), boards-card
+  relative time (`relativeBoardTime`), the reference palette (status/priority/
+  board-color hexes), the priority badge recipe (`priorityBadgeStyle`), and
+  visibility labels (`visibilityLabel`/`VISIBILITY_OPTIONS`).
 - **TDD is the rule for new logic**: write the failing test first (red),
   implement the pure function in `src/lib/domain.ts` (green), then wire it
   into components/routes. Bug fixes require a regression test that fails

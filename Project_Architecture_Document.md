@@ -1,12 +1,45 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.2
+# Tuesday.com — Master Project Architecture Document (PAD) v1.3
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
 **Companion Documents:** `README.md` (onboarding), `AGENTS.md` (agent gotchas), `CLAUDE.md` (workflow contract)
-**Last Updated:** 2026-09-16
+**Last Updated:** 2026-09-17
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.3 (Reference Redeploy Re-Alignment, 2026-09-17)
+
+- `[SYN]` The reference app was **redeployed/reset after session 3** (demo
+  data reset to one board; color system switched to monday.com's canonical
+  palette). Third parity pass, driven by a fresh computed-style audit:
+  status colors `#c4c4c4`/`#ffcb00`/`#00c875`/`#e2445c` with **white pill
+  text on all four**; priorities re-colored `#787d80`/`#ffcb00`/`#fdab3d`/
+  `#e2445c` and re-presented as **tinted text badges** (12.5% alpha bg,
+  `priorityBadgeStyle`) replacing the 1–4 flag bars; board palette now
+  `#0073ea #00c875 #ffcb00 #e2445c #a25ddb #00d9ff`; visibility labeled
+  Private/**Shared** (stored value stays `public`); board header
+  restructured (back arrow, two-row left stack, member avatars moved to the
+  right group with decorative presence dots and a members popover);
+  group-header 4px board-color left accent + grey count dot; red trash
+  delete-group; summary-row status bars (w-2 h-4, titled "N <Status>");
+  full-width dashed add-task button; kanban standalone gradient heading tile
+  (from-blue-50 to-purple-50) + "Drag and drop…" subtitle + rounded-2xl
+  border-l-4 cards with bold 18px titles + tinted column count badges;
+  dashboard max-w-7xl + xl:grid-cols-4 (boards col-span-3) + gradient hero
+  card with deco discs and Folder/ChartColumn buttons + hover-gradient
+  board items; analytics single-line distribution rows; `--background`
+  `#f5f6f8`.
+- `[GAT]` Unit suite grew 46→56 tests: new seams `priorityBadgeStyle`,
+  `validateBoardColor`, `visibilityLabel`, plus palette characterization
+  (TDD: red first).
+- `[OPS]` Documented the SQLite inode trap: deleting the DB file while
+  `next dev` runs leaves the server on a deleted inode → every mutation
+  fails with SQLite 1032 "readonly database"; restart the server after any
+  DB file swap (AGENTS.md).
+- `[DEV]` Deliberate deviations preserved (§10): timeline due-date bars,
+  honest priority counts, functional favorites filter, Radix popover
+  dismiss, unassigned empty state, decorative (aria-hidden) presence dots.
 
 #### Revision Block — v1.2 (Parity Deep-Pass, 2026-09-16)
 
@@ -352,7 +385,7 @@ imports nothing from the app).
 │   ├── board-kanban.tsx          ← @dnd-kit columns by status; drag → status mutation
 │   ├── board-calendar.tsx        ← month grid (Mon-first, 42 cells), status-colored chips, legend
 │   ├── status-cell.tsx           ← pill popover (listbox semantics)
-│   ├── priority-cell.tsx         ← flag bars (1–4) + popover
+│   ├── priority-cell.tsx         ← tinted text badge (priorityBadgeStyle) + popover
 │   ├── owner-cell.tsx            ← avatar picker + unassign
 │   ├── date-cell.tsx             ← calendar popover, noon storage, overdue styling
 │   ├── create-board-dialog.tsx   ← title/description/6 colors/visibility; form mounts inside DialogContent
@@ -593,7 +626,7 @@ The client only ever sees DTOs.
 
 | Token | Hex | WCAG (on white) | Usage |
 |-------|-----|-----------------|-------|
-| `--background` | `#f5f7fa` | — | App canvas |
+| `--background` | `#f5f6f8` | — | App canvas |
 | `--card` | `#ffffff` | — | Surfaces |
 | `--foreground` | `#323338` | 12.6:1 | Primary text |
 | `--muted-foreground` | `#6b7385` | 5.0:1 | Secondary text (AA body) |
@@ -606,18 +639,20 @@ The client only ever sees DTOs.
 | `--table-track-bg` | `#e1e5f3` | — | Group progress track |
 | `--group-progress-fill` | `#00c875` | — | Group progress fill |
 
-Status pills carry their own pairs (bg/text): Not Started `#e8e9eb`/`#323338`,
-Working on it `#fddf3d`/`#323338`, Done `#00ca72`/white, Stuck `#e2445c`/white.
-Priority flags: Low `#579bfc`, Medium `#fcc203`, High `#ff642e`, Critical
-`#e2445c` — always paired with the 1–4 bar count so urgency never relies on
-color alone. KPI cards are **gradient pairs** (probed from the reference):
+Status pills (probed 2026-09-17) are bg + **white text on all four**: Not
+Started `#c4c4c4`, Working on it `#ffcb00`, Done `#00c875`, Stuck `#e2445c`
+(an accepted contrast deviation — parity over WCAG on this one surface).
+Priorities render as tinted text badges (`priorityBadgeStyle`: 12.5% alpha
+background + solid color text): Low `#787d80`, Medium `#ffcb00`, High
+`#fdab3d`, Critical `#e2445c`. KPI cards are **gradient pairs** (probed from
+the reference):
 dashboard `to right bottom` — blue `#3b82f6→#2563eb`, green `#22c55e→#16a34a`,
 orange `#f59e0b→#f97316`, purple `#a855f7→#9333ea`; analytics `to right` with
 Overdue `#ef4444→#dc2626`; each card carries translucent deco discs (64px @
 white/10 top-right, 48px @ white/5 bottom-left). Quick actions:
 `#06b6d4`/`#22c55e`/`#f97316`/`#d946ef` with a purple gradient header tile.
-Board palette (6): `#0073ea`, `#00ca72`, `#ff642e`, `#e2445c`, `#a25ddb`,
-`#00d5c0`. The header logo is a gradient tile (`#2563EB→#1D4ED8`) with a white
+Board palette (6): `#0073ea`, `#00c875`, `#ffcb00`, `#e2445c`, `#a25ddb`,
+`#00d9ff`. The header logo is a gradient tile (`#2563EB→#1D4ED8`) with a white
 briefcase icon; board cards tint the folder icon at 12.5% alpha of the board
 color.
 
@@ -696,8 +731,8 @@ transition to 0.01ms.
 |----------|-------|----------|-----------|
 | Lint gate | 1 suite | `eslint.config.mjs` | ESLint 9, `eslint-config-next` defaults, zero rule weakening |
 | Type gate | 1 run | `tsconfig.json` | `tsc --noEmit` — strict, no overrides; `skills/` + `docs/` excluded |
-| Unit tests | 46 tests | `src/lib/domain.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (Task Name/Created/Updated), `visibleColumns` (Show/Hide Columns), `groupSummary` (footer row), `relativeBoardTime`, `VISIBILITY_OPTIONS` |
-| Interactive verification | re-executed 2026-09-16 (session 3) | agent-browser session | login as sepnetflix2023; Edit Board round-trip persisted to SQLite (verified, then reverted); Filter popover row counts; Hide column removal incl. summary cell; Sort label cycling; owner picker "Enter name…" search; native date input spinbuttons; toolbar absent in Kanban/Calendar; gradient cards verified via computed styles; VLM side-by-side: board table "Match" |
+| Unit tests | 56 tests | `src/lib/domain.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (Task Name/Created/Updated), `visibleColumns` (Show/Hide Columns), `groupSummary` (footer row), `relativeBoardTime`, `VISIBILITY_OPTIONS`, the reference palette hexes, `priorityBadgeStyle`, `visibilityLabel` |
+| Interactive verification | re-executed 2026-09-17 (session 4) | agent-browser session | login as sepnetflix2023; Edit Board round-trip persisted to SQLite (verified, then reverted); Filter popover row counts; Hide column removal incl. summary cell; Sort label cycling; owner picker "Enter name…" search; native date input spinbuttons; toolbar absent in Kanban/Calendar; gradient cards verified via computed styles; VLM side-by-side: board table "Match" |
 
 ### 7.2 Test Patterns
 
@@ -836,7 +871,7 @@ bun run dev                # http://localhost:3000
 | Info | Reference analytics reports Medium priority for a Low task | reference-side inconsistency | Deliberate deviation — we count actual priorities |
 | Info | Reference boards-page Filter button is inert | reference-side dead control | Deliberate deviation — our Favorites filter is functional |
 | Info | Reference popovers stay mounted after Escape | focus-management quirk | Deliberate deviation — standard Radix dismiss |
-| Info | No fake presence dots on member avatars | reference renders decorative green dots | Deliberate deviation — we do not fake presence data |
+| Info | Presence dots are decorative (aria-hidden) | reference renders green dots on every avatar | Parity — rendered as pure chrome, never presented as real presence data |
 | Info | Reference 'Unassigned' view renders an empty div | reference-side quirk | Deliberate deviation — we keep a helpful empty state |
 
 ---
@@ -860,8 +895,8 @@ bun run dev                # http://localhost:3000
 | `src/components/app/edit-board-dialog.tsx` | 195 | Board editing: title/description/colors/visibility (fresh-mount form pattern) |
 | `src/components/app/owner-cell.tsx` | 155 | Searchable "Enter name…" assignment popover |
 | `src/components/app/date-cell.tsx` | 95 | Native date input, noon storage, overdue styling |
-| `src/lib/domain.ts` | 430 | Vocabulary, DTOs, ActionResult, pure helpers (filter/sort/columns/summary/time) — the contract file |
-| `src/lib/domain.test.ts` | 400 | Vitest suite over the pure seams (46 tests) |
+| `src/lib/domain.ts` | 460 | Vocabulary, DTOs, ActionResult, pure helpers (filter/sort/columns/summary/time/badge-style/visibility-label) — the contract file |
+| `src/lib/domain.test.ts` | 470 | Vitest suite over the pure seams (56 tests) |
 | `src/lib/auth.ts` | 79 | scrypt + sessions |
 | `src/lib/api-client.ts` | 31 | Typed fetch that never throws |
 | `src/app/globals.css` | 180 | Theme tokens (both modes) + deco discs + global styles |
