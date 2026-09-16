@@ -12,7 +12,7 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { format } from "date-fns";
-import { CalendarDays, Columns3, Plus, User as UserIcon } from "lucide-react";
+import { CalendarDays, MoreHorizontal, Plus, User as UserIcon } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { TASK_PRIORITIES, TASK_STATUSES, groupTasksByPerson, groupTasksByStatus, priorityMeta, statusMeta } from "@/lib/domain";
+import { TASK_STATUSES, groupTasksByPerson, groupTasksByStatus, priorityBadgeStyle, priorityMeta, statusMeta } from "@/lib/domain";
 import type { TaskDTO, TaskStatus, UserDTO } from "@/lib/domain";
 
 export type KanbanGroupMode = "status" | "person";
@@ -53,7 +53,6 @@ function KanbanCard({ task }: { task: TaskDTO }) {
   });
   const dueDate = task.dueDate ? new Date(task.dueDate) : null;
   const overdue = dueDate !== null && dueDate < new Date() && task.status !== "done";
-  const priorityIndex = TASK_PRIORITIES.findIndex((p) => p.value === task.priority);
 
   return (
     <div
@@ -62,11 +61,12 @@ function KanbanCard({ task }: { task: TaskDTO }) {
       {...attributes}
       role="button"
       aria-label={`Task card: ${task.title}`}
-      className={`cursor-grab touch-none rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      className={`mb-4 cursor-grab touch-none rounded-2xl border-l-4 bg-white p-4 shadow-lg transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         isDragging ? "opacity-40" : ""
       }`}
+      style={{ borderLeftColor: statusMeta(task.status).bg }}
     >
-      <p className={`text-sm font-medium ${task.completed ? "text-muted-foreground line-through" : ""}`}>
+      <p className={`text-lg font-bold leading-tight text-gray-800 ${task.completed ? "text-muted-foreground line-through" : ""}`}>
         {task.title}
       </p>
       <div className="mt-2 flex items-center justify-between gap-2">
@@ -93,18 +93,13 @@ function KanbanCard({ task }: { task: TaskDTO }) {
             </span>
           )}
         </div>
-        {/* Priority rendered as filled dots — count + color both derive from
-            TASK_PRIORITIES so the vocabulary stays closed. */}
-        <span className="flex items-center gap-1" aria-label={`Priority ${priorityMeta(task.priority).label}`}>
-          {TASK_PRIORITIES.map((level, i) => (
-            <span
-              key={level.value}
-              className="h-1.5 w-1.5 rounded-full"
-              style={{
-                backgroundColor: i <= (priorityIndex === -1 ? 0 : priorityIndex) ? priorityMeta(task.priority).color : "#d0d4e1",
-              }}
-            />
-          ))}
+        {/* Priority rendered as the reference's tinted text badge. */}
+        <span
+          className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
+          style={priorityBadgeStyle(task.priority)}
+          aria-label={`Priority ${priorityMeta(task.priority).label}`}
+        >
+          {priorityMeta(task.priority).label}
         </span>
       </div>
     </div>
@@ -158,7 +153,7 @@ function KanbanColumn({
         }`}
       >
         <div className="mb-3 flex items-center justify-between px-1">
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-center gap-3">
             {column.avatar ? (
               <Avatar className="h-6 w-6">
                 <AvatarFallback
@@ -168,11 +163,13 @@ function KanbanColumn({
                   {initialsOf(column.avatar.name)}
                 </AvatarFallback>
               </Avatar>
-            ) : (
-              <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: column.dotColor }} aria-hidden="true" />
-            )}
-            <h3 className="truncate text-sm font-semibold">{column.label}</h3>
-            <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+            ) : null}
+            {/* Reference column header: bold title + tinted count badge (no dot). */}
+            <h3 className="truncate text-lg font-bold text-gray-800">{column.label}</h3>
+            <span
+              className="rounded-full px-2.5 py-1 text-sm font-bold shadow-sm"
+              style={{ backgroundColor: `${column.dotColor}20`, color: column.dotColor }}
+            >
               {column.tasks.length}
             </span>
           </div>
@@ -254,17 +251,26 @@ export function BoardKanban({ tasks, members, onStatusChange, onOwnerChange, onA
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-        {/* Reference chrome: heading inside a lavender tile with an icon. */}
-        <div className="flex items-center gap-2 rounded-lg bg-[#f0ecfa] px-3 py-2">
-          <Columns3 className="h-4 w-4 text-[#a25ddb]" aria-hidden="true" />
-          <h2 className="text-base font-semibold">Kanban Board</h2>
+    <div>
+      {/* Reference heading tile (probed 2026-09-17): standalone gradient band
+          with a gradient icon tile, title + subtitle, and the Group by selector. */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-purple-50 p-4">
+        <div className="flex items-center gap-3">
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white"
+            aria-hidden="true"
+          >
+            <MoreHorizontal className="h-5 w-5" />
+          </span>
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">Kanban Board</h2>
+            <p className="text-sm text-gray-600">Drag and drop to manage your tasks</p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Group by:</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-700">Group by:</span>
           <Select value={groupMode} onValueChange={(v) => setGroupMode(v as KanbanGroupMode)}>
-            <SelectTrigger className="h-8 w-32" aria-label="Group kanban by">
+            <SelectTrigger className="h-9 w-32" aria-label="Group kanban by">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -275,7 +281,8 @@ export function BoardKanban({ tasks, members, onStatusChange, onOwnerChange, onA
         </div>
       </div>
 
-      <div className="p-3">
+      <div className="overflow-hidden rounded-xl border bg-card">
+        <div className="p-3">
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="flex gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-4 lg:overflow-visible">
             {columns.map((column) => (
@@ -286,12 +293,13 @@ export function BoardKanban({ tasks, members, onStatusChange, onOwnerChange, onA
           </div>
           <DragOverlay>
             {activeTask ? (
-              <div className="w-64 rotate-2 rounded-lg border bg-card p-3 shadow-lg">
-                <p className="text-sm font-medium">{activeTask.title}</p>
+              <div className="w-64 rotate-2 rounded-2xl border-l-4 bg-white p-4 shadow-xl" style={{ borderLeftColor: statusMeta(activeTask.status).bg }}>
+                <p className="text-lg font-bold leading-tight text-gray-800">{activeTask.title}</p>
               </div>
             ) : null}
           </DragOverlay>
         </DndContext>
+        </div>
       </div>
     </div>
   );
