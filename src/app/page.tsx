@@ -16,7 +16,7 @@ import type { UserDTO } from "@/lib/domain";
  * Root route: an auth gate in front of the app shell. Everything below the
  * gate lives inside AppProvider, so any view can call navigate()/signOut().
  */
-function AuthedShell({ user, onSignOut }: { user: UserDTO; onSignOut: () => void }) {
+function AuthedShell() {
   const { view, navigate } = useApp();
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -89,7 +89,7 @@ export default function Home() {
 
   return (
     <AppProvider user={user} onSignOut={() => void handleSignOut()}>
-      <AuthedShell user={user} onSignOut={() => void handleSignOut()} />
+      <AuthedShell />
     </AppProvider>
   );
 }

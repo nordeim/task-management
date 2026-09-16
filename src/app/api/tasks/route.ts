@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
-import { TASK_PRIORITIES, TASK_STATUSES } from "@/lib/domain";
-
-const STATUS_VALUES = TASK_STATUSES.map((s) => s.value as string);
-const PRIORITY_VALUES = TASK_PRIORITIES.map((p) => p.value as string);
 
 const createTaskSchema = z.object({
   title: z.string().trim().min(1, "Task title is required").max(200),

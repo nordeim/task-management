@@ -14,7 +14,7 @@ import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { format } from "date-fns";
 import { CalendarDays, Plus, User as UserIcon } from "lucide-react";
 import { TASK_STATUSES } from "@/lib/domain";
-import type { TaskDTO, TaskStatus, UserDTO } from "@/lib/domain";
+import type { TaskDTO, TaskStatus } from "@/lib/domain";
 
 interface KanbanProps {
   tasks: TaskDTO[];

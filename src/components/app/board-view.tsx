@@ -44,7 +44,7 @@ import { toast } from "@/hooks/use-toast";
 import { useApp } from "@/components/app/app-context";
 import { api } from "@/lib/api-client";
 import { format } from "date-fns";
-import type { BoardDetailDTO, TaskDTO, TaskPriority, TaskStatus, UserDTO } from "@/lib/domain";
+import type { BoardDetailDTO, TaskPriority, TaskStatus, UserDTO } from "@/lib/domain";
 import { BoardTable } from "@/components/app/board-table";
 import { BoardKanban } from "@/components/app/board-kanban";
 import { BoardCalendar } from "@/components/app/board-calendar";
