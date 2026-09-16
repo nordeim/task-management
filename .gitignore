@@ -42,3 +42,6 @@ mini-services/
 tests/
 Caddyfile
 worklog.md
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
