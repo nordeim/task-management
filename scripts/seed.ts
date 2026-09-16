@@ -109,7 +109,7 @@ const BOARDS: SeedBoard[] = [
   {
     title: "Content Calendar",
     description: "Editorial calendar for blog, newsletter, and social",
-    color: "#00d5c0",
+    color: "#00d9ff",
     groups: [
       {
         name: "October",
@@ -131,7 +131,7 @@ const BOARDS: SeedBoard[] = [
   {
     title: "Team Offsite",
     description: "Q4 offsite planning — venue, agenda, budget",
-    color: "#ff642e",
+    color: "#ffcb00",
     groups: [
       {
         name: "Logistics",
@@ -162,14 +162,14 @@ async function main() {
       // reference account ("Good morning, sepnetflix2023!").
       name: "sepnetflix2023",
       passwordHash: hashPassword("Abcd1234"),
-      avatarColor: "#00d5c0",
+      avatarColor: "#00d9ff",
     },
   });
 
   const teammateData = [
     { email: "jane.doe@example.com", name: "Jane Doe", avatarColor: "#0073ea" },
     { email: "john.smith@example.com", name: "John Smith", avatarColor: "#a25ddb" },
-    { email: "mike.jones@example.com", name: "Mike Jones", avatarColor: "#ff642e" },
+    { email: "mike.jones@example.com", name: "Mike Jones", avatarColor: "#fdab3d" },
   ];
   const teammates = new Map<string, string>();
   for (const t of teammateData) {

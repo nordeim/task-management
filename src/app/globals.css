@@ -45,7 +45,7 @@
 :root {
   --radius: 0.5rem;
   /* Tuesday.com palette — matches the reference app's light, airy surfaces. */
-  --background: #f5f7fa;
+  --background: #f5f6f8;
   --foreground: #323338;
   --card: #ffffff;
   --card-foreground: #323338;
