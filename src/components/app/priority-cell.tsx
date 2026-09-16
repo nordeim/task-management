@@ -51,10 +51,22 @@ export function PriorityCell({
         <button
           type="button"
           aria-label={`Priority: ${meta.label}, change priority`}
-          className="flex h-7 w-full max-w-[110px] items-center gap-2 rounded-md px-2 text-xs font-medium transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-7 w-full max-w-[110px] items-center justify-between gap-1 rounded-md border border-input bg-card px-2 text-xs font-medium transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <PriorityFlag value={value} />
-          <span className="truncate text-muted-foreground">{meta.label}</span>
+          <span className="flex items-center gap-2">
+            <PriorityFlag value={value} />
+            <span className="truncate text-muted-foreground">{meta.label}</span>
+          </span>
+          <svg
+            className="h-3 w-3 shrink-0 opacity-70"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={3}
+            aria-hidden="true"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+          </svg>
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-40 p-1.5">

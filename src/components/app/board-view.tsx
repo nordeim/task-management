@@ -2,24 +2,24 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
-  ArrowUpDown,
-  BarChart3,
+  Activity,
+  ArrowUpNarrowWide,
   Calendar as CalendarIcon,
   Check,
+  Eye,
   Filter,
   GanttChartSquare,
+  Group,
   KanbanSquare,
+  Pencil,
   Plus,
-  Rows3,
   Search,
-  Sigma,
   Star,
   Table2,
+  TrendingUp,
   UserRound,
-  UsersRound,
+  Users,
   Zap,
-  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,8 +49,24 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useApp } from "@/components/app/app-context";
 import { api } from "@/lib/api-client";
-import { formatSavedAt, resolveStatusCompletedPatch, TASK_PRIORITIES, TASK_STATUSES } from "@/lib/domain";
-import type { BoardDetailDTO, TaskDTO, TaskPriority, TaskStatus, UserDTO } from "@/lib/domain";
+import {
+  TASK_PRIORITIES,
+  TASK_STATUSES,
+  filterTasks,
+  formatSavedAt,
+  resolveStatusCompletedPatch,
+  sortTasks,
+} from "@/lib/domain";
+import type {
+  BoardDetailDTO,
+  ColumnKey,
+  SortDir,
+  SortField,
+  TaskDTO,
+  TaskPriority,
+  TaskStatus,
+  UserDTO,
+} from "@/lib/domain";
 import { BoardTable } from "@/components/app/board-table";
 import { BoardKanban } from "@/components/app/board-kanban";
 import { BoardCalendar } from "@/components/app/board-calendar";
@@ -69,7 +85,28 @@ const GROUP_BY_OPTIONS: { value: GroupByMode; label: string }[] = [
   { value: "priority", label: "Priority" },
 ];
 
-type SortDir = "none" | "asc" | "desc";
+/** Sort popover options — mirrors the reference 'Sort By' menu. */
+const SORT_OPTIONS: { value: SortField; label: string }[] = [
+  { value: "title", label: "Task Name" },
+  { value: "createdAt", label: "Created Date" },
+  { value: "updatedAt", label: "Updated Date" },
+];
+
+interface SortState {
+  field: SortField;
+  dir: SortDir;
+}
+
+/** Column keys the Hide popover can toggle (Task/Priority/Status/Owner/Due Date). */
+const COLUMN_KEYS: ColumnKey[] = ["task", "priority", "status", "owner", "dueDate"];
+
+const COLUMN_LABELS: Record<ColumnKey, string> = {
+  task: "Task",
+  priority: "Priority",
+  status: "Status",
+  owner: "Owner",
+  dueDate: "Due Date",
+};
 
 const SUB_VIEWS: { value: BoardSubView; label: string; icon: typeof Table2 }[] = [
   { value: "table", label: "Main Table", icon: Table2 },
@@ -106,8 +143,11 @@ export function BoardView({ boardId }: { boardId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [subView, setSubView] = useState<BoardSubView>("table");
   const [search, setSearch] = useState("");
-  const [sortDir, setSortDir] = useState<SortDir>("none");
+  const [sort, setSort] = useState<SortState | null>(null);
   const [personFilter, setPersonFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<TaskStatus[]>([]);
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority[]>([]);
+  const [hiddenColumns, setHiddenColumns] = useState<ColumnKey[]>([]);
   const [groupBy, setGroupBy] = useState<GroupByMode>("default");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [taskDialog, setTaskDialog] = useState<{ open: boolean; groupId: string | null }>({
@@ -144,24 +184,44 @@ export function BoardView({ boardId }: { boardId: string }) {
 
   const allTasks = useMemo(() => board?.groups.flatMap((g) => g.tasks) ?? [], [board]);
 
+  // The whole toolbar pipeline (search + person + status/priority + sort) runs
+  // through the unit-tested pure seams in domain.ts.
   const visibleTasks = useMemo(() => {
-    let tasks = allTasks;
-    const query = search.trim().toLowerCase();
-    if (query) {
-      tasks = tasks.filter((t) => t.title.toLowerCase().includes(query));
-    }
-    if (personFilter) {
-      tasks = tasks.filter((t) => t.owner?.id === personFilter);
-    }
-    if (sortDir !== "none") {
-      tasks = [...tasks].sort((a, b) =>
-        sortDir === "asc"
-          ? a.title.localeCompare(b.title)
-          : b.title.localeCompare(a.title),
-      );
-    }
-    return tasks;
-  }, [allTasks, search, personFilter, sortDir]);
+    const filtered = filterTasks(allTasks, {
+      search,
+      personId: personFilter,
+      statuses: statusFilter,
+      priorities: priorityFilter,
+    });
+    return sort ? sortTasks(filtered, sort) : filtered;
+  }, [allTasks, search, personFilter, statusFilter, priorityFilter, sort]);
+
+  const filtersActive = statusFilter.length > 0 || priorityFilter.length > 0;
+
+  function toggleStatusFilter(value: TaskStatus) {
+    setStatusFilter((prev) =>
+      prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value],
+    );
+  }
+
+  function togglePriorityFilter(value: TaskPriority) {
+    setPriorityFilter((prev) =>
+      prev.includes(value) ? prev.filter((p) => p !== value) : [...prev, value],
+    );
+  }
+
+  function toggleHiddenColumn(key: ColumnKey) {
+    setHiddenColumns((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }
+
+  /** Clicking a sort field cycles asc → desc → off, like the reference. */
+  function applySortField(field: SortField) {
+    setSort((prev) => {
+      if (!prev || prev.field !== field) return { field, dir: "asc" };
+      if (prev.dir === "asc") return { field, dir: "desc" };
+      return null;
+    });
+  }
 
   /** The table renders either the board's real groups or synthetic sections
    *  built from the Group-by choice — same row component either way. */
@@ -348,7 +408,7 @@ export function BoardView({ boardId }: { boardId: string }) {
     return (
       <div className="mx-auto max-w-[1400px] p-6">
         <Button variant="ghost" className="mb-4" onClick={() => navigate("boards")}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to boards
+          Back to boards
         </Button>
         <div className="rounded-xl border bg-card py-10 text-center">
           <p className="mb-2 font-medium">Could not load this board</p>
@@ -374,18 +434,16 @@ export function BoardView({ boardId }: { boardId: string }) {
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-4 p-4 sm:p-6 lg:p-8">
-      {/* Board header */}
+      {/* Board header — reference layout: colored Table2 tile, h1 title, view
+          dropdown, favorite, items/Saved indicator, then the action buttons. */}
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Back to boards" onClick={() => navigate("boards")}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
           <span
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-base font-bold text-white"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-lg"
             style={{ backgroundColor: board.color }}
             aria-hidden="true"
           >
-            {board.title.slice(0, 1).toUpperCase()}
+            <Table2 className="h-5 w-5 text-white" />
           </span>
           {editingTitle ? (
             <input
@@ -405,17 +463,20 @@ export function BoardView({ boardId }: { boardId: string }) {
               className="rounded-md border-none bg-accent px-2 py-1 text-xl font-bold outline-none ring-1 ring-primary/40"
             />
           ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setTitleDraft(board.title);
-                setEditingTitle(true);
-              }}
-              title="Rename board"
-              className="rounded-md px-2 py-1 text-left text-xl font-bold transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {board.title}
-            </button>
+            <h1 className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setTitleDraft(board.title);
+                  setEditingTitle(true);
+                }}
+                title="Rename board"
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-left text-xl font-bold transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {board.title}
+                <Pencil className="h-3.5 w-3.5 text-muted-foreground/60" aria-hidden="true" />
+              </button>
+            </h1>
           )}
 
           <span className="hidden text-muted-foreground/50 xl:inline" aria-hidden="true">|</span>
@@ -491,7 +552,7 @@ export function BoardView({ boardId }: { boardId: string }) {
 
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" className="text-muted-foreground" onClick={() => navigate("analytics")}>
-            <BarChart3 className="mr-1 h-4 w-4" /> Analytics
+            <TrendingUp className="mr-1 h-4 w-4" /> Analytics
           </Button>
           <Button
             variant="outline"
@@ -504,12 +565,12 @@ export function BoardView({ boardId }: { boardId: string }) {
               })
             }
           >
-            <Sigma className="mr-1 h-4 w-4" /> Integrate
+            <Activity className="mr-1 h-4 w-4" /> Integrate
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="text-muted-foreground"
+            className="relative text-muted-foreground"
             onClick={() =>
               toast({
                 title: "Automate",
@@ -518,129 +579,297 @@ export function BoardView({ boardId }: { boardId: string }) {
             }
           >
             <Zap className="mr-1 h-4 w-4" /> Automate
+            {/* Reference detail: decorative notification dot on Automate. */}
+            <span
+              aria-hidden="true"
+              className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#a25ddb]"
+            />
           </Button>
         </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" className="font-semibold" onClick={() => setTaskDialog({ open: true, groupId: null })}>
-          <Plus className="mr-1 h-4 w-4" /> New Task
-        </Button>
-        <div className="relative min-w-40 flex-1 sm:max-w-56">
-          <Input
-            type="search"
-            aria-label="Search tasks in board"
-            placeholder="Search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-8 pl-8"
-          />
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        </div>
-        {/* Filter by Person — single-select member filter like the reference. */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className={personFilter ? "border-primary text-primary" : "text-muted-foreground"}
-            >
-              <UsersRound className="mr-1 h-4 w-4" /> Person
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-64 p-0">
-            <div className="border-b px-3 py-2.5 text-sm font-bold">Filter by Person</div>
-            <ul role="listbox" aria-label="Filter by person" className="max-h-64 overflow-auto p-1">
-              {board.members.length === 0 ? (
-                <li className="px-2 py-3 text-sm text-muted-foreground">No people assigned yet</li>
-              ) : (
-                board.members.map((member) => {
-                  const selected = personFilter === member.id;
+      {/* Toolbar — reference behavior: only the Main Table renders the toolbar;
+          the other views show just their own headers. */}
+      {subView === "table" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" className="font-semibold" onClick={() => setTaskDialog({ open: true, groupId: null })}>
+            <Plus className="mr-1 h-4 w-4" /> New Task
+          </Button>
+          <div className="relative min-w-40 flex-1 sm:max-w-56">
+            <Input
+              type="search"
+              aria-label="Search tasks in board"
+              placeholder="Search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 bg-secondary/40 pl-8"
+            />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          </div>
+          {/* Filter by Person — single-select member filter like the reference. */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={personFilter ? "border-primary text-primary" : "text-muted-foreground"}
+              >
+                <Users className="mr-1 h-4 w-4" /> Person
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 p-0">
+              <div className="border-b px-3 py-2.5 text-sm font-bold">Filter by Person</div>
+              <ul role="listbox" aria-label="Filter by person" className="max-h-64 overflow-auto p-1">
+                {board.members.length === 0 ? (
+                  <li className="px-2 py-3 text-sm text-muted-foreground">No people assigned yet</li>
+                ) : (
+                  board.members.map((member) => {
+                    const selected = personFilter === member.id;
+                    return (
+                      <li key={member.id}>
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={selected}
+                          onClick={() => setPersonFilter(selected ? null : member.id)}
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
+                        >
+                          <Avatar className="h-6 w-6">
+                            <AvatarFallback
+                              className="text-[10px] font-semibold text-white"
+                              style={{ backgroundColor: member.avatarColor }}
+                            >
+                              {initialsOf(member.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="min-w-0 flex-1 truncate">{member.name}</span>
+                          {selected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                        </button>
+                      </li>
+                    );
+                  })
+                )}
+              </ul>
+              {personFilter && (
+                <button
+                  type="button"
+                  onClick={() => setPersonFilter(null)}
+                  className="w-full border-t px-3 py-2 text-left text-sm text-primary hover:bg-secondary"
+                >
+                  Clear person filter
+                </button>
+              )}
+            </PopoverContent>
+          </Popover>
+          {/* Filter — Status + Priority checkboxes, like the reference "Filter Items". */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={filtersActive ? "border-primary text-primary" : "text-muted-foreground"}
+                aria-pressed={filtersActive}
+              >
+                <Filter className="mr-1 h-4 w-4" /> Filter
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-56 p-0">
+              <div className="border-b px-3 py-2.5 text-sm font-bold">Filter Items</div>
+              <div className="p-2">
+                <p className="px-1 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Status
+                </p>
+                <ul className="mb-2 space-y-0.5" aria-label="Filter by status">
+                  {TASK_STATUSES.map((status) => {
+                    const checked = statusFilter.includes(status.value);
+                    return (
+                      <li key={status.value}>
+                        <button
+                          type="button"
+                          role="menuitemcheckbox"
+                          aria-checked={checked}
+                          onClick={() => toggleStatusFilter(status.value)}
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
+                        >
+                          <span
+                            className="h-4 w-4 shrink-0 rounded-md border border-black/10"
+                            style={{ backgroundColor: status.bg }}
+                            aria-hidden="true"
+                          />
+                          <span className="flex-1">{status.label}</span>
+                          {checked && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="px-1 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Priority
+                </p>
+                <ul aria-label="Filter by priority">
+                  {TASK_PRIORITIES.map((priority) => {
+                    const checked = priorityFilter.includes(priority.value);
+                    return (
+                      <li key={priority.value}>
+                        <button
+                          type="button"
+                          role="menuitemcheckbox"
+                          aria-checked={checked}
+                          onClick={() => togglePriorityFilter(priority.value)}
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
+                        >
+                          <span
+                            className="h-3 w-3 shrink-0 rounded-full"
+                            style={{ backgroundColor: priority.color }}
+                            aria-hidden="true"
+                          />
+                          <span className="flex-1">{priority.label}</span>
+                          {checked && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+              {filtersActive && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter([]);
+                    setPriorityFilter([]);
+                  }}
+                  className="w-full border-t px-3 py-2 text-left text-sm text-primary hover:bg-secondary"
+                >
+                  Clear filters
+                </button>
+              )}
+            </PopoverContent>
+          </Popover>
+          {/* Sort — Task Name / Created Date / Updated Date, cycling asc → desc → off. */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={sort ? "border-primary text-primary" : "text-muted-foreground"}
+                aria-pressed={sort !== null}
+              >
+                <ArrowUpNarrowWide className="mr-1 h-4 w-4" />
+                {sort
+                  ? `Sort: ${
+                      SORT_OPTIONS.find((o) => o.value === sort.field)?.label ?? ""
+                    } ${sort.dir === "asc" ? "↑" : "↓"}`
+                  : "Sort"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-52 p-1.5">
+              <p className="px-2 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Sort By
+              </p>
+              <ul role="listbox" aria-label="Sort tasks by">
+                {SORT_OPTIONS.map((option) => {
+                  const active = sort?.field === option.value;
                   return (
-                    <li key={member.id}>
+                    <li key={option.value}>
                       <button
                         type="button"
                         role="option"
-                        aria-selected={selected}
-                        onClick={() => setPersonFilter(selected ? null : member.id)}
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
+                        aria-selected={active}
+                        onClick={() => applySortField(option.value)}
+                        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
                       >
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback
-                            className="text-[10px] font-semibold text-white"
-                            style={{ backgroundColor: member.avatarColor }}
-                          >
-                            {initialsOf(member.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="min-w-0 flex-1 truncate">{member.name}</span>
-                        {selected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                        <span>{option.label}</span>
+                        {active && (
+                          <span className="flex items-center gap-0.5 text-primary">
+                            {sort?.dir === "asc" ? "↑" : "↓"}
+                            <Check className="h-4 w-4" />
+                          </span>
+                        )}
                       </button>
                     </li>
                   );
-                })
+                })}
+              </ul>
+              {sort && (
+                <button
+                  type="button"
+                  onClick={() => setSort(null)}
+                  className="mt-1 w-full border-t px-3 py-2 text-left text-sm text-primary hover:bg-secondary"
+                >
+                  Clear sort
+                </button>
               )}
-            </ul>
-            {personFilter && (
-              <button
-                type="button"
-                onClick={() => setPersonFilter(null)}
-                className="w-full border-t px-3 py-2 text-left text-sm text-primary hover:bg-secondary"
+            </PopoverContent>
+          </Popover>
+          {/* Hide — Show/Hide Columns toggles like the reference. */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={hiddenColumns.length > 0 ? "border-primary text-primary" : "text-muted-foreground"}
               >
-                Clear person filter
-              </button>
-            )}
-          </PopoverContent>
-        </Popover>
-        <Button variant="outline" size="sm" className="text-muted-foreground">
-          <Filter className="mr-1 h-4 w-4" /> Filter
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-muted-foreground"
-          aria-pressed={sortDir !== "none"}
-          title={sortDir === "asc" ? "Sorted A–Z" : sortDir === "desc" ? "Sorted Z–A" : "Sort by title"}
-          onClick={() => setSortDir((d) => (d === "none" ? "asc" : d === "asc" ? "desc" : "none"))}
-        >
-          <ArrowUpDown className="mr-1 h-4 w-4" /> Sort{sortDir !== "none" ? `: ${sortDir === "asc" ? "A–Z" : "Z–A"}` : ""}
-        </Button>
-        <Button variant="outline" size="sm" className="text-muted-foreground" onClick={() => setSearch("")}>
-          <EyeOff className="mr-1 h-4 w-4" /> Hide
-        </Button>
-        {/* Group by — regroups the Main Table rows like the reference. */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className={groupBy !== "default" ? "border-primary text-primary" : "text-muted-foreground"}
-            >
-              <Rows3 className="mr-1 h-4 w-4" /> Group by
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-52 p-1.5">
-            <p className="px-2 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Group By</p>
-            <ul role="listbox" aria-label="Group table by">
-              {GROUP_BY_OPTIONS.map((option) => (
-                <li key={option.value}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={groupBy === option.value}
-                    onClick={() => setGroupBy(option.value)}
-                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
-                  >
-                    {option.label}
-                    {groupBy === option.value && <Check className="h-4 w-4 text-primary" />}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </PopoverContent>
-        </Popover>
-      </div>
+                <Eye className="mr-1 h-4 w-4" /> Hide
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-52 p-1.5">
+              <p className="px-2 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Show/Hide Columns
+              </p>
+              <ul aria-label="Toggle table columns">
+                {COLUMN_KEYS.map((key) => {
+                  const shown = !hiddenColumns.includes(key);
+                  return (
+                    <li key={key}>
+                      <button
+                        type="button"
+                        role="menuitemcheckbox"
+                        aria-checked={shown}
+                        onClick={() => toggleHiddenColumn(key)}
+                        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
+                      >
+                        {COLUMN_LABELS[key]}
+                        {shown && <Check className="h-4 w-4 text-primary" />}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </PopoverContent>
+          </Popover>
+          {/* Group by — regroups the Main Table rows like the reference. */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={groupBy !== "default" ? "border-primary text-primary" : "text-muted-foreground"}
+              >
+                <Group className="mr-1 h-4 w-4" /> Group by
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-52 p-1.5">
+              <p className="px-2 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Group By</p>
+              <ul role="listbox" aria-label="Group table by">
+                {GROUP_BY_OPTIONS.map((option) => (
+                  <li key={option.value}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={groupBy === option.value}
+                      onClick={() => setGroupBy(option.value)}
+                      className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
+                    >
+                      {option.label}
+                      {groupBy === option.value && <Check className="h-4 w-4 text-primary" />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </PopoverContent>
+          </Popover>
+        </div>
+      )}
 
       {/* View body */}
       {subView === "table" && (
@@ -648,6 +877,7 @@ export function BoardView({ boardId }: { boardId: string }) {
           sections={tableSections}
           members={board.members}
           groupBy={groupBy}
+          hiddenColumns={hiddenColumns}
           onUpdateTask={(taskId, patch) => void updateTask(taskId, patch)}
           onDeleteTask={(taskId) => void deleteTask(taskId)}
           onAddTask={(groupId) => setTaskDialog({ open: true, groupId })}
@@ -744,6 +974,7 @@ export function BoardView({ boardId }: { boardId: string }) {
                               completed: false,
                               position: g.tasks.length,
                               createdAt: new Date().toISOString(),
+                              updatedAt: new Date().toISOString(),
                               owner: null,
                             },
                           ],

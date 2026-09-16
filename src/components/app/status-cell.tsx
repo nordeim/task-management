@@ -26,7 +26,7 @@ export function StatusCell({
         <button
           type="button"
           aria-label={`Status: ${meta.label}, change status`}
-          className="flex h-7 w-full max-w-[140px] items-center justify-between gap-1 rounded-full px-3 text-xs font-semibold transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-7 w-full max-w-[140px] items-center justify-between gap-1 rounded-md border border-black/10 px-3 text-xs font-semibold transition-colors hover:border-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           style={{ backgroundColor: meta.bg, color: meta.text }}
         >
           <span className="truncate">{meta.label}</span>
