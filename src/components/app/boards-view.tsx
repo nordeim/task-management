@@ -2,14 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  BarChart3,
-  Clock,
-  FolderKanban,
+  ChartNoAxesColumnIncreasing,
+  Folder,
+  Globe,
   Grid3x3,
   List,
+  Lock,
   MoreHorizontal,
-  Plus,
   Pencil,
+  Plus,
   Search,
   Star,
   Trash2,
@@ -38,19 +39,9 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useApp } from "@/components/app/app-context";
 import { api } from "@/lib/api-client";
+import { relativeBoardTime } from "@/lib/domain";
+import { EditBoardDialog } from "@/components/app/edit-board-dialog";
 import type { BoardSummaryDTO } from "@/lib/domain";
-
-function timeAgo(iso: string): string {
-  const seconds = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
-  if (seconds < 60) return "less than a minute ago";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
 
 type Layout = "grid" | "list";
 type FilterKind = "all" | "favorites";
@@ -63,7 +54,7 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
   const [layout, setLayout] = useState<Layout>("grid");
   const [filter, setFilter] = useState<FilterKind>("all");
   const [deleteTarget, setDeleteTarget] = useState<BoardSummaryDTO | null>(null);
-  const [favoriteBusy, setFavoriteBusy] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<BoardSummaryDTO | null>(null);
 
   const load = useCallback(() => api<BoardSummaryDTO[]>("/api/boards"), []);
 
@@ -99,21 +90,8 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
     });
   }, [boards, search, filter]);
 
-  async function toggleFavorite(board: BoardSummaryDTO) {
-    setFavoriteBusy(board.id);
-    const result = await api<null>(`/api/boards/${board.id}`, {
-      method: "PATCH",
-      body: { isFavorite: !board.isFavorite },
-    });
-    setFavoriteBusy(null);
-    if (result.ok) {
-      setBoards((prev) =>
-        prev ? prev.map((b) => (b.id === board.id ? { ...b, isFavorite: !b.isFavorite } : b)) : prev,
-      );
-    } else {
-      toast({ title: "Could not update favorite", description: result.error, variant: "destructive" });
-    }
-  }
+  // Favorites are toggled from the board header (star) — the boards page only
+  // reads the flag (card badge + Favorites filter).
 
   async function confirmDelete() {
     if (!deleteTarget) return;
@@ -195,7 +173,7 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
           Favorites
         </Button>
         <Button variant="outline" size="sm" onClick={() => navigate("analytics")}>
-          <BarChart3 className="mr-1 h-4 w-4" /> Analytics
+          <ChartNoAxesColumnIncreasing className="mr-1 h-4 w-4" /> Analytics
         </Button>
       </div>
 
@@ -209,7 +187,7 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
         <Card>
           <CardContent className="flex flex-col items-center py-16 text-center">
             <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-secondary text-muted-foreground">
-              <FolderKanban className="h-7 w-7" />
+              <Folder className="h-7 w-7" />
             </span>
             {boards && boards.length > 0 ? (
               <>
@@ -250,97 +228,81 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
           }
         >
           {visible.map((board) => {
-            const pct = board.taskCount === 0 ? 0 : Math.round((board.doneCount / board.taskCount) * 100);
             return (
               <Card
                 key={board.id}
-                className="group cursor-pointer transition-shadow hover:shadow-md"
+                className="group cursor-pointer transition-shadow hover:shadow-lg"
                 onClick={() => navigate("board", board.id)}
               >
-                <CardContent className="p-0">
-                  <div className="h-1.5 rounded-t-xl" style={{ backgroundColor: board.color }} />
-                  <div className="p-5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
-                          style={{ backgroundColor: board.color }}
-                          aria-hidden="true"
-                        >
-                          {board.title.slice(0, 1).toUpperCase()}
-                        </span>
-                        <div className="min-w-0">
-                          <h3 className="truncate font-semibold leading-tight">{board.title}</h3>
-                          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <span>{board.visibility}</span>·<span>{timeAgo(board.updatedAt)}</span>
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1">
+                <CardContent className="p-5">
+                  {/* Reference card: tinted folder tile top-left, visibility badge top-right. */}
+                  <div className="mb-4 flex items-start justify-between gap-2">
+                    <span
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                      style={{ backgroundColor: `${board.color}20` }}
+                      aria-hidden="true"
+                    >
+                      <Folder className="h-5 w-5" style={{ color: board.color }} />
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        board.visibility === "private"
+                          ? "bg-rose-100 text-rose-700"
+                          : "bg-emerald-100 text-emerald-700"
+                      }`}
+                    >
+                      {board.visibility === "private" ? (
+                        <Lock className="h-3 w-3" aria-hidden="true" />
+                      ) : (
+                        <Globe className="h-3 w-3" aria-hidden="true" />
+                      )}
+                      {board.visibility}
+                    </span>
+                  </div>
+
+                  <h3 className="mb-2 text-lg font-semibold leading-tight transition-colors group-hover:text-primary">
+                    {board.title}
+                  </h3>
+
+                  {board.description ? (
+                    <p className="mb-5 line-clamp-2 text-sm text-muted-foreground">
+                      {board.description}
+                    </p>
+                  ) : (
+                    <p className="mb-5 line-clamp-2 text-sm text-muted-foreground/70">No description</p>
+                  )}
+
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      {board.isFavorite && (
+                        <Star className="h-3 w-3 fill-[#fcc203] text-[#fcc203]" aria-label="Favorite" />
+                      )}
+                      {relativeBoardTime(new Date(board.updatedAt))}
+                    </span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          aria-label={board.isFavorite ? "Remove from favorites" : "Add to favorites"}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void toggleFavorite(board);
-                          }}
-                          disabled={favoriteBusy === board.id}
+                          aria-label={`Options for ${board.title}`}
+                          onClick={(e) => e.stopPropagation()}
                           className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                         >
-                          <Star className={`h-4 w-4 ${board.isFavorite ? "fill-[#fcc203] text-[#fcc203]" : ""}`} />
+                          <MoreHorizontal className="h-4 w-4" />
                         </button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              aria-label="Board options"
-                              onClick={(e) => e.stopPropagation()}
-                              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenuItem onClick={() => navigate("board", board.id)}>
-                              <Pencil className="mr-2 h-4 w-4" /> Open board
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => void toggleFavorite(board)}>
-                              <Star className="mr-2 h-4 w-4" />
-                              {board.isFavorite ? "Remove from favorites" : "Add to favorites"}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => setDeleteTarget(board)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete board
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-
-                    {board.description && (
-                      <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{board.description}</p>
-                    )}
-
-                    <div className="mt-4 flex items-center gap-3">
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: `${pct}%`, backgroundColor: "#00ca72" }}
-                          role="progressbar"
-                          aria-valuenow={pct}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                          aria-label={`${board.title} completion`}
-                        />
-                      </div>
-                      <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {board.doneCount}/{board.taskCount} done · {pct}%
-                      </span>
-                    </div>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuItem onClick={() => setEditTarget(board)}>
+                          <Pencil className="mr-2 h-4 w-4" /> Edit Board
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setDeleteTarget(board)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete Board
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </CardContent>
               </Card>
@@ -348,6 +310,12 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
           })}
         </div>
       )}
+
+      <EditBoardDialog
+        board={editTarget}
+        onOpenChange={(open) => !open && setEditTarget(null)}
+        onSaved={() => load().then(applyResult)}
+      />
 
       <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
