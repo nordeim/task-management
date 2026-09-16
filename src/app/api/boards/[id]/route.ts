@@ -11,6 +11,8 @@ const updateBoardSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
   description: z.string().trim().max(500).nullable().optional(),
   color: z.string().refine((c) => VALID_COLORS.includes(c), "Unknown board color").optional(),
+  // Closed vocabulary — the edit-board dialog's Private/Public combobox.
+  visibility: z.enum(["private", "public"]).optional(),
   isFavorite: z.boolean().optional(),
 });
 
@@ -26,6 +28,7 @@ function toTaskDTO(
     completed: boolean;
     position: number;
     createdAt: Date;
+    updatedAt: Date;
     owner: { id: string; email: string; name: string; avatarColor: string } | null;
   },
 ): TaskDTO {
@@ -41,6 +44,7 @@ function toTaskDTO(
     completed: t.completed,
     position: t.position,
     createdAt: t.createdAt.toISOString(),
+    updatedAt: t.updatedAt.toISOString(),
     owner: t.owner
       ? { id: t.owner.id, email: t.owner.email, name: t.owner.name, avatarColor: t.owner.avatarColor }
       : null,
