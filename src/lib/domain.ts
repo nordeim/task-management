@@ -37,6 +37,156 @@ export function priorityMeta(value: string) {
   return TASK_PRIORITIES.find((p) => p.value === value) ?? TASK_PRIORITIES[0];
 }
 
+// ---------- pure domain logic (unit-tested in domain.test.ts) ----------
+
+/**
+ * The status <-> completed coupling — one fact stored in two columns.
+ * Both the PATCH handler and the client mirror call this so the table
+ * checkbox, status pill, kanban, and analytics can never disagree.
+ * `status` wins when both fields are present, mirroring the server route.
+ */
+export interface StatusCompletedPatch {
+  status?: TaskStatus;
+  completed?: boolean;
+}
+
+export function resolveStatusCompletedPatch<T extends object>(
+  patch: T & StatusCompletedPatch,
+): T & StatusCompletedPatch {
+  if (patch.status !== undefined) {
+    return { ...patch, completed: patch.status === "done" };
+  }
+  if (patch.completed !== undefined) {
+    return { ...patch, status: patch.completed ? "done" : "not_started" };
+  }
+  return patch;
+}
+
+/** Zoom modes of the timeline (Gantt) view, mirroring the reference app. */
+export type TimelineMode = "day" | "week" | "month";
+
+export interface TimelineRange {
+  /** First day of the window (a Monday in week mode). */
+  start: Date;
+  /** Inclusive last day of the window. */
+  end: Date;
+  /** Every day column to render, in order. */
+  days: Date[];
+  /** Header label, e.g. "Week of Sep 14, 2026" / "Sep 16, 2026" / "September 2026". */
+  label: string;
+}
+
+function atLocalNoon(date: Date): Date {
+  const copy = new Date(date);
+  copy.setHours(12, 0, 0, 0);
+  return copy;
+}
+
+/**
+ * Window math for the timeline view. Weeks start on Monday (the reference
+ * renders Mon…Sun columns); months span their own calendar days.
+ */
+export function timelineRange(mode: TimelineMode, cursor: Date): TimelineRange {
+  const base = atLocalNoon(cursor);
+  if (mode === "day") {
+    return { start: base, end: base, days: [base], label: dayLabel(base) };
+  }
+  if (mode === "week") {
+    // Monday-start week: (getDay()+6)%7 maps Sun=0…Sat=6 to Mon=0…Sun=6.
+    const offsetToMonday = (base.getDay() + 6) % 7;
+    const start = new Date(base);
+    start.setDate(base.getDate() - offsetToMonday);
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(start);
+      day.setDate(start.getDate() + i);
+      return day;
+    });
+    return { start, end: days[6], days, label: `Week of ${dayLabel(start)}` };
+  }
+  const first = new Date(base.getFullYear(), base.getMonth(), 1, 12, 0, 0, 0);
+  const dayCount = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+  const days = Array.from({ length: dayCount }, (_, i) => {
+    const day = new Date(first);
+    day.setDate(first.getDate() + i);
+    return day;
+  });
+  return { start: first, end: days[dayCount - 1], days, label: monthLabel(base) };
+}
+
+function dayLabel(date: Date): string {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+}
+
+function monthLabel(date: Date): string {
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+  ];
+  return `${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+/** Kanban: bucket tasks into the four status columns (all keys always present). */
+export function groupTasksByStatus(tasks: TaskDTO[]): Map<TaskStatus, TaskDTO[]> {
+  const map = new Map<TaskStatus, TaskDTO[]>(TASK_STATUSES.map((s) => [s.value, []]));
+  for (const t of tasks) {
+    map.get(t.status)?.push(t);
+  }
+  return map;
+}
+
+/** Kanban "People" mode: a column per member, unassigned first. */
+export interface PersonColumn {
+  key: string;
+  label: string;
+  sublabel: string | null;
+  user: UserDTO | null;
+  tasks: TaskDTO[];
+}
+
+export function groupTasksByPerson(tasks: TaskDTO[], members: UserDTO[]): PersonColumn[] {
+  const columns: PersonColumn[] = [
+    { key: "unassigned", label: "Unassigned", sublabel: "No one assigned", user: null, tasks: [] },
+    ...members.map((m) => ({ key: m.id, label: m.name, sublabel: null, user: m, tasks: [] })),
+  ];
+  const byKey = new Map(columns.map((c) => [c.key, c]));
+  for (const t of tasks) {
+    const column = t.owner ? byKey.get(t.owner.id) : byKey.get("unassigned");
+    column?.tasks.push(t);
+  }
+  return columns;
+}
+
+/** One bar row of an analytics distribution (dot + label + bar + count). */
+export interface DistributionBar {
+  key: string;
+  label: string;
+  count: number;
+  color: string;
+  /** Share of the total, 0-100 (integer). */
+  pct: number;
+}
+
+export function distributionBars(
+  dist: { key: string; label: string; count: number; color: string }[],
+): DistributionBar[] {
+  const total = dist.reduce((sum, d) => sum + d.count, 0);
+  return dist.map((d) => ({
+    ...d,
+    pct: total === 0 ? 0 : Math.round((d.count / total) * 100),
+  }));
+}
+
+/** Board-header autosave indicator, matching the reference's "Saved 11:54:10 PM". */
+export function formatSavedAt(date: Date): string {
+  let hours = date.getHours();
+  const meridiem = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${hours}:${minutes}:${seconds} ${meridiem}`;
+}
+
 export const ACTIVITY_TYPES = {
   board_created: { icon: "board", color: "#0073ea" },
   board_deleted: { icon: "board", color: "#e2445c" },

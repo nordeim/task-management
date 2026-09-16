@@ -2,15 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
-import { TASK_PRIORITIES, TASK_STATUSES } from "@/lib/domain";
+import { TASK_PRIORITIES, TASK_STATUSES, resolveStatusCompletedPatch } from "@/lib/domain";
+import type { TaskPriority, TaskStatus } from "@/lib/domain";
 
-const STATUS_VALUES = TASK_STATUSES.map((s) => s.value as string);
-const PRIORITY_VALUES = TASK_PRIORITIES.map((p) => p.value as string);
+// Literal-typed enums keep the Zod output narrowed to the closed vocabulary.
+const STATUS_VALUES = TASK_STATUSES.map((s) => s.value) as [TaskStatus, ...TaskStatus[]];
+const PRIORITY_VALUES = TASK_PRIORITIES.map((p) => p.value) as [TaskPriority, ...TaskPriority[]];
 
 const updateTaskSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
-  status: z.enum(STATUS_VALUES as [string, ...string[]]).optional(),
-  priority: z.enum(PRIORITY_VALUES as [string, ...string[]]).optional(),
+  status: z.enum(STATUS_VALUES).optional(),
+  priority: z.enum(PRIORITY_VALUES).optional(),
   ownerId: z.string().nullable().optional(),
   dueDate: z.string().datetime().nullable().optional(),
   completed: z.boolean().optional(),
@@ -59,11 +61,9 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
   if (parsed.data.dueDate !== undefined) {
     patch.dueDate = parsed.data.dueDate ? new Date(parsed.data.dueDate) : null;
   }
-  if (parsed.data.status !== undefined) {
-    patch.completed = parsed.data.status === "done";
-  } else if (parsed.data.completed !== undefined) {
-    patch.status = parsed.data.completed ? "done" : "not_started";
-  }
+  // The status <-> completed coupling lives in domain.ts so the client mirror
+  // and this handler can never drift apart.
+  Object.assign(patch, resolveStatusCompletedPatch(parsed.data));
 
   await db.task.update({ where: { id }, data: patch });
 

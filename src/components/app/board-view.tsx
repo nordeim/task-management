@@ -43,6 +43,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { useApp } from "@/components/app/app-context";
 import { api } from "@/lib/api-client";
+import { resolveStatusCompletedPatch } from "@/lib/domain";
 import { format } from "date-fns";
 import type { BoardDetailDTO, TaskPriority, TaskStatus, UserDTO } from "@/lib/domain";
 import { BoardTable } from "@/components/app/board-table";
@@ -156,14 +157,10 @@ export function BoardView({ boardId }: { boardId: string }) {
         toast({ title: "Could not update task", description: result.error, variant: "destructive" });
         return;
       }
-      // Mirror the server's status<->completed coupling so the checkbox,
-      // status pill, kanban, and analytics never disagree locally.
-      const localPatch: TaskPatch = { ...patch };
-      if (patch.status !== undefined) {
-        localPatch.completed = patch.status === "done";
-      } else if (patch.completed !== undefined) {
-        localPatch.status = patch.completed ? "done" : "not_started";
-      }
+      // Mirror the server's status<->completed coupling (shared helper in
+      // domain.ts) so the checkbox, status pill, kanban, and analytics never
+      // disagree locally.
+      const localPatch = resolveStatusCompletedPatch(patch);
       setBoard((prev) =>
         prev
           ? {
