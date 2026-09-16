@@ -26,20 +26,10 @@ export function StatusCell({
         <button
           type="button"
           aria-label={`Status: ${meta.label}, change status`}
-          className="flex h-7 w-full max-w-[140px] items-center justify-between gap-1 rounded-md border border-black/10 px-3 text-xs font-semibold transition-colors hover:border-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          style={{ backgroundColor: meta.bg, color: meta.text }}
+          className="flex items-center rounded-md border border-transparent px-3 py-1 text-xs font-medium text-white shadow transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          style={{ backgroundColor: meta.bg }}
         >
           <span className="truncate">{meta.label}</span>
-          <svg
-            className="h-3 w-3 shrink-0 opacity-70"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={3}
-            aria-hidden="true"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
-          </svg>
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-44 p-1.5">
@@ -60,7 +50,7 @@ export function StatusCell({
                 >
                   <span className="flex items-center gap-2">
                     <span
-                      className="h-4 w-4 rounded-full border border-black/5"
+                      className="h-3 w-3 rounded-full"
                       style={{ backgroundColor: status.bg }}
                       aria-hidden="true"
                     />

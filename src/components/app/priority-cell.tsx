@@ -7,34 +7,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { TASK_PRIORITIES } from "@/lib/domain";
+import { TASK_PRIORITIES, priorityBadgeStyle } from "@/lib/domain";
 import type { TaskPriority } from "@/lib/domain";
 
 /**
- * The reference app renders priority as a signal-bar flag. The bar count
- * encodes urgency (1=Low … 4=Critical) so the column stays scannable
- * without relying on color alone.
+ * The reference (2026-09-17 probe) renders priority as a tinted text badge —
+ * background at 12.5% alpha over the priority color, label as text — inside a
+ * borderless combobox trigger. The recipe lives in `priorityBadgeStyle`.
  */
-function PriorityFlag({ value }: { value: TaskPriority }) {
-  const index = TASK_PRIORITIES.findIndex((p) => p.value === value);
-  const meta = TASK_PRIORITIES[index] ?? TASK_PRIORITIES[0];
-  const bars = index + 1;
-  return (
-    <span className="flex h-4 items-end gap-[2px]" aria-hidden="true">
-      {[1, 2, 3, 4].map((n) => (
-        <span
-          key={n}
-          className="w-[3px] rounded-sm"
-          style={{
-            height: `${5 + n * 3}px`,
-            backgroundColor: n <= bars ? meta.color : "#d0d4e1",
-          }}
-        />
-      ))}
-    </span>
-  );
-}
-
 export function PriorityCell({
   value,
   onChange,
@@ -51,14 +31,16 @@ export function PriorityCell({
         <button
           type="button"
           aria-label={`Priority: ${meta.label}, change priority`}
-          className="flex h-7 w-full max-w-[110px] items-center justify-between gap-1 rounded-md border border-input bg-card px-2 text-xs font-medium transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-7 w-full max-w-[120px] items-center justify-between gap-1 rounded-md px-1 text-sm transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="flex items-center gap-2">
-            <PriorityFlag value={value} />
-            <span className="truncate text-muted-foreground">{meta.label}</span>
+          <span
+            className="inline-flex items-center rounded-md border border-transparent px-2.5 py-0.5 text-xs font-medium"
+            style={priorityBadgeStyle(value)}
+          >
+            {meta.label}
           </span>
           <svg
-            className="h-3 w-3 shrink-0 opacity-70"
+            className="h-3 w-3 shrink-0 text-muted-foreground opacity-70"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -86,8 +68,12 @@ export function PriorityCell({
                   className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
                 >
                   <span className="flex items-center gap-2">
-                    <PriorityFlag value={priority.value} />
-                    {priority.label}
+                    <span
+                      className="inline-flex min-w-14 items-center justify-center rounded-md px-2 py-0.5 text-xs font-medium"
+                      style={priorityBadgeStyle(priority.value)}
+                    >
+                      {priority.label}
+                    </span>
                   </span>
                   {selected && <Check className="h-4 w-4 text-primary" />}
                 </button>
