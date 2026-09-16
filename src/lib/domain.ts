@@ -29,6 +29,19 @@ export const BOARD_COLORS = [
   { name: "Teal", value: "#00d5c0" },
 ] as const;
 
+// Board visibility — the closed vocabulary behind the create/edit board dialogs.
+export const VISIBILITY_OPTIONS = [
+  { value: "private", label: "Private" },
+  { value: "public", label: "Public" },
+] as const;
+
+export type BoardVisibility = (typeof VISIBILITY_OPTIONS)[number]["value"];
+
+/** Valid PATCH targets for the edit-board dialog (visibility included). */
+export function isBoardVisibility(value: string): value is BoardVisibility {
+  return VISIBILITY_OPTIONS.some((v) => v.value === value);
+}
+
 export function statusMeta(value: string) {
   return TASK_STATUSES.find((s) => s.value === value) ?? TASK_STATUSES[0];
 }
@@ -144,6 +157,132 @@ export interface PersonColumn {
   tasks: TaskDTO[];
 }
 
+// ---------- toolbar Filter popover (status + priority + person + search) ----------
+
+/** Filter criteria applied together (AND semantics) by the board toolbar. */
+export interface TaskFilterCriteria {
+  search?: string;
+  personId?: string | null;
+  statuses?: readonly TaskStatus[];
+  priorities?: readonly TaskPriority[];
+}
+
+/**
+ * The board toolbar's filter pipeline. Empty/absent criteria are no-ops —
+ * an empty status set must NOT mean "match nothing".
+ */
+export function filterTasks(tasks: TaskDTO[], criteria: TaskFilterCriteria): TaskDTO[] {
+  const query = criteria.search?.trim().toLowerCase() ?? "";
+  const statuses = criteria.statuses ?? [];
+  const priorities = criteria.priorities ?? [];
+  return tasks.filter((t) => {
+    if (query && !t.title.toLowerCase().includes(query)) return false;
+    if (criteria.personId && t.owner?.id !== criteria.personId) return false;
+    if (statuses.length > 0 && !statuses.includes(t.status)) return false;
+    if (priorities.length > 0 && !priorities.includes(t.priority)) return false;
+    return true;
+  });
+}
+
+// ---------- toolbar Sort popover (Task Name / Created Date / Updated Date) ----------
+
+export type SortField = "title" | "createdAt" | "updatedAt";
+export type SortDir = "asc" | "desc";
+
+export interface SortSpec {
+  field: SortField;
+  dir: SortDir;
+}
+
+/** Sorts a copy — the input array is never mutated. */
+export function sortTasks(tasks: TaskDTO[], spec: SortSpec): TaskDTO[] {
+  const sorted = [...tasks];
+  sorted.sort((a, b) => {
+    let cmp: number;
+    if (spec.field === "title") {
+      cmp = a.title.localeCompare(b.title);
+    } else {
+      const av = new Date(a[spec.field]).getTime();
+      const bv = new Date(b[spec.field]).getTime();
+      cmp = av - bv;
+    }
+    return spec.dir === "asc" ? cmp : -cmp;
+  });
+  return sorted;
+}
+
+// ---------- toolbar Hide popover (Show/Hide Columns) ----------
+
+export type ColumnKey = "task" | "priority" | "status" | "owner" | "dueDate";
+
+const ALL_COLUMNS: { key: ColumnKey; label: string }[] = [
+  { key: "task", label: "Task" },
+  { key: "priority", label: "Priority" },
+  { key: "status", label: "Status" },
+  { key: "owner", label: "Owner" },
+  { key: "dueDate", label: "Due Date" },
+];
+
+export interface VisibleColumn {
+  key: ColumnKey;
+  label: string;
+  /** How many flexible content cells the table grid needs (drives the template). */
+  templateCells: number;
+}
+
+/** Ordered column list minus whatever the Hide popover turned off. */
+export function visibleColumns(hidden: readonly string[]): VisibleColumn[] {
+  const hiddenSet = new Set(hidden);
+  const cols = ALL_COLUMNS.filter((c) => !hiddenSet.has(c.key));
+  return cols.map((c) => ({ ...c, templateCells: cols.length }));
+}
+
+// ---------- table footer summary row ----------
+
+export interface GroupSummary {
+  items: number;
+  done: number;
+  /** Priorities with non-zero counts, vocabulary order, label lowercase. */
+  priorities: { label: string; count: number }[];
+}
+
+/** The per-group footer row: "N items" + "N low" style priority badges. */
+export function groupSummary(tasks: TaskDTO[]): GroupSummary {
+  const counts = new Map<TaskPriority, number>();
+  let done = 0;
+  for (const t of tasks) {
+    counts.set(t.priority, (counts.get(t.priority) ?? 0) + 1);
+    if (t.status === "done") done += 1;
+  }
+  return {
+    items: tasks.length,
+    done,
+    priorities: TASK_PRIORITIES.filter((p) => (counts.get(p.value) ?? 0) > 0).map((p) => ({
+      label: p.value,
+      count: counts.get(p.value) ?? 0,
+    })),
+  };
+}
+
+// ---------- boards-card relative time ----------
+
+/**
+ * Reference-format relative time for board cards:
+ * "just now", "N minutes ago", "about N hours ago", "about N days ago",
+ * then a calendar date beyond a week. `now` is injectable for tests.
+ */
+export function relativeBoardTime(date: Date, now: Date = new Date()): string {
+  const seconds = Math.max(0, Math.floor((now.getTime() - date.getTime()) / 1000));
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `about ${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `about ${days} day${days === 1 ? "" : "s"} ago`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 export function groupTasksByPerson(tasks: TaskDTO[], members: UserDTO[]): PersonColumn[] {
   const columns: PersonColumn[] = [
     { key: "unassigned", label: "Unassigned", sublabel: "No one assigned", user: null, tasks: [] },
@@ -223,6 +362,7 @@ export interface TaskDTO {
   completed: boolean;
   position: number;
   createdAt: string;
+  updatedAt: string;
   owner: UserDTO | null;
 }
 

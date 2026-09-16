@@ -3,14 +3,20 @@ import { describe, expect, it } from "vitest";
 import {
   TASK_PRIORITIES,
   TASK_STATUSES,
+  VISIBILITY_OPTIONS,
   distributionBars,
+  filterTasks,
   formatSavedAt,
+  groupSummary,
   groupTasksByPerson,
   groupTasksByStatus,
   priorityMeta,
+  relativeBoardTime,
   resolveStatusCompletedPatch,
+  sortTasks,
   statusMeta,
   timelineRange,
+  visibleColumns,
 } from "@/lib/domain";
 import type { TaskDTO, UserDTO } from "@/lib/domain";
 
@@ -31,6 +37,7 @@ function task(overrides: Partial<TaskDTO> & { id: string }): TaskDTO {
     completed: false,
     position: 0,
     createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
     owner: null,
     ...overrides,
   };
@@ -220,5 +227,176 @@ describe("closed vocabulary", () => {
   it("keeps exactly four statuses and four priorities in canonical order", () => {
     expect(TASK_STATUSES.map((s) => s.value)).toEqual(["not_started", "working", "done", "stuck"]);
     expect(TASK_PRIORITIES.map((p) => p.value)).toEqual(["low", "medium", "high", "critical"]);
+  });
+});
+
+// ---------- board visibility vocabulary (edit-board dialog) ----------
+
+describe("VISIBILITY_OPTIONS", () => {
+  it("offers exactly private and public", () => {
+    expect(VISIBILITY_OPTIONS.map((v) => v.value)).toEqual(["private", "public"]);
+    expect(VISIBILITY_OPTIONS.map((v) => v.label)).toEqual(["Private", "Public"]);
+  });
+});
+
+// ---------- toolbar Filter popover seam (status + priority + person + search) ----------
+
+describe("filterTasks", () => {
+  const jane = user("u1", "Jane Doe");
+  const tasks = [
+    task({ id: "1", title: "Write spec", status: "working", priority: "high", owner: jane }),
+    task({ id: "2", title: "Design logo", status: "not_started", priority: "low" }),
+    task({ id: "3", title: "Ship release", status: "done", priority: "critical", owner: jane }),
+    task({ id: "4", title: "Write tests", status: "stuck", priority: "low" }),
+  ];
+
+  it("returns everything when no criteria are set", () => {
+    expect(filterTasks(tasks, {})).toHaveLength(4);
+  });
+
+  it("filters by a set of statuses", () => {
+    const out = filterTasks(tasks, { statuses: ["working", "done"] });
+    expect(out.map((t) => t.id)).toEqual(["1", "3"]);
+  });
+
+  it("filters by a set of priorities", () => {
+    const out = filterTasks(tasks, { priorities: ["low"] });
+    expect(out.map((t) => t.id)).toEqual(["2", "4"]);
+  });
+
+  it("combines status and priority criteria with AND semantics", () => {
+    const out = filterTasks(tasks, { statuses: ["working", "stuck"], priorities: ["low"] });
+    expect(out.map((t) => t.id)).toEqual(["4"]);
+  });
+
+  it("keeps the person filter and search working alongside the new criteria", () => {
+    const out = filterTasks(tasks, { personId: "u1", search: "write" });
+    expect(out.map((t) => t.id)).toEqual(["1"]);
+  });
+
+  it("matches search case-insensitively on the title", () => {
+    const out = filterTasks(tasks, { search: "SHIP" });
+    expect(out.map((t) => t.id)).toEqual(["3"]);
+  });
+
+  it("treats an empty status set as no constraint (not as match-nothing)", () => {
+    expect(filterTasks(tasks, { statuses: [] })).toHaveLength(4);
+    expect(filterTasks(tasks, { priorities: [] })).toHaveLength(4);
+  });
+});
+
+// ---------- toolbar Sort popover seam (Task Name / Created Date / Updated Date) ----------
+
+describe("sortTasks", () => {
+  const tasks = [
+    task({ id: "1", title: "Beta", createdAt: "2026-03-02T00:00:00.000Z", updatedAt: "2026-05-01T00:00:00.000Z" }),
+    task({ id: "2", title: "Alpha", createdAt: "2026-01-02T00:00:00.000Z", updatedAt: "2026-02-01T00:00:00.000Z" }),
+    task({ id: "3", title: "Gamma", createdAt: "2026-02-02T00:00:00.000Z", updatedAt: "2026-04-01T00:00:00.000Z" }),
+  ];
+
+  it("sorts by title ascending and descending", () => {
+    expect(sortTasks(tasks, { field: "title", dir: "asc" }).map((t) => t.id)).toEqual(["2", "1", "3"]);
+    expect(sortTasks(tasks, { field: "title", dir: "desc" }).map((t) => t.id)).toEqual(["3", "1", "2"]);
+  });
+
+  it("sorts by created date", () => {
+    expect(sortTasks(tasks, { field: "createdAt", dir: "asc" }).map((t) => t.id)).toEqual(["2", "3", "1"]);
+    expect(sortTasks(tasks, { field: "createdAt", dir: "desc" }).map((t) => t.id)).toEqual(["1", "3", "2"]);
+  });
+
+  it("sorts by updated date", () => {
+    expect(sortTasks(tasks, { field: "updatedAt", dir: "asc" }).map((t) => t.id)).toEqual(["2", "3", "1"]);
+    expect(sortTasks(tasks, { field: "updatedAt", dir: "desc" }).map((t) => t.id)).toEqual(["1", "3", "2"]);
+  });
+
+  it("does not mutate the input array", () => {
+    const copy = [...tasks];
+    sortTasks(tasks, { field: "title", dir: "asc" });
+    expect(tasks.map((t) => t.id)).toEqual(copy.map((t) => t.id));
+  });
+});
+
+// ---------- toolbar Hide popover seam (Show/Hide Columns) ----------
+
+describe("visibleColumns", () => {
+  it("returns all five columns in canonical order by default", () => {
+    const cols = visibleColumns([]);
+    expect(cols.map((c) => c.key)).toEqual(["task", "priority", "status", "owner", "dueDate"]);
+  });
+
+  it("drops hidden columns from the ordered list", () => {
+    const cols = visibleColumns(["priority", "dueDate"]);
+    expect(cols.map((c) => c.key)).toEqual(["task", "status", "owner"]);
+  });
+
+  it("ignores unknown keys and tolerates duplicates", () => {
+    const cols = visibleColumns(["bogus", "status", "status"]);
+    expect(cols.map((c) => c.key)).toEqual(["task", "priority", "owner", "dueDate"]);
+  });
+
+  it("exposes a grid template that shrinks with the visible column count", () => {
+    const all = visibleColumns([]);
+    const fewer = visibleColumns(["priority"]);
+    expect(all[0].templateCells).toBe(5);
+    expect(fewer[0].templateCells).toBe(4);
+    expect(fewer.map((c) => c.templateCells)).toEqual([4, 4, 4, 4]);
+  });
+});
+
+// ---------- table footer summary row seam ----------
+
+describe("groupSummary", () => {
+  it("counts items and per-priority occurrences", () => {
+    const tasks = [
+      task({ id: "1", priority: "low" }),
+      task({ id: "2", priority: "low" }),
+      task({ id: "3", priority: "critical" }),
+      task({ id: "4", priority: "high", status: "done" }),
+    ];
+    const summary = groupSummary(tasks);
+    expect(summary.items).toBe(4);
+    expect(summary.done).toBe(1);
+    expect(summary.priorities).toEqual([
+      { label: "low", count: 2 },
+      { label: "high", count: 1 },
+      { label: "critical", count: 1 },
+    ]);
+  });
+
+  it("returns zeroed counters for an empty group", () => {
+    const summary = groupSummary([]);
+    expect(summary.items).toBe(0);
+    expect(summary.done).toBe(0);
+    expect(summary.priorities).toEqual([]);
+  });
+
+  it("omits priorities with zero occurrences", () => {
+    const summary = groupSummary([task({ id: "1", priority: "medium" })]);
+    expect(summary.priorities).toEqual([{ label: "medium", count: 1 }]);
+  });
+});
+
+// ---------- boards-card relative time ("about N hours ago") ----------
+
+describe("relativeBoardTime", () => {
+  it("renders 'just now' for fresh updates", () => {
+    expect(relativeBoardTime(new Date(), new Date())).toBe("just now");
+  });
+
+  it("renders minutes without the 'about' prefix", () => {
+    const now = new Date(2026, 8, 16, 12, 0, 0);
+    const then = new Date(2026, 8, 16, 11, 44, 0);
+    expect(relativeBoardTime(then, now)).toBe("16 minutes ago");
+  });
+
+  it("renders hours and days with the 'about' prefix like the reference", () => {
+    const now = new Date(2026, 8, 16, 12, 0, 0);
+    expect(relativeBoardTime(new Date(2026, 8, 16, 1, 0, 0), now)).toBe("about 11 hours ago");
+    expect(relativeBoardTime(new Date(2026, 8, 14, 12, 0, 0), now)).toBe("about 2 days ago");
+  });
+
+  it("falls back to a calendar date beyond a week", () => {
+    const now = new Date(2026, 8, 16, 12, 0, 0);
+    expect(relativeBoardTime(new Date(2026, 7, 1, 12, 0, 0), now)).toBe("Aug 1");
   });
 });
