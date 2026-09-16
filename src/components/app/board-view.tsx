@@ -464,12 +464,7 @@ export function BoardView({ boardId }: { boardId: string }) {
               {total} item{total === 1 ? "" : "s"}
             </span>
             <span aria-hidden="true" className="text-muted-foreground/40">▪</span>
-            {lastSavedAt && (
-              <span>
-                Saved <span aria-hidden="true">{formatSavedAt(lastSavedAt)}</span>
-                <span className="sr-only">at {formatSavedAt(lastSavedAt)}</span>
-              </span>
-            )}
+            {lastSavedAt && <span>Saved {formatSavedAt(lastSavedAt)}</span>}
           </span>
 
           <span className="hidden items-center gap-0.5 xl:flex" aria-label="Board members">

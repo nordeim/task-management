@@ -152,7 +152,7 @@ export function AnalyticsView() {
           return (
             <div
               key={card.key}
-              className="stat-card-deco relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-xl p-5 text-white shadow-sm"
+              className="relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-xl p-5 text-white shadow-sm"
               style={{ backgroundColor: card.bg }}
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
@@ -182,7 +182,6 @@ export function AnalyticsView() {
             <CardTitle className="flex items-center gap-2 text-base">
               <Activity className="h-4 w-4 text-primary" /> Task Status Distribution
             </CardTitle>
-            <CardDescription>Where your tasks stand right now</CardDescription>
           </CardHeader>
           <CardContent>
             {!data ? (
@@ -229,7 +228,6 @@ export function AnalyticsView() {
             <CardTitle className="flex items-center gap-2 text-base">
               <BarChart3 className="h-4 w-4 text-primary" /> Priority Distribution
             </CardTitle>
-            <CardDescription>How urgent the workload is</CardDescription>
           </CardHeader>
           <CardContent>
             {!data ? (
