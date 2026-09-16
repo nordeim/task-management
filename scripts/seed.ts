@@ -158,7 +158,9 @@ async function main() {
     update: {},
     create: {
       email: "sepnetflix2023@outlook.com",
-      name: "Sep Netflix",
+      // Named after the email prefix so the demo greets exactly like the
+      // reference account ("Good morning, sepnetflix2023!").
+      name: "sepnetflix2023",
       passwordHash: hashPassword("Abcd1234"),
       avatarColor: "#00d5c0",
     },
