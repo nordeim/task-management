@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
   ArrowRight,
-  BarChart3,
   CalendarDays,
+  ChartColumn,
   CheckCircle2,
   Clock,
   Folder,
@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useApp } from "@/components/app/app-context";
 import { api } from "@/lib/api-client";
 import type { DashboardDTO } from "@/lib/domain";
+import { visibilityLabel } from "@/lib/domain";
 
 /** Gradient pairs probed from the reference KPI cards (2026-09-16). */
 const STAT_CARDS = [
@@ -36,7 +37,7 @@ const QUICK_ACTIONS = [
   { label: "Create Board", hint: "Start new project", bg: "#06b6d4", icon: Plus, action: "create" as const },
   { label: "Invite Team", hint: "Add collaborators", bg: "#22c55e", icon: UserPlus, action: "invite" as const },
   { label: "Calendar", hint: "View deadlines", bg: "#f97316", icon: CalendarDays, action: "calendar" as const },
-  { label: "Analytics", hint: "View insights", bg: "#d946ef", icon: BarChart3, action: "analytics" as const },
+  { label: "Analytics", hint: "View insights", bg: "#d946ef", icon: ChartColumn, action: "analytics" as const },
 ] as const;
 
 function greeting(): string {
@@ -133,17 +134,18 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
   const firstName = user.name.split(" ")[0] || user.name;
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-6 lg:p-8">
-      {/* Hero — reference layout: greeting block with the buttons BELOW it,
-          left-aligned on the same row. */}
-      <section className="rounded-2xl border bg-card p-6 shadow-sm sm:p-8">
-        <div className="flex items-start gap-4">
+    <div className="mx-auto max-w-7xl space-y-8 p-4 sm:p-6 lg:p-8">
+      {/* Hero — reference (probed 2026-09-17): white gradient card with soft
+          blue deco discs, small blue gradient icon tile, default-size buttons. */}
+      <section className="relative overflow-hidden rounded-2xl border border-white/60 bg-gradient-to-br from-white via-white to-blue-50/30 p-6 shadow-sm sm:p-8">
+        <div aria-hidden="true" className="absolute right-0 top-0 h-24 w-24 -translate-y-12 translate-x-12 rounded-full bg-gradient-to-br from-blue-500/10 to-transparent" />
+        <div aria-hidden="true" className="absolute bottom-0 left-0 h-20 w-20 translate-y-10 -translate-x-10 rounded-full bg-gradient-to-tr from-blue-500/5 to-transparent" />
+        <div className="relative z-10 flex items-start gap-4">
           <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white"
-            style={{ backgroundColor: "#0073ea" }}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg"
             aria-hidden="true"
           >
-            <Sparkles className="h-6 w-6" />
+            <Sparkles className="h-5 w-5" />
           </div>
           <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
@@ -156,11 +158,11 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                 : ""}
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <Button size="lg" className="font-semibold" onClick={() => navigate("boards")}>
-                View All Boards <ArrowRight className="ml-1 h-4 w-4" />
+              <Button className="font-semibold" onClick={() => navigate("boards")}>
+                <Folder className="mr-1 h-4 w-4" /> View All Boards <ArrowRight className="ml-1 h-4 w-4" />
               </Button>
-              <Button size="lg" variant="outline" className="font-semibold" onClick={() => navigate("analytics")}>
-                <BarChart3 className="mr-1 h-4 w-4" /> View Analytics
+              <Button variant="outline" className="font-semibold" onClick={() => navigate("analytics")}>
+                <ChartColumn className="mr-1 h-4 w-4" /> View Analytics
               </Button>
             </div>
           </div>
@@ -196,9 +198,9 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
         })}
       </section>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        {/* Recent boards */}
-        <Card className="xl:col-span-2">
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-4">
+        {/* Recent boards — spans 3 of 4 columns like the reference. */}
+        <Card className="xl:col-span-3">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center gap-3">
               <span
@@ -249,11 +251,11 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                       <button
                         type="button"
                         onClick={() => navigate("board", board.id)}
-                        className="flex w-full items-center gap-4 rounded-lg border p-4 text-left transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="group flex w-full items-center gap-4 rounded-xl border border-transparent p-4 text-left transition-all duration-200 hover:border-blue-100 hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-purple-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        {/* Reference card: colored folder tile + title + "Updated …" + visibility badge. */}
+                        {/* Reference card: full-color folder tile + title + "Updated …" + visibility badge. */}
                         <span
-                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-lg transition-transform duration-200 group-hover:scale-110"
                           style={{ backgroundColor: board.color }}
                           aria-hidden="true"
                         >
@@ -274,7 +276,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                               ) : (
                                 <Globe className="h-3 w-3" aria-hidden="true" />
                               )}
-                              {board.visibility}
+                              {visibilityLabel(board.visibility, true)}
                             </span>
                           </span>
                           <span className="mt-0.5 block truncate text-sm text-muted-foreground">
@@ -292,7 +294,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
         </Card>
 
         {/* Sidebar: quick actions + activity */}
-        <div className="space-y-6">
+        <div className="space-y-8">
           <Card>
             <CardHeader className="pb-4">
               <div className="flex items-center gap-3">
