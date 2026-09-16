@@ -64,6 +64,12 @@
   --border: #e6e9ef;
   --input: #d0d4e1;
   --ring: #0073ea;
+  /* Reference chrome tokens (probed from the live app 2026-09-16). */
+  --nav-active-bg: #e1e5f3;
+  --nav-hover-bg: #f5f6f8;
+  --table-header-bg: #f5f6f8;
+  --table-track-bg: #e1e5f3;
+  --group-progress-fill: #00c875;
   --chart-1: #0073ea;
   --chart-2: #00ca72;
   --chart-3: #ff642e;
@@ -140,27 +146,31 @@
   background: #b4bac8;
 }
 
-/* Decorative translucent circles used by the colored dashboard stat cards. */
+/* Decorative translucent circles + dots used by the gradient KPI cards.
+   Reference geometry: w-16 h-16 disc top-right at white/10, w-12 h-12 disc
+   bottom-left at white/5, four 4px dots at white/40. */
 .stat-card-deco::after {
   content: "";
   position: absolute;
-  top: -24px;
-  right: -24px;
-  width: 110px;
-  height: 110px;
-  background: rgba(255, 255, 255, 0.16);
+  top: 0;
+  right: 0;
+  width: 64px;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 50%;
+  transform: translate(30%, -30%);
   pointer-events: none;
 }
 .stat-card-deco::before {
   content: "";
   position: absolute;
-  bottom: -32px;
-  left: -32px;
-  width: 90px;
-  height: 90px;
-  background: rgba(255, 255, 255, 0.1);
+  bottom: 0;
+  left: 0;
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 50%;
+  transform: translate(-30%, 30%);
   pointer-events: none;
 }
 

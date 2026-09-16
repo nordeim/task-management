@@ -3,14 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
-  AlertTriangle,
-  BarChart3,
-  CheckCircle2,
-  ClipboardList,
-  FolderKanban,
+  ChartColumn,
+  CircleCheck,
+  Clock,
+  Folder,
+  Target,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -31,13 +32,13 @@ const TIME_WINDOWS = [
   { value: "90", label: "Last 90 days" },
 ];
 
-// Solid colored KPI cards matching the reference analytics page. Colors come
-// from the documented KPI palette (README design tokens).
+// Gradient KPI cards matching the reference analytics page (pairs probed from
+// the live app 2026-09-16: to-right gradients, green completion bar).
 const STAT_CARDS = [
-  { key: "totalTasks", label: "Total Tasks", hint: "Active tasks tracked", bg: "#3b82f6", icon: ClipboardList },
-  { key: "completionRate", label: "Completion Rate", hint: null, bg: "#22c55e", icon: CheckCircle2, suffix: "%" },
-  { key: "overdueTasks", label: "Overdue Tasks", hint: "Need attention", bg: "#e93b3b", icon: AlertTriangle },
-  { key: "activeBoards", label: "Active Boards", hint: "Boards in use", bg: "#a855f7", icon: FolderKanban },
+  { key: "totalTasks", label: "Total Tasks", hint: "Active tasks tracked", from: "#3b82f6", to: "#2563eb", icon: Target },
+  { key: "completionRate", label: "Completion Rate", hint: null, from: "#22c55e", to: "#16a34a", icon: CircleCheck, suffix: "%" },
+  { key: "overdueTasks", label: "Overdue Tasks", hint: "Need attention", from: "#ef4444", to: "#dc2626", icon: Clock },
+  { key: "activeBoards", label: "Active Boards", hint: "Boards in use", from: "#a855f7", to: "#9333ea", icon: Folder },
 ] as const;
 
 export function AnalyticsView() {
@@ -143,7 +144,7 @@ export function AnalyticsView() {
         </div>
       </div>
 
-      {/* Stats row — solid colored cards like the reference */}
+      {/* Stats row — gradient cards like the reference (analytics runs to-right). */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Key metrics">
         {STAT_CARDS.map((card) => {
           const Icon = card.icon;
@@ -152,8 +153,8 @@ export function AnalyticsView() {
           return (
             <div
               key={card.key}
-              className="relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-xl p-5 text-white shadow-sm"
-              style={{ backgroundColor: card.bg }}
+              className="stat-card-deco relative flex min-h-[136px] flex-col justify-between overflow-hidden rounded-xl p-5 text-white shadow-sm"
+              style={{ background: `linear-gradient(to right, ${card.from}, ${card.to})` }}
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
                 {stats ? <Icon className="h-5 w-5" /> : <Skeleton className="h-5 w-5 bg-white/30" />}
@@ -164,11 +165,12 @@ export function AnalyticsView() {
                 {card.hint && <span className="block text-xs opacity-80">{card.hint}</span>}
               </span>
               {"suffix" in card && (
-                <Progress
-                  value={stats?.completionRate ?? 0}
-                  className="h-1.5 [&>div]:bg-white"
-                  aria-label="Completion rate"
-                />
+                <span className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/25" aria-label="Completion rate">
+                  <span
+                    className="block h-full rounded-full bg-white"
+                    style={{ width: `${stats?.completionRate ?? 0}%` }}
+                  />
+                </span>
               )}
             </div>
           );
@@ -199,7 +201,7 @@ export function AnalyticsView() {
                 {statusBars.map((bar) => (
                   <li key={bar.status}>
                     <div className="mb-1.5 flex items-center gap-2 text-sm">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: bar.color }} aria-hidden="true" />
+                      <span className="h-4 w-4 shrink-0 rounded-full" style={{ backgroundColor: bar.color }} aria-hidden="true" />
                       <span className="flex-1 text-muted-foreground">{bar.label}</span>
                       <span className="font-semibold">{bar.count}</span>
                     </div>
@@ -226,7 +228,7 @@ export function AnalyticsView() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
-              <BarChart3 className="h-4 w-4 text-primary" /> Priority Distribution
+              <TrendingUp className="h-4 w-4 text-primary" /> Priority Distribution
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -245,7 +247,7 @@ export function AnalyticsView() {
                 {priorityBars.map((bar) => (
                   <li key={bar.priority}>
                     <div className="mb-1.5 flex items-center gap-2 text-sm">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: bar.color }} aria-hidden="true" />
+                      <span className="h-4 w-4 shrink-0 rounded-full" style={{ backgroundColor: bar.color }} aria-hidden="true" />
                       <span className="flex-1 text-muted-foreground">{bar.label}</span>
                       <span className="font-semibold">{bar.count}</span>
                     </div>
@@ -273,8 +275,9 @@ export function AnalyticsView() {
       {/* Board performance */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Board Performance</CardTitle>
-          <CardDescription>Completion rate per board</CardDescription>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ChartColumn className="h-4 w-4 text-primary" /> Board Performance
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {!data ? (

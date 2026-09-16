@@ -12,7 +12,7 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { format } from "date-fns";
-import { CalendarDays, Plus, User as UserIcon } from "lucide-react";
+import { CalendarDays, Columns3, Plus, User as UserIcon } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -111,20 +111,20 @@ function KanbanCard({ task }: { task: TaskDTO }) {
   );
 }
 
-/** The reference's empty-column placeholder: a soft disc, a plus, a hint. */
+/** The reference's empty-column placeholder: a large colored disc + hint. */
 function EmptyColumnHint({ color, onAddTask }: { color: string; onAddTask: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed py-8">
+    <div className="flex flex-col items-center gap-3 rounded-lg py-8">
       <button
         type="button"
         aria-label="Add a task to this column"
         onClick={onAddTask}
-        className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-md transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         style={{ backgroundColor: color }}
       >
-        <Plus className="h-5 w-5" />
+        <Plus className="h-6 w-6" />
       </button>
-      <p className="text-xs text-muted-foreground">Drag tasks here or click + to add new</p>
+      <p className="text-xs text-muted-foreground">Drag tasks here</p>
     </div>
   );
 }
@@ -256,9 +256,10 @@ export function BoardKanban({ tasks, members, onStatusChange, onOwnerChange, onA
   return (
     <div className="overflow-hidden rounded-xl border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-        <div>
+        {/* Reference chrome: heading inside a lavender tile with an icon. */}
+        <div className="flex items-center gap-2 rounded-lg bg-[#f0ecfa] px-3 py-2">
+          <Columns3 className="h-4 w-4 text-[#a25ddb]" aria-hidden="true" />
           <h2 className="text-base font-semibold">Kanban Board</h2>
-          <p className="text-xs text-muted-foreground">Drag and drop to manage your tasks</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">Group by:</span>

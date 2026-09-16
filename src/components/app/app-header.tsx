@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, HelpCircle, Search, Settings } from "lucide-react";
+import { Bell, Briefcase, HelpCircle, Menu, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -19,6 +19,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useApp } from "@/components/app/app-context";
 import { api } from "@/lib/api-client";
 import { toast } from "@/hooks/use-toast";
@@ -87,6 +94,7 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
     <header className="sticky top-0 z-40 border-b bg-card">
       <div className="mx-auto flex h-16 max-w-[1400px] items-center justify-between gap-4 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-6 lg:gap-10">
+          {/* Reference logo: gradient tile with a white briefcase. */}
           <Link
             href="#"
             onClick={(e) => {
@@ -97,14 +105,14 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
             aria-label="Tuesday.com home"
           >
             <span
-              className="flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold text-white"
-              style={{ backgroundColor: "#0073ea" }}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-[#2563EB] to-[#1D4ED8]"
+              aria-hidden="true"
             >
-              T
+              <Briefcase className="h-5 w-5 text-white" />
             </span>
             <span className="hidden text-lg font-bold tracking-tight sm:inline">Tuesday.com</span>
           </Link>
-          <nav className="flex items-center gap-1 sm:gap-2" aria-label="Primary">
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
             {NAV_ITEMS.map((item) => {
               const active = view.name === item.view;
               return (
@@ -113,10 +121,10 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
                   type="button"
                   onClick={() => navigate(item.view)}
                   aria-current={active ? "page" : undefined}
-                  className={`rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors sm:px-3 ${
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                     active
-                      ? "text-foreground"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      ? "bg-[var(--nav-active-bg)] text-primary"
+                      : "text-foreground hover:bg-[var(--nav-hover-bg)]"
                   }`}
                 >
                   {item.label}
@@ -124,10 +132,57 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
               );
             })}
           </nav>
+          {/* Reference mobile pattern: hamburger opens the nav drawer. */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 text-muted-foreground md:hidden"
+                aria-label="Open main menu"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-64 p-0">
+              <SheetHeader className="border-b px-4 py-4">
+                <SheetTitle className="flex items-center gap-2 text-left">
+                  <span
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-[#2563EB] to-[#1D4ED8]"
+                    aria-hidden="true"
+                  >
+                    <Briefcase className="h-5 w-5 text-white" />
+                  </span>
+                  Tuesday.com
+                </SheetTitle>
+              </SheetHeader>
+              <nav className="flex flex-col gap-1 p-3" aria-label="Mobile primary">
+                {NAV_ITEMS.map((item) => {
+                  const active = view.name === item.view;
+                  return (
+                    <button
+                      key={item.view}
+                      type="button"
+                      onClick={() => navigate(item.view)}
+                      aria-current={active ? "page" : undefined}
+                      className={`rounded-md px-3 py-2 text-left text-sm font-medium transition-colors ${
+                        active
+                          ? "bg-[var(--nav-active-bg)] text-primary"
+                          : "text-foreground hover:bg-[var(--nav-hover-bg)]"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </nav>
+            </SheetContent>
+          </Sheet>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Global search — jump straight to a matching board. */}
+          {/* Global search — jump straight to a matching board. Reference chrome:
+              wide field, "Search everything..." placeholder. */}
           <div className="relative hidden md:block">
             <Popover open={searchOpen && query.length > 0} onOpenChange={setSearchOpen}>
               <PopoverTrigger asChild>
@@ -136,8 +191,8 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
                     ref={searchRef}
                     type="search"
                     role="searchbox"
-                    aria-label="Search boards"
-                    placeholder={searchPlaceholder ?? "Search"}
+                    aria-label="Search everything"
+                    placeholder={searchPlaceholder ?? "Search everything..."}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     onKeyDown={(e) => {
@@ -150,7 +205,7 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
                         setSearchOpen(false);
                       }
                     }}
-                    className="h-9 w-44 border-input bg-card pl-9 text-sm lg:w-56"
+                    className="h-9 w-72 bg-white pl-9 text-base lg:w-80"
                   />
                   <Search
                     className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"

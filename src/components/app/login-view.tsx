@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, LogIn, Sparkles, UserPlus } from "lucide-react";
+import { Loader2, Lock, LogIn, Mail, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,28 +44,38 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-10">
       <div className="w-full max-w-md">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <span
-            className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl text-xl font-bold text-white"
-            style={{ backgroundColor: "#0073ea" }}
-          >
-            T
-          </span>
-          <h1 className="text-3xl font-bold tracking-tight">Welcome to Task Management</h1>
-          <p className="mt-2 text-muted-foreground">Sign in to continue</p>
-        </div>
+        {/* Reference card: gradient top bar, backdrop blur, circular logo. */}
+        <div className="relative overflow-hidden rounded-2xl border-0 bg-white/95 p-8 shadow-2xl backdrop-blur-sm sm:p-10">
+          <div
+            className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200"
+            aria-hidden="true"
+          />
+          <div className="flex flex-col items-center text-center">
+            <div className="group relative mb-6">
+              <div
+                className="absolute inset-0 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 opacity-30 blur-xl transition-opacity group-hover:opacity-40"
+                aria-hidden="true"
+              />
+              <span className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 text-2xl font-bold text-slate-700 shadow-lg ring-4 ring-white/50 sm:h-24 sm:w-24 sm:text-3xl">
+                T
+              </span>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              Welcome to Task Management
+            </h1>
+            <p className="mt-2 text-sm font-medium text-slate-500 sm:text-base">Sign in to continue</p>
+          </div>
 
-        <div className="rounded-xl border bg-card p-6 shadow-sm sm:p-8">
           <Button
             type="button"
             variant="outline"
-            className="mb-5 h-11 w-full text-sm font-medium"
+            className="mt-8 flex w-full items-center justify-center gap-3 rounded-xl border-slate-200 bg-white px-5 py-3.5 text-base font-medium text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
             onClick={handleGoogle}
             disabled={busy !== null}
           >
-            <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+            <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
               <path
                 fill="#4285F4"
                 d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
@@ -86,7 +96,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
             Continue with Google
           </Button>
 
-          <div className="relative mb-5">
+          <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
             </div>
@@ -113,30 +123,42 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
             )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="h-10"
-              />
+              <div className="relative">
+                <Mail
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="h-10 pl-9"
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={mode === "signup" ? 8 : undefined}
-                className="h-10"
-              />
+              <div className="relative">
+                <Lock
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={mode === "signup" ? 8 : undefined}
+                  className="h-10 pl-9"
+                />
+              </div>
               {mode === "signup" && (
                 <p className="text-xs text-muted-foreground">Use at least 8 characters.</p>
               )}
@@ -215,7 +237,6 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
         </div>
 
         <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
-          <Sparkles className="h-3 w-3" aria-hidden="true" />
           Tuesday.com — manage boards, tasks, and teamwork in one place.
         </p>
       </div>

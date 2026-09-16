@@ -8,7 +8,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock,
-  FolderKanban,
+  Folder,
   Globe,
   Lock,
   Plus,
@@ -24,11 +24,12 @@ import { useApp } from "@/components/app/app-context";
 import { api } from "@/lib/api-client";
 import type { DashboardDTO } from "@/lib/domain";
 
+/** Gradient pairs probed from the reference KPI cards (2026-09-16). */
 const STAT_CARDS = [
-  { key: "totalBoards", label: "Total Boards", bg: "#3b82f6", icon: FolderKanban, target: "boards" as const },
-  { key: "completedTasks", label: "Completed Tasks", bg: "#22c55e", icon: CheckCircle2, target: "analytics" as const },
-  { key: "pendingTasks", label: "Pending Tasks", bg: "#f97316", icon: Clock, target: "boards" as const },
-  { key: "completionRate", label: "Completion Rate", bg: "#a855f7", icon: TrendingUp, target: "analytics" as const, suffix: "%" },
+  { key: "totalBoards", label: "Total Boards", from: "#3b82f6", to: "#2563eb", icon: Folder, target: "boards" as const },
+  { key: "completedTasks", label: "Completed Tasks", from: "#22c55e", to: "#16a34a", icon: CheckCircle2, target: "analytics" as const },
+  { key: "pendingTasks", label: "Pending Tasks", from: "#f59e0b", to: "#f97316", icon: Clock, target: "boards" as const },
+  { key: "completionRate", label: "Completion Rate", from: "#a855f7", to: "#9333ea", icon: TrendingUp, target: "analytics" as const, suffix: "%" },
 ] as const;
 
 const QUICK_ACTIONS = [
@@ -133,41 +134,40 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-6 lg:p-8">
-      {/* Hero */}
+      {/* Hero — reference layout: greeting block with the buttons BELOW it,
+          left-aligned on the same row. */}
       <section className="rounded-2xl border bg-card p-6 shadow-sm sm:p-8">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-4">
-            <div
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white"
-              style={{ backgroundColor: "#0073ea" }}
-              aria-hidden="true"
-            >
-              <Sparkles className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                {greeting()}, {firstName}!
-              </h1>
-              <p className="mt-1 text-muted-foreground">
-                Ready to make today productive?
-                {stats && stats.pendingTasks > 0
-                  ? ` You have ${stats.pendingTasks} task${stats.pendingTasks === 1 ? "" : "s"} waiting.`
-                  : ""}
-              </p>
-            </div>
+        <div className="flex items-start gap-4">
+          <div
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white"
+            style={{ backgroundColor: "#0073ea" }}
+            aria-hidden="true"
+          >
+            <Sparkles className="h-6 w-6" />
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Button size="lg" className="font-semibold" onClick={() => navigate("boards")}>
-              View All Boards <ArrowRight className="ml-1 h-4 w-4" />
-            </Button>
-            <Button size="lg" variant="outline" className="font-semibold" onClick={() => navigate("analytics")}>
-              <BarChart3 className="mr-1 h-4 w-4" /> View Analytics
-            </Button>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              {greeting()}, {firstName}!
+            </h1>
+            <p className="mt-1 text-muted-foreground">
+              Ready to make today productive?
+              {stats && stats.pendingTasks > 0
+                ? ` You have ${stats.pendingTasks} task${stats.pendingTasks === 1 ? "" : "s"} waiting.`
+                : ""}
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Button size="lg" className="font-semibold" onClick={() => navigate("boards")}>
+                View All Boards <ArrowRight className="ml-1 h-4 w-4" />
+              </Button>
+              <Button size="lg" variant="outline" className="font-semibold" onClick={() => navigate("analytics")}>
+                <BarChart3 className="mr-1 h-4 w-4" /> View Analytics
+              </Button>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Stats */}
+      {/* Stats — gradient cards with the reference's deco circles + dots. */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Key metrics">
         {STAT_CARDS.map((card) => {
           const Icon = card.icon;
@@ -181,8 +181,8 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
               key={card.key}
               type="button"
               onClick={() => navigate(card.target)}
-              className="stat-card-deco relative flex min-h-[120px] flex-col justify-between overflow-hidden rounded-xl p-5 text-left text-white shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              style={{ backgroundColor: card.bg }}
+              className="stat-card-deco relative flex min-h-[136px] flex-col justify-between overflow-hidden rounded-xl p-5 text-left text-white shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              style={{ background: `linear-gradient(to right bottom, ${card.from}, ${card.to})` }}
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
                 {stats ? <Icon className="h-5 w-5" /> : <Skeleton className="h-5 w-5 bg-white/30" />}
@@ -206,7 +206,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                 style={{ backgroundColor: "#a855f7" }}
                 aria-hidden="true"
               >
-                <FolderKanban className="h-5 w-5" />
+                <Folder className="h-5 w-5" />
               </span>
               <div>
                 <CardTitle className="text-lg">Recent Boards</CardTitle>
@@ -231,7 +231,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
             ) : data.recentBoards.length === 0 ? (
               <div className="flex flex-col items-center py-10 text-center">
                 <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-secondary text-muted-foreground">
-                  <FolderKanban className="h-7 w-7" />
+                  <Folder className="h-7 w-7" />
                 </span>
                 <p className="font-semibold">No boards yet</p>
                 <p className="mb-5 mt-1 text-sm text-muted-foreground">
@@ -244,7 +244,6 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
             ) : (
               <ul className="space-y-2">
                 {data.recentBoards.map((board) => {
-                  const pct = board.taskCount === 0 ? 0 : Math.round((board.doneCount / board.taskCount) * 100);
                   return (
                     <li key={board.id}>
                       <button
@@ -252,17 +251,24 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                         onClick={() => navigate("board", board.id)}
                         className="flex w-full items-center gap-4 rounded-lg border p-4 text-left transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
+                        {/* Reference card: colored folder tile + title + "Updated …" + visibility badge. */}
                         <span
-                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
                           style={{ backgroundColor: board.color }}
                           aria-hidden="true"
                         >
-                          {board.title.slice(0, 1).toUpperCase()}
+                          <Folder className="h-6 w-6 text-white" />
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="flex flex-wrap items-center gap-2">
                             <span className="truncate font-semibold">{board.title}</span>
-                            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+                            <span
+                              className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                board.visibility === "private"
+                                  ? "bg-rose-100 text-rose-700"
+                                  : "bg-emerald-100 text-emerald-700"
+                              }`}
+                            >
                               {board.visibility === "private" ? (
                                 <Lock className="h-3 w-3" aria-hidden="true" />
                               ) : (
@@ -273,18 +279,6 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                           </span>
                           <span className="mt-0.5 block truncate text-sm text-muted-foreground">
                             Updated {formatUpdatedDate(board.updatedAt)}
-                            {board.description ? ` — ${board.description}` : ` — ${board.taskCount} tasks`}
-                          </span>
-                          <span className="mt-2 flex items-center gap-2">
-                            <span className="h-1.5 w-28 overflow-hidden rounded-full bg-secondary">
-                              <span
-                                className="block h-full rounded-full"
-                                style={{ width: `${pct}%`, backgroundColor: "#00ca72" }}
-                              />
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {board.doneCount}/{board.taskCount} done · {pct}%
-                            </span>
                           </span>
                         </span>
                         <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -303,8 +297,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
             <CardHeader className="pb-4">
               <div className="flex items-center gap-3">
                 <span
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-white"
-                  style={{ backgroundColor: "#ec4899" }}
+                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white"
                   aria-hidden="true"
                 >
                   <Zap className="h-5 w-5" />
