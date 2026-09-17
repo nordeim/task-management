@@ -4,13 +4,17 @@ import {
   BOARD_COLORS,
   GROUP_COLOR_OPTIONS,
   KANBAN_CARD_BORDER,
+  PEOPLE_COLUMN_PALETTE,
   ROUTE_PATHS,
   TASK_PRIORITIES,
   TASK_STATUSES,
   VISIBILITY_OPTIONS,
   VIEW_TRIGGER_LABELS,
+  avatarGradient,
+  avatarInitials,
   calendarCells,
   distributionBars,
+  distinctOwnerNames,
   filterTasks,
   isNavActive,
   formatRecentTaskTime,
@@ -25,6 +29,7 @@ import {
   relativeBoardTime,
   resolveStatusCompletedPatch,
   sortTasks,
+  statusHeaderDots,
   statusMeta,
   summaryDateLabel,
   summaryOwnerLabel,
@@ -289,6 +294,20 @@ describe("BOARD_COLORS (current reference)", () => {
     ]);
   });
 
+  it("names the third and sixth swatches like the live dialog (re-probed 2026-09-17)", () => {
+    // The live Create Board dialog titles its swatches "Warning Orange"
+    // (#ffcb00) and "Teal" (#00d9ff) — same values as the old
+    // "Sunny Yellow" / "Cyan" names.
+    expect(BOARD_COLORS.map((c) => c.name)).toEqual([
+      "Ocean Blue",
+      "Success Green",
+      "Warning Orange",
+      "Danger Red",
+      "Purple",
+      "Teal",
+    ]);
+  });
+
   it("validates only palette members", () => {
     expect(validateBoardColor("#0073ea")).toBe(true);
     expect(validateBoardColor("#ff642e")).toBe(false);
@@ -350,8 +369,22 @@ describe("filterTasks", () => {
   });
 
   it("keeps the person filter and search working alongside the new criteria", () => {
-    const out = filterTasks(tasks, { personId: "u1", search: "write" });
+    const out = filterTasks(tasks, { personIds: ["u1"], search: "write" });
     expect(out.map((t) => t.id)).toEqual(["1"]);
+  });
+
+  it("accepts several selected people at once (reference multi-select)", () => {
+    const bob = user("u2", "Bob Roe");
+    const mixed = [
+      ...tasks,
+      task({ id: "5", title: "Bob task", status: "working", priority: "high", owner: bob }),
+    ];
+    const out = filterTasks(mixed, { personIds: ["u1", "u2"] });
+    expect(out.map((t) => t.id)).toEqual(["1", "3", "5"]);
+  });
+
+  it("treats an empty person selection as no constraint", () => {
+    expect(filterTasks(tasks, { personIds: [] })).toHaveLength(4);
   });
 
   it("matches search case-insensitively on the title", () => {
@@ -387,6 +420,81 @@ describe("sortTasks", () => {
   it("sorts by updated date", () => {
     expect(sortTasks(tasks, { field: "updatedAt", dir: "asc" }).map((t) => t.id)).toEqual(["2", "3", "1"]);
     expect(sortTasks(tasks, { field: "updatedAt", dir: "desc" }).map((t) => t.id)).toEqual(["1", "3", "2"]);
+  });
+
+  it("sorts by priority using the vocabulary order (low first asc, critical first desc)", () => {
+    const mixed = [
+      task({ id: "a", priority: "high" }),
+      task({ id: "b", priority: "low" }),
+      task({ id: "c", priority: "critical" }),
+      task({ id: "d", priority: "medium" }),
+    ];
+    expect(sortTasks(mixed, { field: "priority", dir: "asc" }).map((t) => t.id)).toEqual([
+      "b",
+      "d",
+      "a",
+      "c",
+    ]);
+    expect(sortTasks(mixed, { field: "priority", dir: "desc" }).map((t) => t.id)).toEqual([
+      "c",
+      "a",
+      "d",
+      "b",
+    ]);
+  });
+
+  it("sorts by status using the vocabulary order", () => {
+    const mixed = [
+      task({ id: "a", status: "done" }),
+      task({ id: "b", status: "not_started" }),
+      task({ id: "c", status: "stuck" }),
+      task({ id: "d", status: "working" }),
+    ];
+    expect(sortTasks(mixed, { field: "status", dir: "asc" }).map((t) => t.id)).toEqual([
+      "b",
+      "d",
+      "a",
+      "c",
+    ]);
+  });
+
+  it("sorts by owner name with unowned tasks last (asc and desc)", () => {
+    const jane = user("u1", "Jane Doe");
+    const bob = user("u2", "Bob Roe");
+    const mixed = [
+      task({ id: "a", owner: jane }),
+      task({ id: "b" }),
+      task({ id: "c", owner: bob }),
+    ];
+    expect(sortTasks(mixed, { field: "owner", dir: "asc" }).map((t) => t.id)).toEqual([
+      "c",
+      "a",
+      "b",
+    ]);
+    // Descending keeps nulls last too (stable reference behavior: nulls never lead).
+    expect(sortTasks(mixed, { field: "owner", dir: "desc" }).map((t) => t.id)).toEqual([
+      "a",
+      "c",
+      "b",
+    ]);
+  });
+
+  it("sorts by due date with dateless tasks last", () => {
+    const mixed = [
+      task({ id: "a", dueDate: "2026-09-24T12:00:00.000Z" }),
+      task({ id: "b" }),
+      task({ id: "c", dueDate: "2026-09-15T12:00:00.000Z" }),
+    ];
+    expect(sortTasks(mixed, { field: "dueDate", dir: "asc" }).map((t) => t.id)).toEqual([
+      "c",
+      "a",
+      "b",
+    ]);
+    expect(sortTasks(mixed, { field: "dueDate", dir: "desc" }).map((t) => t.id)).toEqual([
+      "a",
+      "c",
+      "b",
+    ]);
   });
 
   it("does not mutate the input array", () => {
@@ -426,7 +534,7 @@ describe("visibleColumns", () => {
 // ---------- table footer summary row seam ----------
 
 describe("groupSummary", () => {
-  it("counts items and per-priority occurrences", () => {
+  it("counts items and per-priority occurrences in first-encounter order (reference quirk)", () => {
     const tasks = [
       task({ id: "1", priority: "low" }),
       task({ id: "2", priority: "low" }),
@@ -438,9 +546,27 @@ describe("groupSummary", () => {
     expect(summary.done).toBe(1);
     expect(summary.priorities).toEqual([
       { label: "low", count: 2 },
+      { label: "critical", count: 1 },
       { label: "high", count: 1 },
+    ]);
+    expect(summary.overflowCount).toBe(0);
+  });
+
+  it("caps the badge list at three and counts the extra types (reference '+N')", () => {
+    const tasks = [
+      task({ id: "1", priority: "high" }),
+      task({ id: "2", priority: "medium" }),
+      task({ id: "3", priority: "critical" }),
+      task({ id: "4", priority: "low" }),
+      task({ id: "5", priority: "medium" }),
+    ];
+    const summary = groupSummary(tasks);
+    expect(summary.priorities).toEqual([
+      { label: "high", count: 1 },
+      { label: "medium", count: 2 },
       { label: "critical", count: 1 },
     ]);
+    expect(summary.overflowCount).toBe(1);
   });
 
   it("returns zeroed counters for an empty group", () => {
@@ -448,6 +574,7 @@ describe("groupSummary", () => {
     expect(summary.items).toBe(0);
     expect(summary.done).toBe(0);
     expect(summary.priorities).toEqual([]);
+    expect(summary.overflowCount).toBe(0);
   });
 
   it("omits priorities with zero occurrences", () => {
@@ -692,5 +819,106 @@ describe("memberPopoverPalette", () => {
     const first = memberPopoverPalette("cmu572z45000xr10jah0q56q6");
     expect(["bg-blue-500", "bg-green-500", "bg-purple-500"]).toContain(first);
     expect(memberPopoverPalette("cmu572z45000xr10jah0q56q6")).toBe(first);
+  });
+});
+
+// ---------- session-9 seams: kanban avatars, group header dots, people columns ----------
+
+describe("avatarGradient (reference kanban avatar palette)", () => {
+  it("indexes the 8-gradient palette by the first character's char code", () => {
+    // "J" = 74; 74 % 8 = 2 -> the #4facfe -> #00f2fe gradient (probed live
+    // for owner "John Doe" on the reference's kanban card).
+    expect(avatarGradient("John Doe")).toBe("linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)");
+    // "M" = 77; 77 % 8 = 5 -> #a8edea -> #fed6e3 (probed for "Mike Wilson" -> "MI").
+    expect(avatarGradient("Mike Wilson")).toBe("linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)");
+    // "A" = 65; 65 % 8 = 1 -> #f093fb -> #f5576c.
+    expect(avatarGradient("Alice")).toBe("linear-gradient(135deg, #f093fb 0%, #f5576c 100%)");
+  });
+
+  it("wraps around at the palette boundary (char code 8 -> index 0)", () => {
+    expect(avatarGradient("\b")).toBe("linear-gradient(135deg, #667eea 0%, #764ba2 100%)");
+    expect(avatarGradient("\t")).toBe("linear-gradient(135deg, #f093fb 0%, #f5576c 100%)");
+  });
+
+  it("is deterministic for the same name", () => {
+    expect(avatarGradient("Jane Smith")).toBe(avatarGradient("Jane Smith"));
+  });
+});
+
+describe("avatarInitials (reference 2-char initials)", () => {
+  it("takes the first two characters uppercased (substring, not word initials)", () => {
+    // Probed live: John Doe -> "JO", Jane Smith -> "JA", Mike Wilson -> "MI".
+    expect(avatarInitials("John Doe")).toBe("JO");
+    expect(avatarInitials("Jane Smith")).toBe("JA");
+    expect(avatarInitials("Mike Wilson")).toBe("MI");
+  });
+
+  it("pads gracefully for single-character names", () => {
+    expect(avatarInitials("A")).toBe("A");
+    expect(avatarInitials("")).toBe("?");
+  });
+});
+
+describe("statusHeaderDots (group header per-status dots)", () => {
+  it("renders one dot per status in first-encounter order with counts", () => {
+    // Mirrors the live probe: tasks ordered [done, working, working,
+    // not_started, stuck] produce green "1", yellow "2", gray "1", red "1".
+    const tasks = [
+      task({ id: "1", status: "done" }),
+      task({ id: "2", status: "working" }),
+      task({ id: "3", status: "working" }),
+      task({ id: "4", status: "not_started" }),
+      task({ id: "5", status: "stuck" }),
+    ];
+    const dots = statusHeaderDots(tasks);
+    expect(dots.map((d) => [d.label, d.count])).toEqual([
+      ["Done", 1],
+      ["Working on it", 2],
+      ["Not Started", 1],
+      ["Stuck", 1],
+    ]);
+  });
+
+  it("carries each status's reference color", () => {
+    const dots = statusHeaderDots([task({ id: "1", status: "stuck" })]);
+    expect(dots[0]!.color).toBe("#e2445c");
+  });
+
+  it("returns an empty list for an empty group", () => {
+    expect(statusHeaderDots([])).toEqual([]);
+  });
+});
+
+describe("distinctOwnerNames (people columns / person filter source)", () => {
+  it("lists owners in first-encounter order without duplicates", () => {
+    const jane = user("u1", "Jane Doe");
+    const john = user("u2", "John Doe");
+    const tasks = [
+      task({ id: "1", owner: john }),
+      task({ id: "2", owner: jane }),
+      task({ id: "3", owner: john }),
+      task({ id: "4" }),
+      task({ id: "5", owner: jane }),
+    ];
+    expect(distinctOwnerNames(tasks)).toEqual(["John Doe", "Jane Doe"]);
+  });
+
+  it("ignores unowned tasks", () => {
+    expect(distinctOwnerNames([task({ id: "1" }), task({ id: "2" })])).toEqual([]);
+  });
+});
+
+describe("PEOPLE_COLUMN_PALETTE (kanban people column badge colors)", () => {
+  it("matches the reference's 8-color LE palette including its duplicate", () => {
+    expect(PEOPLE_COLUMN_PALETTE).toEqual([
+      "#6C5CE7",
+      "#A29BFE",
+      "#FD79A8",
+      "#E17055",
+      "#00B894",
+      "#0984E3",
+      "#6C5CE7",
+      "#FDCB6E",
+    ]);
   });
 });

@@ -24,15 +24,15 @@ export const TASK_PRIORITIES = [
 export type TaskPriority = (typeof TASK_PRIORITIES)[number]["value"];
 
 // The six theme swatches offered by the create/edit board dialogs
-// (probed from the reference 2026-09-17: green→#00c875, third swatch is
-// yellow, sixth is cyan — the session-3 orange/teal are gone).
+// (re-probed 2026-09-17: values unchanged, but the live dialog titles the
+// third swatch "Warning Orange" and the sixth "Teal").
 export const BOARD_COLORS = [
   { name: "Ocean Blue", value: "#0073ea" },
   { name: "Success Green", value: "#00c875" },
-  { name: "Sunny Yellow", value: "#ffcb00" },
+  { name: "Warning Orange", value: "#ffcb00" },
   { name: "Danger Red", value: "#e2445c" },
   { name: "Purple", value: "#a25ddb" },
-  { name: "Cyan", value: "#00d9ff" },
+  { name: "Teal", value: "#00d9ff" },
 ] as const;
 
 /** Whether a color belongs to the board palette (Zod-free check for shared use). */
@@ -222,31 +222,41 @@ export interface PersonColumn {
 /** Filter criteria applied together (AND semantics) by the board toolbar. */
 export interface TaskFilterCriteria {
   search?: string;
-  personId?: string | null;
+  /** Multi-select person filter (reference: checkboxes over distinct owners). */
+  personIds?: readonly string[];
   statuses?: readonly TaskStatus[];
   priorities?: readonly TaskPriority[];
 }
 
 /**
  * The board toolbar's filter pipeline. Empty/absent criteria are no-ops —
- * an empty status set must NOT mean "match nothing".
+ * an empty status set must NOT mean "match nothing". `personIds` is
+ * OR-within, AND-with-everything-else, like the reference.
  */
 export function filterTasks(tasks: TaskDTO[], criteria: TaskFilterCriteria): TaskDTO[] {
   const query = criteria.search?.trim().toLowerCase() ?? "";
   const statuses = criteria.statuses ?? [];
   const priorities = criteria.priorities ?? [];
+  const personIds = criteria.personIds ?? [];
   return tasks.filter((t) => {
     if (query && !t.title.toLowerCase().includes(query)) return false;
-    if (criteria.personId && t.owner?.id !== criteria.personId) return false;
+    if (personIds.length > 0 && !(t.owner && personIds.includes(t.owner.id))) return false;
     if (statuses.length > 0 && !statuses.includes(t.status)) return false;
     if (priorities.length > 0 && !priorities.includes(t.priority)) return false;
     return true;
   });
 }
 
-// ---------- toolbar Sort popover (Task Name / Created Date / Updated Date) ----------
+// ---------- toolbar Sort popover (Task Name / dates / every column) ----------
 
-export type SortField = "title" | "createdAt" | "updatedAt";
+export type SortField =
+  | "title"
+  | "createdAt"
+  | "updatedAt"
+  | "priority"
+  | "status"
+  | "owner"
+  | "dueDate";
 export type SortDir = "asc" | "desc";
 
 export interface SortSpec {
@@ -254,19 +264,65 @@ export interface SortSpec {
   dir: SortDir;
 }
 
-/** Sorts a copy — the input array is never mutated. */
+const PRIORITY_ORDER: Record<TaskPriority, number> = {
+  low: 0,
+  medium: 1,
+  high: 2,
+  critical: 3,
+};
+const STATUS_ORDER: Record<TaskStatus, number> = {
+  not_started: 0,
+  working: 1,
+  done: 2,
+  stuck: 3,
+};
+
+/**
+ * Sorts a copy — the input array is never mutated. The reference's Sort
+ * menu offers every column; vocabulary fields sort by their array order,
+ * owner by name and dueDate by time, each with nulls/empties last in BOTH
+ * directions (the reference's comparator never floats nulls to the top).
+ */
 export function sortTasks(tasks: TaskDTO[], spec: SortSpec): TaskDTO[] {
   const sorted = [...tasks];
+  const dir = spec.dir === "asc" ? 1 : -1;
   sorted.sort((a, b) => {
-    let cmp: number;
-    if (spec.field === "title") {
-      cmp = a.title.localeCompare(b.title);
-    } else {
-      const av = new Date(a[spec.field]).getTime();
-      const bv = new Date(b[spec.field]).getTime();
-      cmp = av - bv;
+    // Null-ish keys (no owner / no due date) always sort LAST, in both
+    // directions — the direction flip below never applies to them.
+    if (spec.field === "owner" || spec.field === "dueDate") {
+      const aEmpty =
+        spec.field === "owner" ? a.owner === null : a.dueDate === null;
+      const bEmpty =
+        spec.field === "owner" ? b.owner === null : b.dueDate === null;
+      if (aEmpty || bEmpty) {
+        if (aEmpty && bEmpty) return 0;
+        return aEmpty ? 1 : -1;
+      }
     }
-    return spec.dir === "asc" ? cmp : -cmp;
+    let cmp: number;
+    switch (spec.field) {
+      case "title":
+        cmp = a.title.localeCompare(b.title);
+        break;
+      case "createdAt":
+      case "updatedAt":
+        cmp = new Date(a[spec.field]).getTime() - new Date(b[spec.field]).getTime();
+        break;
+      case "priority":
+        cmp = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+        break;
+      case "status":
+        cmp = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+        break;
+      case "owner":
+        cmp = (a.owner?.name ?? "").localeCompare(b.owner?.name ?? "");
+        break;
+      case "dueDate":
+        cmp =
+          new Date(a.dueDate ?? 0).getTime() - new Date(b.dueDate ?? 0).getTime();
+        break;
+    }
+    return dir * cmp;
   });
   return sorted;
 }
@@ -302,11 +358,18 @@ export function visibleColumns(hidden: readonly string[]): VisibleColumn[] {
 export interface GroupSummary {
   items: number;
   done: number;
-  /** Priorities with non-zero counts, vocabulary order, label lowercase. */
+  /** Up to three priority badges, FIRST-ENCOUNTER order (reference quirk),
+   * label lowercase like the reference's "N low" badges. */
   priorities: { label: string; count: number }[];
+  /** How many further priority types exist beyond the three shown ("+N"). */
+  overflowCount: number;
 }
 
-/** The per-group footer row: "N items" + "N low" style priority badges. */
+/**
+ * The per-group footer row: "N items" + "N low" style priority badges.
+ * The reference accumulates counts in task order (JS object insertion
+ * order), caps the badge list at three, and appends "+N" for the rest.
+ */
 export function groupSummary(tasks: TaskDTO[]): GroupSummary {
   const counts = new Map<TaskPriority, number>();
   let done = 0;
@@ -314,15 +377,106 @@ export function groupSummary(tasks: TaskDTO[]): GroupSummary {
     counts.set(t.priority, (counts.get(t.priority) ?? 0) + 1);
     if (t.status === "done") done += 1;
   }
+  // Map iteration follows insertion order == first-encounter order.
+  const all = [...counts.entries()].map(([value, count]) => ({
+    label: value,
+    count,
+  }));
   return {
     items: tasks.length,
     done,
-    priorities: TASK_PRIORITIES.filter((p) => (counts.get(p.value) ?? 0) > 0).map((p) => ({
-      label: p.value,
-      count: counts.get(p.value) ?? 0,
-    })),
+    priorities: all.slice(0, 3),
+    overflowCount: Math.max(0, all.length - 3),
   };
 }
+
+// ---------- session-9 seams: kanban avatars, group header dots, people columns ----------
+
+/** The reference's 8-entry kanban-avatar gradient palette (decompiled). */
+const AVATAR_GRADIENTS = [
+  "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+  "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+  "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+  "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
+  "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+  "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
+  "linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)",
+  "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
+] as const;
+
+/**
+ * The reference's kanban-card avatar background: the 8-gradient palette
+ * indexed by the owner name's first character code (probed live: "John
+ * Doe" -> #4facfe, "Mike Wilson" -> #a8edea).
+ */
+export function avatarGradient(name: string): string {
+  return AVATAR_GRADIENTS[name.charCodeAt(0) % AVATAR_GRADIENTS.length];
+}
+
+/**
+ * The reference's kanban-card avatar initials: the first TWO characters of
+ * the raw string, uppercased — "John Doe" renders "JO", not "JD".
+ */
+export function avatarInitials(name: string): string {
+  const chars = name.trim().substring(0, 2).toUpperCase();
+  return chars.length > 0 ? chars : "?";
+}
+
+/** One per-status dot in the group header ("w-3 h-3" circle + count). */
+export interface StatusHeaderDot {
+  label: string;
+  color: string;
+  count: number;
+}
+
+/**
+ * The group header's per-status dots, in FIRST-ENCOUNTER order — the
+ * reference accumulates a counts object over the group's tasks and renders
+ * `Object.entries` order (probed: green "2", yellow "3", gray "4", red "1"
+ * for a group whose tasks run done/working/not_started/stuck).
+ */
+export function statusHeaderDots(tasks: TaskDTO[]): StatusHeaderDot[] {
+  const counts = new Map<TaskStatus, number>();
+  for (const t of tasks) {
+    counts.set(t.status, (counts.get(t.status) ?? 0) + 1);
+  }
+  return [...counts.entries()].map(([value, count]) => ({
+    label: statusMeta(value).label,
+    color: statusMeta(value).bg,
+    count,
+  }));
+}
+
+/**
+ * Distinct owner names among the tasks, first-encounter order — the source
+ * for the kanban People columns and the Person filter's checkbox list
+ * (the reference derives both from the items' owner strings, not a
+ * member registry).
+ */
+export function distinctOwnerNames(tasks: TaskDTO[]): string[] {
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const t of tasks) {
+    if (t.owner && !seen.has(t.owner.name)) {
+      seen.add(t.owner.name);
+      names.push(t.owner.name);
+    }
+  }
+  return names;
+}
+
+/** The reference's LE palette for kanban people-column badges (verbatim,
+ * including the duplicated #6C5CE7 at indices 0 and 6). */
+export const PEOPLE_COLUMN_PALETTE = [
+  "#6C5CE7",
+  "#A29BFE",
+  "#FD79A8",
+  "#E17055",
+  "#00B894",
+  "#0984E3",
+  "#6C5CE7",
+  "#FDCB6E",
+] as const;
 
 // ---------- boards-card relative time ----------
 
