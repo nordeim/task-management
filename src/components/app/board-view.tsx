@@ -13,6 +13,8 @@ import {
   GanttChartSquare,
   Group,
   KanbanSquare,
+  Mail,
+  MessageSquare,
   Pencil as PenLine,
   Plus,
   Search,
@@ -20,6 +22,7 @@ import {
   Table2,
   TrendingUp,
   UserRound,
+  UserPlus,
   Users,
   Zap,
 } from "lucide-react";
@@ -57,8 +60,10 @@ import {
   VIEW_TRIGGER_LABELS,
   filterTasks,
   formatSavedAt,
+  memberPopoverPalette,
   resolveStatusCompletedPatch,
   sortTasks,
+  teamAvatarPalette,
 } from "@/lib/domain";
 import type {
   BoardDetailDTO,
@@ -587,7 +592,7 @@ export function BoardView({ boardId }: { boardId: string }) {
                 }
               }}
               maxLength={120}
-              className="rounded-md border-none bg-accent px-2 py-1 text-xl font-bold outline-none ring-1 ring-primary/40"
+              className="flex h-8 w-64 rounded-md border border-input bg-transparent px-3 py-1 text-xl font-bold shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
             />
           ) : (
             <h1 className="group flex min-w-0 cursor-pointer items-center gap-2 text-xl font-bold text-[#323338] transition-colors hover:text-[#0073EA]">
@@ -705,60 +710,37 @@ export function BoardView({ boardId }: { boardId: string }) {
             />
           </Button>
 
-          {/* Member avatars — reference layout: overlapping row that opens a
-              member list. Presence dots are decorative chrome (aria-hidden). */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                aria-label="Board members"
-                className="flex cursor-pointer items-center -space-x-2 rounded-full px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {board.members.slice(0, 4).map((member) => (
-                  <span key={member.id} className="relative">
-                    <Avatar className="h-8 w-8 border-2 border-white">
-                      <AvatarFallback
-                        className="text-xs font-medium text-white"
-                        style={{ backgroundColor: member.avatarColor }}
-                      >
-                        {initialsOf(member.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span
-                      aria-hidden="true"
-                      className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#00c875]"
-                    />
-                  </span>
-                ))}
-                {board.members.length > 4 && (
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-secondary text-[10px] font-semibold text-muted-foreground">
-                    +{board.members.length - 4}
-                  </span>
-                )}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-56 p-0">
-              <div className="border-b px-3 py-2.5 text-sm font-bold">Board Members</div>
-              <ul className="max-h-64 overflow-auto p-1" aria-label="Board members">
-                {board.members.map((member) => (
-                  <li
-                    key={member.id}
-                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm"
+          {/* Member avatars — reference layout (probed 2026-09-17): three
+              position-colored avatars + "+N" overflow, presence dots for
+              online members, and each avatar opens the team popover. */}
+          <div className="flex cursor-pointer items-center -space-x-2">
+            {board.members.slice(0, 3).map((member, index) => (
+              <Popover key={member.id}>
+                <PopoverTrigger asChild>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Team member ${member.name}`}
+                    className={`relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-xs font-medium text-white transition-transform hover:z-10 hover:scale-110 active:scale-95 ${teamAvatarPalette(index)}`}
                   >
-                    <Avatar className="h-6 w-6">
-                      <AvatarFallback
-                        className="text-[10px] font-semibold text-white"
-                        style={{ backgroundColor: member.avatarColor }}
-                      >
-                        {initialsOf(member.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="min-w-0 flex-1 truncate">{member.name}</span>
-                  </li>
-                ))}
-              </ul>
-            </PopoverContent>
-          </Popover>
+                    {initialsOf(member.name)}
+                    {member.online && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white bg-green-400"
+                      />
+                    )}
+                  </span>
+                </PopoverTrigger>
+                <TeamMembersPopover members={board.members} />
+              </Popover>
+            ))}
+            {board.members.length > 3 && (
+              <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-gray-400 text-xs text-white">
+                +{board.members.length - 3}
+              </span>
+            )}
+          </div>
         </div>
         </div>
         </div>
@@ -793,7 +775,7 @@ export function BoardView({ boardId }: { boardId: string }) {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${personFilter ? "border-primary text-primary" : ""}`}
+                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${personFilter ? "border-[#0073EA] text-[#0073EA]" : ""}`}
               >
                 <Users className="mr-2 h-4 w-4" aria-hidden="true" /> Person
               </Button>
@@ -824,7 +806,7 @@ export function BoardView({ boardId }: { boardId: string }) {
                             </AvatarFallback>
                           </Avatar>
                           <span className="min-w-0 flex-1 truncate">{member.name}</span>
-                          {selected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                          {selected && <Check className="h-4 w-4 shrink-0 text-[#0073EA]" />}
                         </button>
                       </li>
                     );
@@ -835,7 +817,7 @@ export function BoardView({ boardId }: { boardId: string }) {
                 <button
                   type="button"
                   onClick={() => setPersonFilter(null)}
-                  className="w-full border-t px-3 py-2 text-left text-sm text-primary hover:bg-secondary"
+                  className="w-full border-t px-3 py-2 text-left text-sm text-[#0073EA] hover:bg-secondary"
                 >
                   Clear person filter
                 </button>
@@ -847,7 +829,7 @@ export function BoardView({ boardId }: { boardId: string }) {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${filtersActive ? "border-primary text-primary" : ""}`}
+                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${filtersActive ? "border-[#0073EA] text-[#0073EA]" : ""}`}
                 aria-pressed={filtersActive}
               >
                 <Filter className="mr-2 h-4 w-4" aria-hidden="true" /> Filter
@@ -877,7 +859,7 @@ export function BoardView({ boardId }: { boardId: string }) {
                             aria-hidden="true"
                           />
                           <span className="flex-1">{status.label}</span>
-                          {checked && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                          {checked && <Check className="h-4 w-4 shrink-0 text-[#0073EA]" />}
                         </button>
                       </li>
                     );
@@ -904,7 +886,7 @@ export function BoardView({ boardId }: { boardId: string }) {
                             aria-hidden="true"
                           />
                           <span className="flex-1">{priority.label}</span>
-                          {checked && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                          {checked && <Check className="h-4 w-4 shrink-0 text-[#0073EA]" />}
                         </button>
                       </li>
                     );
@@ -918,7 +900,7 @@ export function BoardView({ boardId }: { boardId: string }) {
                     setStatusFilter([]);
                     setPriorityFilter([]);
                   }}
-                  className="w-full border-t px-3 py-2 text-left text-sm text-primary hover:bg-secondary"
+                  className="w-full border-t px-3 py-2 text-left text-sm text-[#0073EA] hover:bg-secondary"
                 >
                   Clear filters
                 </button>
@@ -930,7 +912,7 @@ export function BoardView({ boardId }: { boardId: string }) {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${sort ? "border-primary text-primary" : ""}`}
+                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${sort ? "border-[#0073EA] text-[#0073EA]" : ""}`}
                 aria-pressed={sort !== null}
               >
                 <ArrowUpNarrowWide className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -959,7 +941,7 @@ export function BoardView({ boardId }: { boardId: string }) {
                       >
                         <span>{option.label}</span>
                         {active && (
-                          <span className="flex items-center gap-0.5 text-primary">
+                          <span className="flex items-center gap-0.5 text-[#0073EA]">
                             {sort?.dir === "asc" ? "↑" : "↓"}
                             <Check className="h-4 w-4" />
                           </span>
@@ -973,7 +955,7 @@ export function BoardView({ boardId }: { boardId: string }) {
                 <button
                   type="button"
                   onClick={() => setSort(null)}
-                  className="mt-1 w-full border-t px-3 py-2 text-left text-sm text-primary hover:bg-secondary"
+                  className="mt-1 w-full border-t px-3 py-2 text-left text-sm text-[#0073EA] hover:bg-secondary"
                 >
                   Clear sort
                 </button>
@@ -985,7 +967,7 @@ export function BoardView({ boardId }: { boardId: string }) {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${hiddenColumns.length > 0 ? "border-primary text-primary" : ""}`}
+                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${hiddenColumns.length > 0 ? "border-[#0073EA] text-[#0073EA]" : ""}`}
               >
                 <Eye className="mr-2 h-4 w-4" aria-hidden="true" /> Hide
               </Button>
@@ -1007,7 +989,7 @@ export function BoardView({ boardId }: { boardId: string }) {
                         className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
                       >
                         {COLUMN_LABELS[key]}
-                        {shown && <Check className="h-4 w-4 text-primary" />}
+                        {shown && <Check className="h-4 w-4 text-[#0073EA]" />}
                       </button>
                     </li>
                   );
@@ -1020,7 +1002,7 @@ export function BoardView({ boardId }: { boardId: string }) {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${groupBy !== "default" ? "border-primary text-primary" : ""}`}
+                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${groupBy !== "default" ? "border-[#0073EA] text-[#0073EA]" : ""}`}
               >
                 <Group className="mr-2 h-4 w-4" aria-hidden="true" /> Group by
               </Button>
@@ -1038,7 +1020,7 @@ export function BoardView({ boardId }: { boardId: string }) {
                       className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
                     >
                       {option.label}
-                      {groupBy === option.value && <Check className="h-4 w-4 text-primary" />}
+                      {groupBy === option.value && <Check className="h-4 w-4 text-[#0073EA]" />}
                     </button>
                   </li>
                 ))}
@@ -1082,7 +1064,7 @@ export function BoardView({ boardId }: { boardId: string }) {
       )}
 
       {subView === "calendar" && (
-        <BoardCalendar tasks={visibleTasks} onAddTask={() => setTaskDialog({ open: true, groupId: null })} />
+        <BoardCalendar tasks={visibleTasks} />
       )}
 
       {subView === "timeline" && (
@@ -1204,5 +1186,78 @@ export function BoardView({ boardId }: { boardId: string }) {
         }}
       />
     </div>
+  );
+}
+
+/**
+ * Team popover (reference spec, probed 2026-09-17): a w-80 card with a
+ * "Team (N)" header + outline Invite button, and one row per member —
+ * id-mod-3 colored avatar with a presence dot, name + role, and mail /
+ * message ghost icon buttons. The reference's buttons are dead chrome; the
+ * clone keeps the honest "not available" toast instead.
+ */
+function TeamMembersPopover({ members }: { members: UserDTO[] }) {
+  function notAvailable(feature: string) {
+    toast({ title: "Not available", description: `${feature} is not configured on this deployment.` });
+  }
+
+  return (
+    <PopoverContent align="end" className="w-80 p-4">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="font-medium">Team ({members.length})</h4>
+          <Button
+            variant="outline"
+            className="relative h-8 rounded-md border-[#E1E5F3] px-3 text-xs hover:border-purple-500"
+            onClick={() => notAvailable("Inviting teammates")}
+          >
+            <UserPlus className="mr-1 h-3 w-3" aria-hidden="true" />Invite
+          </Button>
+        </div>
+        <div className="max-h-64 space-y-2 overflow-y-auto">
+          {members.map((member) => (
+            <div key={member.id} className="flex items-center justify-between rounded-lg p-2 hover:bg-gray-50">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`relative flex h-8 w-8 items-center justify-center rounded-full text-xs text-white ${memberPopoverPalette(member.id)}`}
+                >
+                  {initialsOf(member.name)}
+                  {member.online && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-white bg-green-400"
+                    />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{member.name}</p>
+                  <p className="text-xs text-gray-500">{member.role}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Email ${member.name}`}
+                  className="h-6 w-6"
+                  onClick={() => notAvailable("Member email")}
+                >
+                  <Mail className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Message ${member.name}`}
+                  className="h-6 w-6"
+                  onClick={() => notAvailable("Member messaging")}
+                >
+                  <MessageSquare className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </PopoverContent>
   );
 }

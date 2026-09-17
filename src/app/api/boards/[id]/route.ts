@@ -29,7 +29,7 @@ function toTaskDTO(
     position: number;
     createdAt: Date;
     updatedAt: Date;
-    owner: { id: string; email: string; name: string; avatarColor: string } | null;
+    owner: { id: string; email: string; name: string; avatarColor: string; role: string; online: boolean } | null;
   },
 ): TaskDTO {
   return {
@@ -46,7 +46,7 @@ function toTaskDTO(
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
     owner: t.owner
-      ? { id: t.owner.id, email: t.owner.email, name: t.owner.name, avatarColor: t.owner.avatarColor }
+      ? { id: t.owner.id, email: t.owner.email, name: t.owner.name, avatarColor: t.owner.avatarColor, role: t.owner.role, online: t.owner.online }
       : null,
   };
 }
@@ -67,7 +67,7 @@ export async function GET(_request: NextRequest, ctx: { params: Promise<{ id: st
         include: {
           tasks: {
             orderBy: { position: "asc" },
-            include: { owner: { select: { id: true, email: true, name: true, avatarColor: true } } },
+            include: { owner: { select: { id: true, email: true, name: true, avatarColor: true, role: true, online: true } } },
           },
         },
       },
@@ -80,7 +80,7 @@ export async function GET(_request: NextRequest, ctx: { params: Promise<{ id: st
   // The owner-cell picker lists every user — the reference app lets any member
   // be assigned. Members = all users, deduplicated by id.
   const members = await db.user.findMany({
-    select: { id: true, email: true, name: true, avatarColor: true },
+    select: { id: true, email: true, name: true, avatarColor: true, role: true, online: true },
     orderBy: { name: "asc" },
   });
 

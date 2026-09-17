@@ -10,7 +10,7 @@ export async function GET() {
   }
 
   const users = await db.user.findMany({
-    select: { id: true, email: true, name: true, avatarColor: true },
+    select: { id: true, email: true, name: true, avatarColor: true, role: true, online: true },
     orderBy: { name: "asc" },
   });
   return NextResponse.json({ ok: true, data: users });

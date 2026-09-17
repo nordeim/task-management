@@ -28,6 +28,8 @@ export interface SessionUser {
   email: string;
   name: string;
   avatarColor: string;
+  role: string;
+  online: boolean;
 }
 
 /** Resolve the signed-in user from the session cookie, or null. */
@@ -51,6 +53,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     email: session.user.email,
     name: session.user.name,
     avatarColor: session.user.avatarColor,
+    role: session.user.role,
+    online: session.user.online,
   };
 }
 

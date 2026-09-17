@@ -17,6 +17,11 @@ model User {
   name         String
   passwordHash String
   avatarColor  String    @default("#00d5c0")
+  // Team role label rendered in the team popover ("Owner" | "Editor" | "Viewer")
+  // — mock metadata mirroring the reference's hardcoded team.
+  role         String    @default("Editor")
+  // Mock presence flag driving the green dot on team avatars.
+  online       Boolean   @default(true)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

@@ -166,7 +166,8 @@ const BOARDS: SeedBoard[] = [
 async function main() {
   const demo = await db.user.upsert({
     where: { email: "sepnetflix2023@outlook.com" },
-    update: {},
+    // update: keep role/presence converged on re-runs against older seeds.
+    update: { role: "Owner", online: true },
     create: {
       email: "sepnetflix2023@outlook.com",
       // Named after the email prefix so the demo greets exactly like the
@@ -174,19 +175,25 @@ async function main() {
       name: "sepnetflix2023",
       passwordHash: hashPassword("Abcd1234"),
       avatarColor: "#00d9ff",
+      // Mock team metadata: the account owns every seeded board.
+      role: "Owner",
+      online: true,
     },
   });
 
+  // Roles/presence mirror the reference's hardcoded team mix (one Owner,
+  // two Editors, one Viewer; three of four "online") so the board header's
+  // three visible avatars show blue/green/purple with dots on the first two.
   const teammateData = [
-    { email: "jane.doe@example.com", name: "Jane Doe", avatarColor: "#0073ea" },
-    { email: "john.smith@example.com", name: "John Smith", avatarColor: "#a25ddb" },
-    { email: "mike.jones@example.com", name: "Mike Jones", avatarColor: "#fdab3d" },
+    { email: "jane.doe@example.com", name: "Jane Doe", avatarColor: "#0073ea", role: "Editor", online: true },
+    { email: "john.smith@example.com", name: "John Smith", avatarColor: "#a25ddb", role: "Editor", online: true },
+    { email: "mike.jones@example.com", name: "Mike Jones", avatarColor: "#fdab3d", role: "Viewer", online: false },
   ];
   const teammates = new Map<string, string>();
   for (const t of teammateData) {
     const row = await db.user.upsert({
       where: { email: t.email },
-      update: {},
+      update: { role: t.role, online: t.online },
       create: {
         ...t,
         // Teammates never log in — random hash makes the account unusable.

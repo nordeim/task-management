@@ -36,6 +36,8 @@ export async function POST(request: NextRequest) {
       email: user.email,
       name: user.name,
       avatarColor: user.avatarColor,
+      role: user.role,
+      online: user.online,
     },
   });
 }
