@@ -14,9 +14,13 @@ import {
   avatarInitials,
   calendarCells,
   distributionBars,
+  distributionEntries,
+  boardStats,
   distinctOwnerNames,
   filterTasks,
+  formatBoardActivityTime,
   isNavActive,
+  recentActivityItems,
   formatRecentTaskTime,
   formatSavedAt,
   groupSummary,
@@ -34,6 +38,7 @@ import {
   summaryDateLabel,
   summaryOwnerLabel,
   teamAvatarPalette,
+  teamWorkload,
   timelineRange,
   validateBoardColor,
   visibilityLabel,
@@ -920,5 +925,152 @@ describe("PEOPLE_COLUMN_PALETTE (kanban people column badge colors)", () => {
       "#6C5CE7",
       "#FDCB6E",
     ]);
+  });
+});
+
+// ---------- session-11 seams: analytics ordering + board modals ----------
+
+describe("distributionEntries (site analytics row order + zero omission)", () => {
+  it("counts keys in first-encounter order over the given (updated-desc) sequence", () => {
+    // Reference probe: items sorted -updated_date → W, Done, NS, Stuck rendered.
+    const tasks = [
+      task({ id: "1", status: "working" }),
+      task({ id: "2", status: "done" }),
+      task({ id: "3", status: "not_started" }),
+      task({ id: "4", status: "stuck" }),
+      task({ id: "5", status: "working" }),
+      task({ id: "6", status: "not_started" }),
+    ];
+    const entries = distributionEntries(tasks, (t) => t.status);
+    expect(entries).toEqual([
+      { key: "working", count: 2 },
+      { key: "done", count: 1 },
+      { key: "not_started", count: 2 },
+      { key: "stuck", count: 1 },
+    ]);
+  });
+
+  it("omits keys that never appear (the reference drops zero-count rows)", () => {
+    const tasks = [task({ id: "1", status: "not_started" })];
+    expect(distributionEntries(tasks, (t) => t.status)).toEqual([
+      { key: "not_started", count: 1 },
+    ]);
+  });
+
+  it("returns an empty list when nothing is encountered", () => {
+    expect(distributionEntries([], (t: TaskDTO) => t.status)).toEqual([]);
+  });
+
+  it("skips null keys (unowned tasks contribute no rows)", () => {
+    const john = user("u1", "John Doe");
+    const tasks = [
+      task({ id: "1", owner: john }),
+      task({ id: "2" }),
+      task({ id: "3" }),
+    ];
+    expect(distributionEntries(tasks, (t) => (t.owner ? t.owner.name : null))).toEqual([
+      { key: "John Doe", count: 1 },
+    ]);
+  });
+});
+
+describe("teamWorkload (Board Analytics modal owner counts)", () => {
+  it("counts per-owner task totals in first-encounter order", () => {
+    const john = user("u1", "John Doe");
+    const jane = user("u2", "Jane Smith");
+    const tasks = [
+      task({ id: "1", owner: john }),
+      task({ id: "2", owner: jane }),
+      task({ id: "3", owner: john }),
+      task({ id: "4" }),
+      task({ id: "5", owner: jane }),
+    ];
+    expect(teamWorkload(tasks)).toEqual([
+      { name: "John Doe", count: 2 },
+      { name: "Jane Smith", count: 2 },
+    ]);
+  });
+
+  it("caps the list at the reference's slice(0,5)", () => {
+    const owners = ["A", "B", "C", "D", "E", "F", "G"].map((n, i) => user(`u${i}`, `${n} Owner`));
+    const tasks = owners.map((o, i) => task({ id: String(i), owner: o }));
+    expect(teamWorkload(tasks)).toHaveLength(5);
+    expect(teamWorkload(tasks)[0]).toEqual({ name: "A Owner", count: 1 });
+  });
+
+  it("returns empty when no task has an owner (modal hides the card)", () => {
+    expect(teamWorkload([task({ id: "1" }), task({ id: "2" })])).toEqual([]);
+  });
+});
+
+describe("recentActivityItems (Board Analytics modal feed)", () => {
+  it("sorts by updatedAt desc and slices to the limit (default 5)", () => {
+    const tasks = [
+      task({ id: "1", updatedAt: "2026-09-17T10:00:00.000Z" }),
+      task({ id: "2", updatedAt: "2026-09-17T22:01:00.000Z" }),
+      task({ id: "3", updatedAt: "2026-09-16T08:00:00.000Z" }),
+      task({ id: "4", updatedAt: "2026-09-18T09:00:00.000Z" }),
+      task({ id: "5", updatedAt: "2026-09-17T12:00:00.000Z" }),
+      task({ id: "6", updatedAt: "2026-09-15T00:00:00.000Z" }),
+    ];
+    expect(recentActivityItems(tasks).map((t) => t.id)).toEqual(["4", "2", "5", "1", "3"]);
+  });
+
+  it("does not mutate the input array", () => {
+    const tasks = [
+      task({ id: "1", updatedAt: "2026-09-17T10:00:00.000Z" }),
+      task({ id: "2", updatedAt: "2026-09-17T22:01:00.000Z" }),
+    ];
+    const copy = [...tasks];
+    recentActivityItems(tasks);
+    expect(tasks.map((t) => t.id)).toEqual(copy.map((t) => t.id));
+  });
+
+  it("returns fewer items when the board is smaller than the limit", () => {
+    expect(recentActivityItems([task({ id: "1" })])).toHaveLength(1);
+  });
+});
+
+describe("boardStats (Board Analytics modal headline numbers)", () => {
+  it("computes total, done, completionRate, and overdue", () => {
+    const now = new Date("2026-09-18T12:00:00.000Z");
+    const tasks = [
+      task({ id: "1", status: "done", completed: true, dueDate: "2026-09-10T12:00:00.000Z" }),
+      task({ id: "2", status: "not_started", dueDate: "2026-09-16T12:00:00.000Z" }),
+      task({ id: "3", status: "working" }),
+      task({ id: "4", status: "done", completed: true }),
+      task({ id: "5", status: "stuck", dueDate: "2026-09-25T12:00:00.000Z" }),
+    ];
+    expect(boardStats(tasks, now)).toEqual({
+      total: 5,
+      done: 2,
+      completionRate: 40,
+      overdue: 1,
+    });
+  });
+
+  it("an overdue-but-done task is not counted (reference: status !== Done)", () => {
+    const now = new Date("2026-09-18T12:00:00.000Z");
+    const tasks = [
+      task({ id: "1", status: "done", completed: true, dueDate: "2026-09-10T12:00:00.000Z" }),
+    ];
+    expect(boardStats(tasks, now).overdue).toBe(0);
+  });
+
+  it("returns zeros for an empty board", () => {
+    expect(boardStats([], new Date())).toEqual({
+      total: 0,
+      done: 0,
+      completionRate: 0,
+      overdue: 0,
+    });
+  });
+});
+
+describe("formatBoardActivityTime (Board Analytics modal 24-hour stamp)", () => {
+  it("formats as 'MMM d, HH:mm' with zero-padded 24-hour time", () => {
+    expect(formatBoardActivityTime(new Date(2026, 8, 17, 22, 1))).toBe("Sep 17, 22:01");
+    expect(formatBoardActivityTime(new Date(2026, 8, 5, 9, 5))).toBe("Sep 5, 09:05");
+    expect(formatBoardActivityTime(new Date(2026, 0, 2, 0, 0))).toBe("Jan 2, 00:00");
   });
 });

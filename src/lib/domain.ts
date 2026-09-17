@@ -522,6 +522,80 @@ export function distributionBars<T extends { label: string; count: number; color
   }));
 }
 
+/**
+ * Site analytics row source (probed 2026-09-18): the reference builds its
+ * status/priority counts with a plain object iterated over items sorted by
+ * updated_date DESC, then renders `Object.entries` — so the row order is
+ * FIRST-ENCOUNTER over that sequence and keys that never appear are
+ * omitted (zero-count rows never render). Feed it the already-sorted task
+ * list; the caller maps entries onto vocabulary metadata by key.
+ */
+export function distributionEntries<T>(
+  items: readonly T[],
+  keyFn: (item: T) => string | null,
+): { key: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const key = keyFn(item);
+    if (key === null) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return Array.from(counts.entries()).map(([key, count]) => ({ key, count }));
+}
+
+/**
+ * Board Analytics modal — Team Workload rows (decompiled `Ote`): counts per
+ * owner NAME in first-encounter order over the board's items, sliced to 5
+ * (`Object.entries(h).slice(0,5)`); the card is hidden when empty.
+ */
+export function teamWorkload(tasks: readonly TaskDTO[], limit = 5): { name: string; count: number }[] {
+  const byName = new Map<string, number>();
+  for (const t of tasks) {
+    if (!t.owner) continue;
+    byName.set(t.owner.name, (byName.get(t.owner.name) ?? 0) + 1);
+  }
+  return Array.from(byName.entries())
+    .slice(0, limit)
+    .map(([name, count]) => ({ name, count }));
+}
+
+/**
+ * Board Analytics modal — Recent Activity feed: the reference sorts the
+ * board's items by updated_date desc and slices to 5.
+ */
+export function recentActivityItems(tasks: readonly TaskDTO[], limit = 5): TaskDTO[] {
+  return [...tasks]
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, limit);
+}
+
+/**
+ * Board Analytics modal — headline numbers (decompiled `Ote`): total, done,
+ * completion rate, and overdue (due date in the past AND status not done).
+ * `now` is injectable for tests.
+ */
+export function boardStats(
+  tasks: readonly TaskDTO[],
+  now: Date = new Date(),
+): { total: number; done: number; completionRate: number; overdue: number } {
+  const total = tasks.length;
+  const done = tasks.filter((t) => t.status === "done").length;
+  const completionRate = total > 0 ? Math.round((done / total) * 100) : 0;
+  const overdue = tasks.filter((t) => {
+    if (t.dueDate === null || t.status === "done") return false;
+    return new Date(t.dueDate).getTime() < now.getTime();
+  }).length;
+  return { total, done, completionRate, overdue };
+}
+
+/** Board Analytics modal — "Updated Sep 17, 22:01" (date-fns "MMM d, HH:mm", 24-hour). */
+export function formatBoardActivityTime(date: Date): string {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${months[date.getMonth()]} ${date.getDate()}, ${hours}:${minutes}`;
+}
+
 /** Board-header autosave indicator, matching the reference's "Saved 11:54:10 PM". */
 export function formatSavedAt(date: Date): string {
   let hours = date.getHours();
