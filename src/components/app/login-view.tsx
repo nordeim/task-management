@@ -74,12 +74,17 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                 <p className="text-sm font-medium text-slate-500 sm:text-base">Sign in to continue</p>
               </div>
 
+              {/* Reference (probed 2026-09-18): the Google button, the OR
+                  divider, and the form live inside ONE w-full wrapper — a
+                  single column child — with the divider carrying `my-6`
+                  itself. Nesting it as a sibling column child doubled the
+                  OR→Email gap (56px vs the reference's 28px). */}
               <div className="w-full">
                 <div className="space-y-3">
                   <Button
                     type="button"
                     variant="outline"
-                    className="flex w-full items-center justify-center gap-3 rounded-xl border-slate-200 bg-white px-5 py-3.5 text-base font-medium text-slate-700 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
+                    className="flex h-auto w-full items-center justify-center gap-3 rounded-xl border-slate-200 bg-white px-5 py-3.5 text-base font-medium text-slate-700 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
                     onClick={handleGoogle}
                     disabled={busy !== null}
                   >
@@ -109,9 +114,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                     Continue with Google
                   </Button>
                 </div>
-              </div>
 
-              <div className="w-full">
                 <div className="relative my-6">
                   <div className="absolute inset-0 flex items-center">
                     <span className="h-px w-full bg-slate-200" />
@@ -120,9 +123,8 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                     <span className="bg-white px-3 font-medium tracking-wider text-slate-500">or</span>
                   </div>
                 </div>
-              </div>
 
-              <form onSubmit={handleSubmit} className="w-full space-y-4 sm:space-y-5" noValidate>
+                <form onSubmit={handleSubmit} className="w-full space-y-4 sm:space-y-5" noValidate>
                 <div className="space-y-3 sm:space-y-4">
                   {mode === "signup" && (
                     <div className="space-y-1.5">
@@ -255,6 +257,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                   </div>
                 </div>
               </form>
+              </div>
             </div>
           </div>
         </div>
