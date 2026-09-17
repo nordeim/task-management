@@ -92,8 +92,12 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b bg-card shadow-sm">
-      <div className="mx-auto flex h-16 max-w-[1400px] items-center justify-between gap-4 px-4 sm:px-6">
+    // Reference nav (probed 2026-09-17): bg-white border-b border-[#E1E5F3]
+    // shadow-sm sticky top-0 z-50; the inner row is max-w-full with
+    // px-4 sm:px-6 lg:px-8 gutters (not a capped container).
+    <header className="sticky top-0 z-50 border-b border-[#E1E5F3] bg-white shadow-sm">
+      <div className="mx-auto max-w-full px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
         <div className="flex min-w-0 items-center gap-6 lg:gap-10">
           {/* Reference logo: gradient tile with a white briefcase, linking to
               /Dashboard like the reference's own anchor. */}
@@ -312,6 +316,7 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+        </div>
         </div>
       </div>
     </header>

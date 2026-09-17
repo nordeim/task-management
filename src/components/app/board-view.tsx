@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Activity,
   ArrowLeft,
@@ -12,7 +13,7 @@ import {
   GanttChartSquare,
   Group,
   KanbanSquare,
-  Pencil,
+  Pencil as PenLine,
   Plus,
   Search,
   Star,
@@ -178,27 +179,20 @@ export function BoardView({ boardId }: { boardId: string }) {
   const [titleDraft, setTitleDraft] = useState("");
   const [deleteGroupTarget, setDeleteGroupTarget] = useState<string | null>(null);
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
-  // Scroll progress for the sticky board header's blue bar (reference chrome).
-  const [scrollProgress, setScrollProgress] = useState(0);
-
-  useEffect(() => {
-    let raf = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-        setScrollProgress(scrollable > 0 ? Math.min(1, window.scrollY / scrollable) : 0);
-      });
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("scroll", onScroll);
-    };
-  }, []);
+  // Blue header strip (probed live): a binary "has scrolled" marker — the
+  // reference renders scaleX(0) at window.scrollY 0 and removes the transform
+  // (full width) once scrollY >= 32. The page scrolls on the BODY (main's
+  // overflow makes the nested stickies inert), so we track window scroll.
+  const [scrolled, setScrolled] = useState(false);
 
   const load = useCallback(() => api<BoardDetailDTO>(`/api/boards/${boardId}`), [boardId]);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY >= 32);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   function applyResult(result: { ok: boolean; data?: BoardDetailDTO; error?: string }) {
     if (result.ok && result.data) {
@@ -516,10 +510,20 @@ export function BoardView({ boardId }: { boardId: string }) {
 
   if (!board) {
     return (
-      <div className="mx-auto max-w-[1400px] space-y-4 p-4 sm:p-6 lg:p-8">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-9 w-96" />
-        <Skeleton className="h-64 w-full rounded-xl" />
+      <div className="min-h-screen bg-[#F5F6F8]">
+        <div className="max-w-full">
+          <div className="sticky top-0 z-20 bg-[#F5F6F8] pb-4">
+            <div className="sticky top-16 z-40 border-b border-[#E1E5F3] bg-white shadow-sm">
+              <div className="px-4 py-3">
+                <Skeleton className="h-12 w-72" />
+              </div>
+            </div>
+          </div>
+          <div className="space-y-6 px-6 py-6">
+            <Skeleton className="h-[74px] w-full rounded-xl" />
+            <Skeleton className="h-64 w-full rounded-xl" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -529,30 +533,35 @@ export function BoardView({ boardId }: { boardId: string }) {
   const currentViewLabel = VIEW_TRIGGER_LABELS[subView] ?? "Main table";
 
   return (
-    <div className="mx-auto max-w-full space-y-4 p-4 sm:p-6 lg:p-8">
-      {/* Board header — reference layout (probed 2026-09-17): a STICKY white
-          bar (top-16, below the app nav) with a blue scroll-progress strip on
-          its top edge. Left column stacks [back arrow + colored tile + title]
-          over [view dropdown | favorites | items ▪ Saved]; the right group
-          holds Analytics / Integrate / Automate and the avatar row. */}
-      <div className="sticky top-16 z-40 border-b border-[#E1E5F3] bg-white px-4 py-3 shadow-sm">
+    <div className="min-h-screen bg-[#F5F6F8]">
+      <div className="max-w-full">
+      {/* Board chrome (probed 2026-09-17): the reference wraps the full-width
+          white bar (sticky top-16 z-40, edge to edge) in a gray sticky wrapper
+          (top-0 z-20 pb-4) — content scrolls beneath that gray band. One row
+          inside: back arrow + tile + [title over view|favorites|meta] on the
+          left; Analytics/Integrate/Automate + avatars on the right. */}
+      <div className="sticky top-0 z-20 bg-[#F5F6F8] pb-4">
+      <div className="sticky top-16 z-40 border-b border-[#E1E5F3] bg-white shadow-sm">
         <div
           aria-hidden="true"
           className="absolute left-0 right-0 top-0 h-1 bg-[#0073EA]"
-          style={{ transform: `scaleX(${scrollProgress})`, transformOrigin: "left" }}
+          style={{ transform: scrolled ? undefined : "scaleX(0)" }}
         />
-        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex min-w-0 flex-col gap-2">
-          <div className="flex min-w-0 items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 shrink-0 text-muted-foreground"
-              aria-label="Back to boards"
-              onClick={() => navigate("boards")}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
+        <div className="px-4 py-3">
+        <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+            {/* Reference: a real anchor to /Boards wraps the compact back
+                button (Next Link renders the same <a href="/Boards">). */}
+            <Link href="/Boards" aria-label="Back to boards">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-lg transition-all duration-200 hover:scale-105 hover:bg-[#E1E5F3]"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <div className="flex items-center gap-3">
             <span
               className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-lg"
               style={{ backgroundColor: board.color }}
@@ -562,6 +571,7 @@ export function BoardView({ boardId }: { boardId: string }) {
               {/* Reference detail: translucent shine across the tile. */}
               <span className="absolute inset-0 bg-white/20" />
             </span>
+            <div className="min-w-0 space-y-1">
           {editingTitle ? (
             <input
               autoFocus
@@ -580,7 +590,7 @@ export function BoardView({ boardId }: { boardId: string }) {
               className="rounded-md border-none bg-accent px-2 py-1 text-xl font-bold outline-none ring-1 ring-primary/40"
             />
           ) : (
-            <h1 className="group flex min-w-0 items-center gap-2 text-xl font-bold text-[#323338]">
+            <h1 className="group flex min-w-0 cursor-pointer items-center gap-2 text-xl font-bold text-[#323338] transition-colors hover:text-[#0073EA]">
               <button
                 type="button"
                 onClick={() => {
@@ -588,27 +598,27 @@ export function BoardView({ boardId }: { boardId: string }) {
                   setEditingTitle(true);
                 }}
                 title="Rename board"
-                className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left transition-colors hover:text-[#0073EA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="truncate">{board.title}</span>
                 {/* Reference detail: pencil revealed on hover only. */}
-                <Pencil className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
+                <PenLine className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
               </button>
             </h1>
           )}
-          </div>
 
-          {/* Row 2 — view dropdown | favorites | items ▪ Saved. */}
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Sub-row — view dropdown | favorites | items ▪ Saved. */}
+          <div className="flex items-center gap-3 text-xs">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
-                {(() => {
-                  const Icon = SUB_VIEWS.find((v) => v.value === subView)?.icon ?? Table2;
-                  return <Icon className="h-4 w-4" />;
-                })()}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 rounded-md px-2 text-xs font-medium text-[#676879] hover:bg-[#E1E5F3]"
+              >
+                <Table2 className="mr-1 h-3 w-3" aria-hidden="true" />
                 {currentViewLabel}
-                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} aria-hidden="true">
+                <svg className="ml-1 h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
                 </svg>
               </Button>
@@ -628,36 +638,45 @@ export function BoardView({ boardId }: { boardId: string }) {
           <Button
             variant="ghost"
             size="sm"
-            className="gap-1.5 text-muted-foreground"
+            className={`h-6 rounded-md px-2 text-xs font-medium transition-all duration-200 hover:bg-accent hover:text-yellow-500 ${
+              board.isFavorite ? "text-[#ca8a04]" : "text-[#676879]"
+            }`}
             onClick={() => void toggleFavorite()}
             aria-pressed={board.isFavorite}
           >
-            <Star className={`h-4 w-4 ${board.isFavorite ? "fill-[#ca8a04] text-[#ca8a04]" : ""}`} />
-            <span className="hidden sm:inline">{board.isFavorite ? "Favorited" : "Add to favorites"}</span>
+            <Star className={`mr-1 h-3 w-3 ${board.isFavorite ? "fill-current" : ""}`} aria-hidden="true" />
+            <span>{board.isFavorite ? "Favorited" : "Add to favorites"}</span>
           </Button>
 
           <span className="text-muted-foreground/50" aria-hidden="true">|</span>
 
           {/* Item count + autosave indicator, mirroring the reference header. */}
-          <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <span>
+          <div className="flex items-center gap-2">
+            <span className="text-[#A0A0A0]">
               {total} item{total === 1 ? "" : "s"}
             </span>
-            <span aria-hidden="true" className="text-muted-foreground/40">▪</span>
-            {lastSavedAt && <span>Saved {formatSavedAt(lastSavedAt)}</span>}
-          </span>
+            <span aria-hidden="true" className="text-[#A0A0A0]">▪</span>
+            {lastSavedAt && <span className="text-[#A0A0A0]">Saved {formatSavedAt(lastSavedAt)}</span>}
+          </div>
+          </div>
+          </div>
           </div>
         </div>
 
         {/* Right group — action buttons, then the overlapping member avatars. */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" className="text-muted-foreground" onClick={() => navigate("analytics")}>
-            <TrendingUp className="mr-1 h-4 w-4" /> Analytics
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-md border-[#E1E5F3] px-3 text-xs hover:border-green-500 hover:text-green-600"
+            onClick={() => navigate("analytics")}
+          >
+            <TrendingUp className="mr-1 h-3 w-3" aria-hidden="true" /> Analytics
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="text-muted-foreground"
+            className="h-8 rounded-md border-[#E1E5F3] px-3 text-xs hover:border-blue-500"
             onClick={() =>
               toast({
                 title: "Integrate",
@@ -665,12 +684,12 @@ export function BoardView({ boardId }: { boardId: string }) {
               })
             }
           >
-            <Activity className="mr-1 h-4 w-4" /> Integrate
+            <Activity className="mr-1 h-3 w-3" aria-hidden="true" /> Integrate
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="relative text-muted-foreground"
+            className="relative h-8 rounded-md border-[#E1E5F3] px-3 text-xs hover:border-purple-500"
             onClick={() =>
               toast({
                 title: "Automate",
@@ -678,11 +697,11 @@ export function BoardView({ boardId }: { boardId: string }) {
               })
             }
           >
-            <Zap className="mr-1 h-4 w-4" /> Automate
+            <Zap className="mr-1 h-3 w-3" aria-hidden="true" /> Automate
             {/* Reference detail: decorative notification dot on Automate. */}
             <span
               aria-hidden="true"
-              className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#a25ddb]"
+              className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-purple-500"
             />
           </Button>
 
@@ -693,31 +712,29 @@ export function BoardView({ boardId }: { boardId: string }) {
               <button
                 type="button"
                 aria-label="Board members"
-                className="flex items-center gap-2 rounded-full px-1 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex cursor-pointer items-center -space-x-2 rounded-full px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <span className="flex items-center -space-x-2">
-                  {board.members.slice(0, 4).map((member) => (
-                    <span key={member.id} className="relative">
-                      <Avatar className="h-8 w-8 border-2 border-card">
-                        <AvatarFallback
-                          className="text-xs font-medium text-white"
-                          style={{ backgroundColor: member.avatarColor }}
-                        >
-                          {initialsOf(member.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span
-                        aria-hidden="true"
-                        className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-[#00c875]"
-                      />
-                    </span>
-                  ))}
-                  {board.members.length > 4 && (
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-card bg-secondary text-[10px] font-semibold text-muted-foreground">
-                      +{board.members.length - 4}
-                    </span>
-                  )}
-                </span>
+                {board.members.slice(0, 4).map((member) => (
+                  <span key={member.id} className="relative">
+                    <Avatar className="h-8 w-8 border-2 border-white">
+                      <AvatarFallback
+                        className="text-xs font-medium text-white"
+                        style={{ backgroundColor: member.avatarColor }}
+                      >
+                        {initialsOf(member.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span
+                      aria-hidden="true"
+                      className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#00c875]"
+                    />
+                  </span>
+                ))}
+                {board.members.length > 4 && (
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-secondary text-[10px] font-semibold text-muted-foreground">
+                    +{board.members.length - 4}
+                  </span>
+                )}
               </button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-56 p-0">
@@ -744,39 +761,41 @@ export function BoardView({ boardId }: { boardId: string }) {
           </Popover>
         </div>
         </div>
+        </div>
+      </div>
       </div>
 
-      {/* Toolbar — reference behavior: only the Main Table renders the toolbar
-          (inside a white rounded card, probed 2026-09-17); the other views show
-          just their own headers. */}
+      {/* Content zone (probed): px-6 py-6 gutters, full width; only the Main
+          Table renders the toolbar card, and it sits mb-6 above the table. */}
+      <div className="px-6 py-6">
       {subView === "table" && (
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#E1E5F3] bg-white p-4 shadow-sm">
-          <div className="flex flex-wrap items-center gap-4">
-          <Button size="sm" className="font-semibold" onClick={() => setTaskDialog({ open: true, groupId: null })}>
-            <Plus className="mr-1 h-4 w-4" /> New Task
+        <div className="mb-6 flex items-center justify-between rounded-xl border border-[#E1E5F3] bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-4">
+          <Button
+            className="h-10 rounded-lg bg-[#0073EA] px-4 font-medium shadow hover:bg-[#0056B3]"
+            onClick={() => setTaskDialog({ open: true, groupId: null })}
+          >
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" /> New Task
           </Button>
-          <div className="relative min-w-40 flex-1 sm:max-w-56">
+          <div className="relative">
             <Input
               type="search"
               aria-label="Search tasks in board"
               placeholder="Search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-8 bg-secondary/40 pl-8"
+              className="h-10 w-64 rounded-lg border-none bg-[#F5F6F8] pl-10 focus:bg-white focus:ring-2 focus:ring-[#0073EA]/20"
             />
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#676879]" />
           </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
           {/* Filter by Person — single-select member filter like the reference. */}
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                size="sm"
-                className={personFilter ? "border-primary text-primary" : "text-muted-foreground"}
+                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${personFilter ? "border-primary text-primary" : ""}`}
               >
-                <Users className="mr-1 h-4 w-4" /> Person
+                <Users className="mr-2 h-4 w-4" aria-hidden="true" /> Person
               </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-64 p-0">
@@ -828,11 +847,10 @@ export function BoardView({ boardId }: { boardId: string }) {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                size="sm"
-                className={filtersActive ? "border-primary text-primary" : "text-muted-foreground"}
+                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${filtersActive ? "border-primary text-primary" : ""}`}
                 aria-pressed={filtersActive}
               >
-                <Filter className="mr-1 h-4 w-4" /> Filter
+                <Filter className="mr-2 h-4 w-4" aria-hidden="true" /> Filter
               </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-56 p-0">
@@ -912,11 +930,10 @@ export function BoardView({ boardId }: { boardId: string }) {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                size="sm"
-                className={sort ? "border-primary text-primary" : "text-muted-foreground"}
+                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${sort ? "border-primary text-primary" : ""}`}
                 aria-pressed={sort !== null}
               >
-                <ArrowUpNarrowWide className="mr-1 h-4 w-4" />
+                <ArrowUpNarrowWide className="mr-2 h-4 w-4" aria-hidden="true" />
                 {sort
                   ? `Sort: ${
                       SORT_OPTIONS.find((o) => o.value === sort.field)?.label ?? ""
@@ -968,10 +985,9 @@ export function BoardView({ boardId }: { boardId: string }) {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                size="sm"
-                className={hiddenColumns.length > 0 ? "border-primary text-primary" : "text-muted-foreground"}
+                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${hiddenColumns.length > 0 ? "border-primary text-primary" : ""}`}
               >
-                <Eye className="mr-1 h-4 w-4" /> Hide
+                <Eye className="mr-2 h-4 w-4" aria-hidden="true" /> Hide
               </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-52 p-1.5">
@@ -1004,10 +1020,9 @@ export function BoardView({ boardId }: { boardId: string }) {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                size="sm"
-                className={groupBy !== "default" ? "border-primary text-primary" : "text-muted-foreground"}
+                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${groupBy !== "default" ? "border-primary text-primary" : ""}`}
               >
-                <Group className="mr-1 h-4 w-4" /> Group by
+                <Group className="mr-2 h-4 w-4" aria-hidden="true" /> Group by
               </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-52 p-1.5">
@@ -1109,6 +1124,8 @@ export function BoardView({ boardId }: { boardId: string }) {
           )}
         </div>
       )}
+      </div>
+    </div>
 
       <CreateTaskDialog
         open={taskDialog.open}

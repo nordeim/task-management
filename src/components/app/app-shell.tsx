@@ -96,9 +96,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={authValue}>
       <AppProvider user={user} onSignOut={() => void handleSignOut()}>
-        <div className="flex min-h-screen flex-col bg-background">
+        {/* Reference app shell (probed 2026-09-17): a flex column whose MAIN
+            is the scroll container (flex-1 overflow-y-auto overflow-x-hidden)
+            with the nav outside it — so the nav never scrolls and every
+            page-level sticky offset is measured from the top of main. */}
+        <div className="flex min-h-screen flex-col bg-[#F5F6F8]">
           <AppHeader />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 overflow-x-hidden overflow-y-auto">{children}</main>
           {/* The reference has no app footer (verified: document.querySelectorAll
               ('footer').length === 0) — nothing renders below the main region. */}
         </div>
