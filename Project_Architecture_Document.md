@@ -1,4 +1,4 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.3
+# Tuesday.com — Master Project Architecture Document (PAD) v1.4
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
@@ -7,6 +7,51 @@
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.4 (Parity Deep-Pass #2, 2026-09-17)
+
+- `[SYN]` Fourth parity pass. Session 4's probes mislabeled several surfaces;
+  this pass re-derived the ground truth with fresh computed-style DOM probes
+  and controlled (fully reverted) experiments on the reference. 34 numbered
+  gaps closed (`docs/remediation-plan-session5.md`): **groups now own their
+  accent colors** (`Group.color`, seven `GROUP_COLOR_OPTIONS` swatches
+  including Gray `#676879`, Add New Group dialog, 4px border-left per group
+  instead of board color); board table re-architected as **one white card**
+  wrapping all groups with per-group horizontal scroll, sticky rails (handle
+  24/left-0, checkbox 32/left-24, Task 250/left-56, action 50/right), sticky
+  column-header band with per-column settings menus + blue add-to-group plus,
+  hover-revealed grey "+ Add task" row button (the dashed blue button belongs
+  to Add New Group only), bordered summary-row chips, empty-group "Add Item"
+  flow, row-click collapse, single-item "Delete Task" row menu; sticky board
+  header + scroll progress bar; toolbar in a white card; Create Task dialog
+  `sm:max-w-lg` h-12 inputs with group color dots; kanban cards with FIXED
+  neutral `#E1E5F3` left border (not status-colored), date chip + gradient
+  avatar footer, no priority badge; calendar p-4 header with flanking arrows +
+  centered text-xl title, `min-h-[100px]` bordered cells, blue-text today
+  marker, white bordered event chips; timeline title-left/nav-right header,
+  40px day columns, **no** today highlight; analytics stat cards restructured
+  (inline icon + text-lg label, text-3xl value, color-100 subtitle,
+  full-width `bg-green-300` completion track, gray-50 Board Performance rows
+  with w-32 bar + bordered % chip, blue/orange/green section icons); boards
+  page grid/list cards (top color bar / left color stripe, p-2 footer zone
+  with full-width Options), h-10 view toggles (active solid `#0073EA`);
+  **no app footer**; nav has **no active-state highlight**; DateCell set-state
+  plain `Sep 22` text (icon only when empty; overdue = red-tinted chip);
+  completed titles never struck through; priority badges `font-normal`;
+  view-dropdown trigger shows short labels (`VIEW_TRIGGER_LABELS`); page
+  containers moved to padding-outside `max-w-7xl` (reference pattern).
+- `[GAT]` Unit suite grew 56→61 tests: new seams `VIEW_TRIGGER_LABELS`,
+  `KANBAN_CARD_BORDER`, `GROUP_COLOR_OPTIONS` (TDD: red first). API surface
+  extended: `POST /api/boards/[id]/groups` accepts `color`;
+  `PATCH /api/tasks/[id]` accepts drag-reorder directives (`groupId` +
+  `index`, transactional sibling renumbering).
+- `[DEV]` Deliberate deviations preserved (§10): checkbox↔status coupling
+  (reference checkbox is transient dead UI), owner picker popover vs
+  free-text, functional Favorites filter (reference "Filter" button is dead
+  UI), Radix dismiss, real priority counts, helpful Unassigned empty state,
+  timeline due-date bars + unscheduled list, hover clear-X on dates, favorite
+  star on cards, working group-hover title color (reference ships a broken
+  template-literal class).
 
 #### Revision Block — v1.3 (Reference Redeploy Re-Alignment, 2026-09-17)
 
@@ -633,8 +678,6 @@ The client only ever sees DTOs.
 | `--border` | `#e6e9ef` | — | Hairlines |
 | `--primary` | `#0073ea` | 4.6:1 | Buttons, links, focus rings (AA) |
 | `--destructive` | `#e2445c` | 4.5:1 | Danger actions, overdue |
-| `--nav-active-bg` | `#e1e5f3` | — | Active nav pill |
-| `--nav-hover-bg` | `#f5f6f8` | — | Nav + group-header hover |
 | `--table-header-bg` | `#f5f6f8` | — | Column-header band |
 | `--table-track-bg` | `#e1e5f3` | — | Group progress track |
 | `--group-progress-fill` | `#00c875` | — | Group progress fill |
@@ -652,7 +695,12 @@ Overdue `#ef4444→#dc2626`; each card carries translucent deco discs (64px @
 white/10 top-right, 48px @ white/5 bottom-left). Quick actions:
 `#06b6d4`/`#22c55e`/`#f97316`/`#d946ef` with a purple gradient header tile.
 Board palette (6): `#0073ea`, `#00c875`, `#ffcb00`, `#e2445c`, `#a25ddb`,
-`#00d9ff`. The header logo is a gradient tile (`#2563EB→#1D4ED8`) with a white
+`#00d9ff`; group palette (7, `GROUP_COLOR_OPTIONS`): adds Gray `#676879` —
+each group's 4px table accent derives from its own swatch, not the board
+color. Kanban card left borders are the fixed neutral `#E1E5F3`
+(`KANBAN_CARD_BORDER`), not status-colored. The app nav has **no active-state
+highlight** (reference-accurate) and the shell has **no footer**. The header
+logo is a gradient tile (`#2563EB→#1D4ED8`) with a white
 briefcase icon; board cards tint the folder icon at 12.5% alpha of the board
 color.
 
@@ -731,7 +779,7 @@ transition to 0.01ms.
 |----------|-------|----------|-----------|
 | Lint gate | 1 suite | `eslint.config.mjs` | ESLint 9, `eslint-config-next` defaults, zero rule weakening |
 | Type gate | 1 run | `tsconfig.json` | `tsc --noEmit` — strict, no overrides; `skills/` + `docs/` excluded |
-| Unit tests | 56 tests | `src/lib/domain.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (Task Name/Created/Updated), `visibleColumns` (Show/Hide Columns), `groupSummary` (footer row), `relativeBoardTime`, `VISIBILITY_OPTIONS`, the reference palette hexes, `priorityBadgeStyle`, `visibilityLabel` |
+| Unit tests | 61 tests | `src/lib/domain.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (Task Name/Created/Updated), `visibleColumns` (Show/Hide Columns), `groupSummary` (footer row), `relativeBoardTime`, `VISIBILITY_OPTIONS`, the reference palette hexes, `priorityBadgeStyle`, `visibilityLabel`, `VIEW_TRIGGER_LABELS` (short trigger labels), `KANBAN_CARD_BORDER` (fixed neutral), `GROUP_COLOR_OPTIONS` (7 swatches) |
 | Interactive verification | re-executed 2026-09-17 (session 4) | agent-browser session | login as sepnetflix2023; Edit Board round-trip persisted to SQLite (verified, then reverted); Filter popover row counts; Hide column removal incl. summary cell; Sort label cycling; owner picker "Enter name…" search; native date input spinbuttons; toolbar absent in Kanban/Calendar; gradient cards verified via computed styles; VLM side-by-side: board table "Match" |
 
 ### 7.2 Test Patterns
@@ -880,28 +928,30 @@ bun run dev                # http://localhost:3000
 
 | File | ~Lines | Purpose |
 |------|--------|---------|
-| `src/app/page.tsx` | 95 | The route: auth gate + AuthedShell view switch |
-| `src/components/app/board-view.tsx` | 940 | Board detail: header + saved indicator, toolbar (search, person, filter, sort, hide, group-by — Main Table only), 5 views, all mutations |
-| `src/components/app/boards-view.tsx` | 385 | Boards grid/list, search, favorites filter, reference folder cards, edit/delete flows |
-| `src/components/app/dashboard-view.tsx` | 415 | Home: gradient KPIs, hero with live task count, reference board cards, quick actions, activity |
-| `src/components/app/analytics-view.tsx` | 330 | Filters, gradient stat cards, bar distributions, board performance |
-| `src/components/app/board-table.tsx` | 420 | Main Table: dynamic columns (Show/Hide), reference group headers, task rows, footer summary row |
-| `src/components/app/board-kanban.tsx` | 300 | @dnd-kit columns grouped by Status or People (drag assigns owner) |
-| `src/components/app/board-timeline.tsx` | 197 | Gantt timeline: Day/Week/Month zoom, day columns, due-date bars |
-| `src/components/app/board-calendar.tsx` | 132 | Sun-first month grid with due-date chips |
-| `src/components/app/app-header.tsx` | 385 | Nav pills, gradient logo, "Search everything…" search, honest notifications/help/settings, user menu, mobile drawer |
+| `src/app/page.tsx` | 92 | The route: auth gate + AuthedShell view switch (no footer — reference-accurate) |
+| `src/components/app/board-view.tsx` | 1184 | Board detail: sticky header + scroll progress, toolbar card, 5 views, all mutations, group-colored table sections |
+| `src/components/app/boards-view.tsx` | 456 | Boards grid/list cards (color bar / stripe, Options footer), search, favorites filter, edit/delete flows |
+| `src/components/app/dashboard-view.tsx` | 401 | Home: gradient KPIs, hero with live task count, reference board cards, quick actions, activity |
+| `src/components/app/analytics-view.tsx` | 382 | Filters, gradient stat cards (inline icon, green-300 completion track), distributions, gray-50 performance rows |
+| `src/components/app/board-table.tsx` | 855 | Main Table: ONE card + per-group scroll containers, sticky rails, settings menus, summary row, empty-group flow |
+| `src/components/app/board-kanban.tsx` | 310 | @dnd-kit columns grouped by Status or People (drag assigns owner); neutral-border cards |
+| `src/components/app/board-timeline.tsx` | 203 | Gantt timeline: title-left/nav-right header, 40px day columns, no today highlight |
+| `src/components/app/board-calendar.tsx` | 147 | Sun-first month grid, p-4 header, white bordered due-date chips |
+| `src/components/app/app-header.tsx` | 332 | Nav (no active highlight — reference-accurate), gradient logo, "Search everything…", honest notifications/help/settings, user menu, mobile drawer |
 | `src/components/app/login-view.tsx` | 245 | Login/signup with circular slate logo, input icons, honest OAuth placeholder |
 | `src/components/app/create-board-dialog.tsx` | 191 | Board creation (fresh-mount form pattern) |
+| `src/components/app/create-task-dialog.tsx` | 173 | Task creation: sm:max-w-lg h-12 inputs, group Select with color dots |
+| `src/components/app/create-group-dialog.tsx` | 158 | Add New Group: title + 7 `GROUP_COLOR_OPTIONS` swatches (fresh-mount form pattern) |
 | `src/components/app/edit-board-dialog.tsx` | 195 | Board editing: title/description/colors/visibility (fresh-mount form pattern) |
 | `src/components/app/owner-cell.tsx` | 155 | Searchable "Enter name…" assignment popover |
-| `src/components/app/date-cell.tsx` | 95 | Native date input, noon storage, overdue styling |
-| `src/lib/domain.ts` | 460 | Vocabulary, DTOs, ActionResult, pure helpers (filter/sort/columns/summary/time/badge-style/visibility-label) — the contract file |
-| `src/lib/domain.test.ts` | 470 | Vitest suite over the pure seams (56 tests) |
+| `src/components/app/date-cell.tsx` | 108 | Native date input, noon storage, plain set-state text, overdue red chip |
+| `src/lib/domain.ts` | 492 | Vocabulary (incl. `VIEW_TRIGGER_LABELS`, `KANBAN_CARD_BORDER`, `GROUP_COLOR_OPTIONS`), DTOs, ActionResult, pure helpers — the contract file |
+| `src/lib/domain.test.ts` | 525 | Vitest suite over the pure seams (61 tests) |
 | `src/lib/auth.ts` | 79 | scrypt + sessions |
 | `src/lib/api-client.ts` | 31 | Typed fetch that never throws |
 | `src/app/globals.css` | 180 | Theme tokens (both modes) + deco discs + global styles |
-| `prisma/schema.prisma` | 115 | The six models |
-| `scripts/seed.ts` | 275 | Idempotent demo dataset (demo user `sepnetflix2023`) |
+| `prisma/schema.prisma` | 117 | The six models (Group carries its own `color`) |
+| `scripts/seed.ts` | 285 | Idempotent demo dataset (demo user `sepnetflix2023`, per-group colors) |
 
 ---
 
@@ -913,7 +963,7 @@ bun run dev                # http://localhost:3000
 | **Group** | Labeled section of a board (monday.com "group"); collapsible, ordered |
 | **Task** | Work item: title + status + priority + owner + due date + completed |
 | **Status pill** | Colored chip for the four statuses; click → popover listbox |
-| **Priority flag** | 1–4 rising bars colored per priority level |
+| **Priority badge** | Tinted text chip (12.5% alpha bg + colored text) for the four priority levels |
 | **View** | One of five renderings of a board's tasks: table, kanban, calendar, timeline, unassigned |
 | **ActionResult** | `{ ok, data | error }` envelope used by every API route |
 | **Vocabulary** | The closed const arrays in `domain.ts` (statuses, priorities, colors) |

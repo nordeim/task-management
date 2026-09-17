@@ -1,8 +1,8 @@
 ---
 IMPORTANT: File is read fresh for every conversation. Be brief and practical.
 project_type: nextjs-single-app
-version: 1.0.0
-last_updated: 2026-09-15
+version: 1.1.0
+last_updated: 2026-09-17
 ---
 
 # Tuesday.com — Task Management
@@ -133,8 +133,11 @@ public demo credentials).
   toolbar pipeline (`filterTasks`/`sortTasks`), column visibility
   (`visibleColumns`), the group footer row (`groupSummary`), boards-card
   relative time (`relativeBoardTime`), the reference palette (status/priority/
-  board-color hexes), the priority badge recipe (`priorityBadgeStyle`), and
-  visibility labels (`visibilityLabel`/`VISIBILITY_OPTIONS`).
+  board-color hexes), the priority badge recipe (`priorityBadgeStyle`),
+  visibility labels (`visibilityLabel`/`VISIBILITY_OPTIONS`), the view-dropdown
+  trigger labels (`VIEW_TRIGGER_LABELS`), the kanban card border token
+  (`KANBAN_CARD_BORDER`), and the Add New Group swatches
+  (`GROUP_COLOR_OPTIONS`).
 - **TDD is the rule for new logic**: write the failing test first (red),
   implement the pure function in `src/lib/domain.ts` (green), then wire it
   into components/routes. Bug fixes require a regression test that fails
@@ -199,7 +202,7 @@ sandbox-only directories — keep it intact.
 ```
 src/app/page.tsx      auth gate → AuthedShell (client-side view switch)
 src/app/api/**        JSON route handlers, ActionResult envelopes
-src/components/app/** product UI (header, views, cells, dialogs — incl. edit-board-dialog)
+src/components/app/** product UI (header, views, cells, dialogs — incl. edit-board + create-group)
 src/components/ui/**  shadcn primitives (vendored)
 src/lib/domain.ts     vocabulary + DTOs + ActionResult + pure helpers (single source)
 src/lib/domain.test.ts Vitest unit suite over the pure seams
@@ -211,10 +214,12 @@ scripts/seed.ts       idempotent demo dataset
 
 ### API Design
 
-- Mutations: `POST /api/boards`, `POST /api/boards/[id]/groups`,
-  `POST /api/tasks`; updates: `PATCH /api/{boards,tasks,groups}/[id]`
-  (boards accept title/description/color/**visibility**/isFavorite); deletes:
-  `DELETE` on the same. Reads: `GET /api/boards`,
+- Mutations: `POST /api/boards`, `POST /api/boards/[id]/groups`
+  (name + `color` from `GROUP_COLOR_OPTIONS`), `POST /api/tasks`; updates:
+  `PATCH /api/{boards,tasks,groups}/[id]` (boards accept
+  title/description/color/**visibility**/isFavorite; tasks additionally accept
+  drag-reorder directives `groupId` + `index`, renumbering siblings in a
+  transaction); deletes: `DELETE` on the same. Reads: `GET /api/boards`,
   `GET /api/boards/[id]`, `GET /api/dashboard`, `GET /api/analytics`,
   `GET /api/users`. All authenticated by the session cookie.
 - **Invariant**: `PATCH /api/tasks/[id]` couples `status` and `completed`

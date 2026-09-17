@@ -29,19 +29,19 @@ SQLite for persistence — which makes the whole product cloneable with
 
 | Feature | What it does |
 |---------|--------------|
-| 📋 Main Table view | monday-style spreadsheet: groups with a 4px board-color left accent, live progress, per-row checkbox / tinted priority badge / status pill (white text) / owner avatar / due date — all editable inline, regroupable by Status / Person / Priority, with a per-group footer summary row ("N items", priority count badges, status count bars) |
+| 📋 Main Table view | monday-style spreadsheet: all groups live in ONE white card, each group zone with a 4px **group-color** left accent (per-group swatch from the Add New Group dialog), live progress, per-row checkbox / tinted priority badge / status pill (white text) / owner avatar / due date — all editable inline, regroupable by Status / Person / Priority, with sticky column headers + sticky title/gutter columns in a horizontally scrollable sheet and a per-group footer summary row ("N items", priority count chips, status count bars) |
 | 🔍 Board toolbar | Search + Filter by Person + **Filter Items** (Status & Priority checkboxes) + **Sort By** (Task Name / Created Date / Updated Date, cycling asc-desc-off) + **Show/Hide Columns** + Group by — all mirroring the reference; the toolbar renders only in the Main Table view |
 | 🗂 Kanban view | Status columns (Not Started / Working on it / Done / Stuck) or People columns (Unassigned + one per member) with pointer-based drag-and-drop that persists status **and** owner changes to the database |
 | 📅 Calendar view | Sun-first month grid with tasks pinned to their due dates, color-coded by status, overdue-safe date handling (noon storage) |
-| 📈 Timeline & Unassigned views | Gantt-style timeline with Day/Week/Month zoom, day columns, and status-colored bars on due dates, plus a filter for tasks with no owner |
-| 📊 Analytics dashboard | Gradient KPI cards (total tasks, completion rate with progress bar, overdue count, active boards), status + priority horizontal-bar distributions, and per-board performance, filterable by board and time window (7/30/90 days) |
+| 📈 Timeline & Unassigned views | Gantt-style timeline with Day/Week/Month zoom (title left, ‹ Today › nav + zoom right), fixed 40px day columns with stacked weekday/number headers and **no** today highlight, plus status-colored bars on due dates and a filter for tasks with no owner |
+| 📊 Analytics dashboard | Gradient KPI cards (inline icon + text-lg label, text-3xl value, color-100 subtitle; completion rate with full-width green-300 track), status + priority horizontal-bar distributions (blue Activity / orange TrendingUp headers), and per-board performance rows (gray-50 row cards with progress bar + bordered % chip), filterable by board and time window (7/30/90 days) |
 | 🏠 Dashboard home | Time-of-day greeting with live task count, four gradient KPI stat cards with deco circles, recent boards with folder tiles and visibility badges, quick actions, and an activity feed |
-| ✏️ Board management | Create **and edit** boards (title, description, 6 colors, Private/Shared visibility) from the boards page Options menu; rename inline from the board header |
+| ✏️ Board & group management | Create **and edit** boards (title, description, 6 colors, Private/Shared visibility) from the boards page Options menu; **Add New Group** dialog with 7 named color swatches; rename inline from the board header; boards page renders grid or list cards (top color bar / left color stripe, p-5 body, footer Options zone) |
 | 👤 Owner picker | Searchable "Enter name…" assignment popover that filters members by name or email |
-| 📅 Due dates | Native date input (matches the reference), stored at local noon so timezone edges never shift the rendered day |
+| 📅 Due dates | Native date input (matches the reference), stored at local noon so timezone edges never shift the rendered day; the set state renders as plain `Sep 22` text (no icon) and past dates turn into red-tinted chips |
 | 🔐 Email + password auth | scrypt-hashed passwords, opaque session tokens in httpOnly cookies (30-day TTL), login/signup/sign-out flows |
-| 🎨 Board themes | Six board colors (Ocean Blue, Success Green, Sunny Yellow, Danger Red, Purple, Cyan) driving accents across every surface |
-| 📱 Responsive shell | Desktop nav with active-state pills plus a mobile hamburger drawer; global "Search everything…" board search |
+| 🎨 Themes | Six board colors (Ocean Blue, Success Green, Sunny Yellow, Danger Red, Purple, Cyan) driving accents across every surface, plus seven per-group swatches (adds Gray `#676879`) driving each group's 4px left accent |
+| 📱 Responsive shell | Desktop nav (reference-accurate: no active-state highlight, hover `#F5F6F8` → blue text) plus a mobile hamburger drawer; global "Search everything…" board search; **no app footer** (like the reference) |
 
 ## Architecture
 
@@ -93,12 +93,12 @@ auth check and avoids route-level navigation entirely.
 │       ├── 📂 tasks/route.ts · 📂 tasks/[id]/route.ts
 │       ├── 📂 dashboard/route.ts · 📂 analytics/route.ts · 📂 users/route.ts
 ├── 📂 components/
-│   ├── 📂 app/                        ← product UI (17 components)
+│   ├── 📂 app/                        ← product UI (18 components)
 │   │   ├── 📄 app-header.tsx · app-context.tsx · login-view.tsx
 │   │   ├── 📄 dashboard-view.tsx · boards-view.tsx · board-view.tsx
 │   │   ├── 📄 board-table.tsx · board-kanban.tsx · board-calendar.tsx · board-timeline.tsx
 │   │   ├── 📄 status-cell.tsx · priority-cell.tsx · owner-cell.tsx · date-cell.tsx
-│   │   └── 📄 create-board-dialog.tsx · create-task-dialog.tsx · analytics-view.tsx
+│   │   └── 📄 create-board-dialog.tsx · create-task-dialog.tsx · create-group-dialog.tsx · analytics-view.tsx
 │   └── 📂 ui/                         ← shadcn primitives (vendored scaffold)
 ├── 📂 lib/
 │   ├── 📄 domain.ts                   ← statuses, priorities, colors, DTOs, ActionResult
@@ -173,7 +173,7 @@ buttons.
 |-------|---------|-------|
 | Lint | `bun run lint` | ESLint 9 flat config, `eslint-config-next` defaults with **no rule weakening**; must exit 0 |
 | Types | `bun run typecheck` | `tsc --noEmit`; strict mode fully on; `skills/` and `docs/` excluded — the vendored skill library is outside every gate |
-| Unit tests | `bun run test` | Vitest, colocated `src/lib/*.test.ts` over the pure domain seams (status↔completed coupling, timeline window math, kanban grouping, distribution bars, saved-indicator format, task filter/sort pipeline, column visibility, group summary, relative time, reference palette, priority badge recipe, visibility labels) |
+| Unit tests | `bun run test` | Vitest, colocated `src/lib/*.test.ts` over the pure domain seams (status↔completed coupling, timeline window math, kanban grouping, distribution bars, saved-indicator format, task filter/sort pipeline, column visibility, group summary, relative time, reference palette, priority badge recipe, visibility labels, view-trigger labels, kanban card border token, group color options) |
 | Build | `bun run build` | Standalone production build |
 | Smoke (manual/agent-browser) | sign in as the demo user, edit a board, filter/hide/sort, drag a kanban card, reload | changes persist — verified against the database during development |
 
@@ -193,8 +193,6 @@ natural next step; see `Project_Architecture_Document.md` §7 and §10.
 | `--muted-foreground` | `#6b7385` | Secondary text |
 | `--border` | `#e6e9ef` | Hairlines and card borders |
 | `--primary` | `#0073ea` | Brand blue: buttons, links, focus rings |
-| `--nav-active-bg` | `#e1e5f3` | Active nav pill background |
-| `--nav-hover-bg` | `#f5f6f8` | Nav hover + group header hover |
 | `--table-header-bg` | `#f5f6f8` | Table column-header band |
 | `--table-track-bg` | `#e1e5f3` | Group progress track |
 | `--group-progress-fill` | `#00c875` | Group progress fill |
@@ -209,17 +207,22 @@ natural next step; see `Project_Architecture_Document.md` §7 and §10.
 Priorities render as **tinted text badges** (background at 12.5% alpha over
 the solid color, which is also the text color): Low `#787d80`, Medium
 `#ffcb00`, High `#fdab3d`, Critical `#e2445c` — via the unit-tested
-`priorityBadgeStyle`. KPI stat cards are **gradient pairs** probed from the
-reference: dashboard `to right bottom` (blue `#3b82f6→#2563eb`, green
-`#22c55e→#16a34a`, orange `#f59e0b→#f97316`, purple `#a855f7→#9333ea`),
-analytics `to right` (same pairs, Overdue `#ef4444→#dc2626`), each carrying
-translucent white deco discs (64px @ white/10, 48px @ white/5). Quick
-actions: `#06b6d4`/`#22c55e`/`#f97316`/`#d946ef`. Board palette (6):
-`#0073ea`, `#00c875`, `#ffcb00`, `#e2445c`, `#a25ddb`, `#00d9ff`. The header
-logo is a gradient tile (`#2563EB→#1D4ED8`) with a white briefcase icon.
-Typography is **Inter** (Latin) via `next/font`, falling back to the system
-stack. `prefers-reduced-motion` collapses all animations. Page containers:
-`max-w-7xl` on dashboard/boards/analytics, `max-w-full` on the board detail.
+`priorityBadgeStyle`. Kanban card left borders are a FIXED neutral
+`#E1E5F3` (`KANBAN_CARD_BORDER`), not status-colored. The view-dropdown
+trigger shows short labels ("Main table", "Kanban", "Calendar", "Timeline")
+while its menu lists the long ones (`VIEW_TRIGGER_LABELS`). KPI stat cards are
+**gradient pairs** probed from the reference: dashboard `to right bottom`
+(blue `#3b82f6→#2563eb`, green `#22c55e→#16a34a`, orange `#f59e0b→#f97316`,
+purple `#a855f7→#9333ea`), analytics `to right` (same pairs, Overdue
+`#ef4444→#dc2626`), each carrying translucent white deco discs (64px @
+white/10, 48px @ white/5). Quick actions: `#06b6d4`/`#22c55e`/`#f97316`/
+`#d946ef`. Board palette (6): `#0073ea`, `#00c875`, `#ffcb00`, `#e2445c`,
+`#a25ddb`, `#00d9ff`; group palette (7, `GROUP_COLOR_OPTIONS`) adds Gray
+`#676879`. The header logo is a gradient tile (`#2563EB→#1D4ED8`) with a
+white briefcase icon. Typography is **Inter** (Latin) via `next/font`, falling
+back to the system stack. `prefers-reduced-motion` collapses all animations.
+Page containers: `max-w-7xl` on dashboard/boards/analytics (padding outside
+the container, like the reference), `max-w-full` on the board detail.
 
 ## Deployment (pushing to GitHub)
 
