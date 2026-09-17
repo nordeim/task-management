@@ -132,20 +132,27 @@
   }
 }
 
-/* Thin, unobtrusive scrollbars for the board table and long lists. */
+/* Kanban column scrollbars (probed 2026-09-17): the reference's
+   `custom-scrollbar` — 8px bar, transparent 10px-radius track, and a
+   slate-300→slate-400 gradient thumb with a 10px radius and 1px slate-200
+   border (hover shifts to slate-400→slate-500). Only the kanban scroll zones
+   use it; the table scroller stays plain `overflow-x-auto` like the
+   reference. */
 .tuesday-scroll::-webkit-scrollbar {
   height: 8px;
   width: 8px;
 }
 .tuesday-scroll::-webkit-scrollbar-track {
   background: transparent;
+  border-radius: 10px;
 }
 .tuesday-scroll::-webkit-scrollbar-thumb {
-  background: #d0d4e1;
-  border-radius: 4px;
+  background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
 }
 .tuesday-scroll::-webkit-scrollbar-thumb:hover {
-  background: #b4bac8;
+  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
 }
 
 /* Decorative translucent circles + dots used by the gradient KPI cards.

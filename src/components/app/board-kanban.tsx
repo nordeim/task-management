@@ -157,56 +157,58 @@ function KanbanColumn({
 
   return (
     <div
+      ref={setNodeRef}
       className="w-80 flex-shrink-0 rounded-2xl p-2 shadow-lg transition-all duration-300"
       data-column={column.id}
       style={{ background: "linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)" }}
     >
-      <div ref={setNodeRef} className="flex flex-col">
-        <div className="mb-2 px-4 py-3">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="flex min-w-0 items-center gap-3">
-              {column.avatar ? (
-                <Avatar className="h-6 w-6">
-                  <AvatarFallback
-                    className="text-[9px] font-semibold text-white"
-                    style={{ backgroundColor: column.avatar.avatarColor }}
-                  >
-                    {initialsOf(column.avatar.name)}
-                  </AvatarFallback>
-                </Avatar>
-              ) : null}
-              {/* Reference column header: bold title + tinted count badge (no dot). */}
-              <h3 className="truncate text-lg font-bold text-gray-800">{column.label}</h3>
-              <span
-                className="rounded-full px-2.5 py-1 text-sm font-bold shadow-sm"
-                style={{ backgroundColor: `${column.dotColor}20`, color: column.dotColor }}
-              >
-                {column.tasks.length}
-              </span>
-            </div>
-            <button
-              type="button"
-              aria-label={`Add task to ${column.label}`}
-              onClick={onAddTask}
-              className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/50"
+      {/* Reference column anatomy (probed 2026-09-17): the droppable IS the
+          w-80 column div; its two direct children are the header zone and the
+          scroll zone — no inner wrapper. */}
+      <div className="mb-2 px-4 py-3">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {column.avatar ? (
+              <Avatar className="h-6 w-6">
+                <AvatarFallback
+                  className="text-[9px] font-semibold text-white"
+                  style={{ backgroundColor: column.avatar.avatarColor }}
+                >
+                  {initialsOf(column.avatar.name)}
+                </AvatarFallback>
+              </Avatar>
+            ) : null}
+            {/* Reference column header: bold title + tinted count badge (no dot). */}
+            <h3 className="text-lg font-bold text-gray-800">{column.label}</h3>
+            <span
+              className="rounded-full px-2.5 py-1 text-sm font-bold shadow-sm"
+              style={{ backgroundColor: `${column.dotColor}20`, color: column.dotColor }}
             >
-              <Plus className="h-5 w-5" style={{ color: column.dotColor }} />
-            </button>
+              {column.tasks.length}
+            </span>
           </div>
-          {column.sublabel && <p className="-mt-1 text-[11px] text-muted-foreground">{column.sublabel}</p>}
+          <button
+            type="button"
+            aria-label={`Add task to ${column.label}`}
+            onClick={onAddTask}
+            className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/50"
+          >
+            <Plus className="h-5 w-5" style={{ color: column.dotColor }} />
+          </button>
         </div>
-        <div
-          className={`tuesday-scroll group max-h-[calc(100vh-300px)] min-h-[200px] overflow-y-auto px-2 pb-2 transition-colors ${
-            isOver ? "rounded-2xl bg-accent ring-2 ring-[#0073EA]/30" : ""
-          }`}
-        >
-          {column.tasks.map((task) => (
-            <KanbanCard key={task.id} task={task} />
-          ))}
-          {column.tasks.length === 0 && <EmptyColumnHint color={column.dotColor} onAddTask={onAddTask} />}
-        </div>
-        {children}
+        {column.sublabel && <p className="-mt-1 text-[11px] text-muted-foreground">{column.sublabel}</p>}
       </div>
+      <div
+        className={`tuesday-scroll group max-h-[calc(100vh-300px)] min-h-[200px] overflow-y-auto px-2 pb-2 transition-colors ${
+          isOver ? "rounded-2xl bg-accent ring-2 ring-[#0073EA]/30" : ""
+        }`}
+      >
+        {column.tasks.map((task) => (
+          <KanbanCard key={task.id} task={task} />
+        ))}
+        {column.tasks.length === 0 && <EmptyColumnHint color={column.dotColor} onAddTask={onAddTask} />}
+      </div>
+      {children}
     </div>
   );
 }
