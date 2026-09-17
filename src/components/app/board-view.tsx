@@ -53,6 +53,7 @@ import { api } from "@/lib/api-client";
 import {
   TASK_PRIORITIES,
   TASK_STATUSES,
+  VIEW_TRIGGER_LABELS,
   filterTasks,
   formatSavedAt,
   resolveStatusCompletedPatch,
@@ -73,6 +74,7 @@ import { BoardKanban } from "@/components/app/board-kanban";
 import { BoardCalendar } from "@/components/app/board-calendar";
 import { BoardTimeline } from "@/components/app/board-timeline";
 import { CreateTaskDialog } from "@/components/app/create-task-dialog";
+import { CreateGroupDialog } from "@/components/app/create-group-dialog";
 
 type BoardSubView = "table" | "kanban" | "calendar" | "timeline" | "unassigned";
 
@@ -117,6 +119,23 @@ const SUB_VIEWS: { value: BoardSubView; label: string; icon: typeof Table2 }[] =
   { value: "unassigned", label: "Unassigned Tasks", icon: UserRound },
 ];
 
+/** Optimistic-insert skeleton for an inline-created task (server fills the rest on reload). */
+function newTaskShape(title: string): Omit<TaskDTO, "id" | "groupId"> {
+  const now = new Date().toISOString();
+  return {
+    title,
+    status: "not_started",
+    priority: "low",
+    boardId: "", // filled by the caller's spread below — see createTaskInline
+    dueDate: null,
+    completed: false,
+    position: Number.MAX_SAFE_INTEGER,
+    createdAt: now,
+    updatedAt: now,
+    owner: null,
+  };
+}
+
 function initialsOf(name: string): string {
   return (
     name
@@ -158,6 +177,26 @@ export function BoardView({ boardId }: { boardId: string }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [deleteGroupTarget, setDeleteGroupTarget] = useState<string | null>(null);
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  // Scroll progress for the sticky board header's blue bar (reference chrome).
+  const [scrollProgress, setScrollProgress] = useState(0);
+
+  useEffect(() => {
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+        setScrollProgress(scrollable > 0 ? Math.min(1, window.scrollY / scrollable) : 0);
+      });
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, []);
 
   const load = useCallback(() => api<BoardDetailDTO>(`/api/boards/${boardId}`), [boardId]);
 
@@ -233,7 +272,8 @@ export function BoardView({ boardId }: { boardId: string }) {
       return (board?.groups ?? []).map((g) => ({
         id: g.id,
         name: g.name,
-        color: board?.color ?? "#0073ea",
+        // Each group owns its accent (Add New Group dialog swatch).
+        color: g.color,
         tasks: filtered(g.tasks),
         group: g,
       }));
@@ -328,29 +368,76 @@ export function BoardView({ boardId }: { boardId: string }) {
     setLastSavedAt(new Date());
   }, []);
 
-  const addGroup = useCallback(async () => {
-    const result = await api<{ id: string }>(`/api/boards/${boardId}/groups`, {
-      method: "POST",
-      body: { name: "New Group" },
-    });
-    if (!result.ok) {
-      toast({ title: "Could not add group", description: result.error, variant: "destructive" });
-      return;
-    }
-    load().then(applyResult);
-  }, [boardId, load]);
+  /** Inline add-task rows create in place — Enter commits, the row stays open. */
+  const createTaskInline = useCallback(
+    async (groupId: string, title: string): Promise<boolean> => {
+      const result = await api<{ id: string; position: number }>("/api/tasks", {
+        method: "POST",
+        body: { title, groupId },
+      });
+      if (!result.ok) {
+        toast({ title: "Could not create task", description: result.error, variant: "destructive" });
+        return false;
+      }
+      setBoard((prev) =>
+        prev
+          ? {
+              ...prev,
+              groups: prev.groups.map((g) =>
+                g.id === groupId
+                  ? { ...g, tasks: [...g.tasks, { ...newTaskShape(title), id: result.data.id, groupId, boardId }] }
+                  : g,
+              ),
+            }
+          : prev,
+      );
+      setLastSavedAt(new Date());
+      return true;
+    },
+    [boardId],
+  );
 
-  const renameGroup = useCallback(async (groupId: string, name: string) => {
-    const result = await api<null>(`/api/groups/${groupId}`, { method: "PATCH", body: { name } });
-    if (!result.ok) {
-      toast({ title: "Could not rename group", description: result.error, variant: "destructive" });
-      return;
-    }
-    setBoard((prev) =>
-      prev ? { ...prev, groups: prev.groups.map((g) => (g.id === groupId ? { ...g, name } : g)) } : prev,
-    );
-    setLastSavedAt(new Date());
-  }, []);
+  /** Drag-reorder: optimistic local move, then the API confirms (or we reload). */
+  const reorderTask = useCallback(
+    async (taskId: string, targetGroupId: string, index: number) => {
+      const result = await api<null>(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        body: { groupId: targetGroupId, index },
+      });
+      if (!result.ok) {
+        toast({ title: "Could not move task", description: result.error, variant: "destructive" });
+        load().then(applyResult);
+        return;
+      }
+      setBoard((prev) => {
+        if (!prev) return prev;
+        let moved: TaskDTO | null = null;
+        const stripped = prev.groups.map((g) => ({
+          ...g,
+          tasks: g.tasks.filter((t) => {
+            if (t.id === taskId) {
+              moved = t;
+              return false;
+            }
+            return true;
+          }),
+        }));
+        if (!moved) return prev;
+        const task = moved as TaskDTO;
+        return {
+          ...prev,
+          groups: stripped.map((g) => {
+            if (g.id !== targetGroupId) return g;
+            const tasks = [...g.tasks];
+            tasks.splice(Math.max(0, Math.min(index, tasks.length)), 0, { ...task, groupId: targetGroupId });
+            return { ...g, tasks };
+          }),
+        };
+      });
+      setLastSavedAt(new Date());
+    },
+    [load],
+  );
 
   const toggleCollapse = useCallback(async (groupId: string, collapsed: boolean) => {
     // Optimistic collapse — a failed toggle is re-synced on next board load.
@@ -431,15 +518,23 @@ export function BoardView({ boardId }: { boardId: string }) {
   }
 
   const total = allTasks.length;
-  const currentViewLabel = SUB_VIEWS.find((v) => v.value === subView)?.label ?? "Main table";
+  // Reference: the TRIGGER shows the short label, the menu the long one.
+  const currentViewLabel = VIEW_TRIGGER_LABELS[subView] ?? "Main table";
 
   return (
     <div className="mx-auto max-w-full space-y-4 p-4 sm:p-6 lg:p-8">
-      {/* Board header — reference layout (probed 2026-09-17): left column
-          stacks [back arrow + colored tile + title] over [view dropdown |
-          favorites | items ▪ Saved]; the right group holds Analytics /
-          Integrate / Automate and the overlapping member avatar row. */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      {/* Board header — reference layout (probed 2026-09-17): a STICKY white
+          bar (top-16, below the app nav) with a blue scroll-progress strip on
+          its top edge. Left column stacks [back arrow + colored tile + title]
+          over [view dropdown | favorites | items ▪ Saved]; the right group
+          holds Analytics / Integrate / Automate and the avatar row. */}
+      <div className="sticky top-16 z-40 border-b border-[#E1E5F3] bg-white px-4 py-3 shadow-sm">
+        <div
+          aria-hidden="true"
+          className="absolute left-0 right-0 top-0 h-1 bg-[#0073EA]"
+          style={{ transform: `scaleX(${scrollProgress})`, transformOrigin: "left" }}
+        />
+        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
           <div className="flex min-w-0 items-center gap-3">
             <Button
@@ -641,12 +736,15 @@ export function BoardView({ boardId }: { boardId: string }) {
             </PopoverContent>
           </Popover>
         </div>
+        </div>
       </div>
 
-      {/* Toolbar — reference behavior: only the Main Table renders the toolbar;
-          the other views show just their own headers. */}
+      {/* Toolbar — reference behavior: only the Main Table renders the toolbar
+          (inside a white rounded card, probed 2026-09-17); the other views show
+          just their own headers. */}
       {subView === "table" && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#E1E5F3] bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center gap-4">
           <Button size="sm" className="font-semibold" onClick={() => setTaskDialog({ open: true, groupId: null })}>
             <Plus className="mr-1 h-4 w-4" /> New Task
           </Button>
@@ -661,6 +759,8 @@ export function BoardView({ boardId }: { boardId: string }) {
             />
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
           {/* Filter by Person — single-select member filter like the reference. */}
           <Popover>
             <PopoverTrigger asChild>
@@ -923,6 +1023,7 @@ export function BoardView({ boardId }: { boardId: string }) {
               </ul>
             </PopoverContent>
           </Popover>
+          </div>
         </div>
       )}
 
@@ -936,11 +1037,12 @@ export function BoardView({ boardId }: { boardId: string }) {
           boardColor={board.color}
           onUpdateTask={(taskId, patch) => void updateTask(taskId, patch)}
           onDeleteTask={(taskId) => void deleteTask(taskId)}
-          onAddTask={(groupId) => setTaskDialog({ open: true, groupId })}
-          onRenameGroup={(groupId, name) => void renameGroup(groupId, name)}
+          onCreateTask={createTaskInline}
           onToggleCollapse={(groupId, collapsed) => void toggleCollapse(groupId, collapsed)}
           onDeleteGroup={(groupId) => setDeleteGroupTarget(groupId)}
-          onAddGroup={() => void addGroup()}
+          onAddGroup={() => setGroupDialogOpen(true)}
+          onToggleColumn={toggleHiddenColumn}
+          onReorderTask={(taskId, groupId, index) => void reorderTask(taskId, groupId, index)}
         />
       )}
 
@@ -1066,6 +1168,17 @@ export function BoardView({ boardId }: { boardId: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reference "Add New Group" dialog — title + color swatches. */}
+      <CreateGroupDialog
+        open={groupDialogOpen}
+        onOpenChange={setGroupDialogOpen}
+        boardId={boardId}
+        onCreated={() => {
+          setGroupDialogOpen(false);
+          load().then(applyResult);
+        }}
+      />
     </div>
   );
 }

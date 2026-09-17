@@ -6,12 +6,10 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -64,40 +62,57 @@ function CreateTaskForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Create New Task</DialogTitle>
-        <DialogDescription>Add a task to one of this board&apos;s groups.</DialogDescription>
+        <DialogTitle className="text-2xl font-bold tracking-tight text-[#323338]">
+          Create New Task
+        </DialogTitle>
       </DialogHeader>
 
-      <div className="space-y-4 py-2">
+      {/* Reference form chrome (probed 2026-09-17): h-12 rounded-xl inputs on
+          #E1E5F3 borders, blue focus ring, group dots in the Select. */}
+      <form
+        className="space-y-6 pt-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void handleCreate();
+        }}
+      >
         <div className="space-y-2">
-          <Label htmlFor="task-title">
+          <Label htmlFor="task-title" className="text-sm font-medium text-[#323338]">
             Task Title <span aria-hidden="true" className="text-destructive">*</span>
           </Label>
-          <Input
+          <input
             id="task-title"
-            placeholder="e.g. Review the launch checklist"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            maxLength={200}
             autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && title.trim() && groupId) {
-                void handleCreate();
-              }
-            }}
+            placeholder="Enter task title..."
+            value={title}
+            maxLength={200}
+            onChange={(e) => setTitle(e.target.value)}
+            className="flex h-12 w-full rounded-xl border border-[#E1E5F3] bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0073EA]/20 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="task-group">Group</Label>
+          <Label htmlFor="task-group" className="text-sm font-medium text-[#323338]">
+            Group
+          </Label>
           <Select value={groupId} onValueChange={setGroupId}>
-            <SelectTrigger id="task-group" className="w-full">
+            <SelectTrigger
+              id="task-group"
+              className="h-12 w-full rounded-xl border-[#E1E5F3] text-sm shadow-sm focus:ring-[#0073EA]/20"
+            >
               <SelectValue placeholder={groups.length === 0 ? "No groups yet" : "Pick a group"} />
             </SelectTrigger>
             <SelectContent>
               {groups.map((group) => (
                 <SelectItem key={group.id} value={group.id}>
-                  {group.name}
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="h-3 w-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: group.color }}
+                      aria-hidden="true"
+                    />
+                    {group.name}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -109,22 +124,22 @@ function CreateTaskForm({
             {error}
           </p>
         )}
-      </div>
 
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose} disabled={busy}>
-          Cancel
-        </Button>
-        <Button onClick={() => void handleCreate()} disabled={!title.trim() || !groupId || busy}>
-          {busy ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…
-            </>
-          ) : (
-            "Create Task"
-          )}
-        </Button>
-      </DialogFooter>
+        <DialogFooter className="gap-2">
+          <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={!title.trim() || !groupId || busy}>
+            {busy ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…
+              </>
+            ) : (
+              "Create Task"
+            )}
+          </Button>
+        </DialogFooter>
+      </form>
     </>
   );
 }
@@ -144,7 +159,8 @@ export function CreateTaskDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      {/* Reference Create Task dialog is max-w-lg (the Add Group one is md). */}
+      <DialogContent className="sm:max-w-lg">
         <CreateTaskForm
           groups={groups}
           defaultGroupId={defaultGroupId}
