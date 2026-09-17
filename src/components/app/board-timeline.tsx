@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { addDays, isSameDay, isSameMonth, isToday, subDays, subMonths, addMonths } from "date-fns";
+import { addDays, isSameDay, isSameMonth, subDays, subMonths, addMonths } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +29,11 @@ interface BoardTimelineProps {
  * Gantt-style timeline — day columns with status-colored bars pinned to each
  * task's due date, zoomable Day/Week/Month like the reference app. Tasks
  * without a due date are listed below the grid so nothing is silently lost.
+ *
+ * Reference chrome (probed 2026-09-17): header row is a sticky white bar with
+ * the window title LEFT and the ‹ Today › nav + zoom Select RIGHT; the day
+ * header row sticks below it on a gray-50 strip with 40px stacked day cells
+ * (weekday text-xs gray over number text-sm medium) and NO today highlight.
  */
 export function BoardTimeline({ tasks, onAddTask }: BoardTimelineProps) {
   const [mode, setMode] = useState<TimelineMode>("week");
@@ -53,36 +58,39 @@ export function BoardTimeline({ tasks, onAddTask }: BoardTimelineProps) {
     });
   }
 
-  const columnWidth = mode === "day" ? "min-w-[320px]" : mode === "week" ? "min-w-[120px]" : "min-w-[44px]";
+  // Reference day columns are a FIXED 40px (w-10, probed 2026-09-17) — the
+  // week grid stays narrower than the card with open space to its right.
+  // Day mode widens the single column so it remains usable.
+  const columnWidth = mode === "day" ? "min-w-[320px]" : "w-10 shrink-0";
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
-      {/* Window controls: ‹ label Today › + Day/Week/Month zoom */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
+    <div className="overflow-hidden rounded-xl border border-[#E1E5F3] bg-card shadow-lg">
+      {/* Window controls (reference): title LEFT, ‹ Today › + zoom RIGHT. */}
+      <div className="sticky top-0 z-10 flex flex-row items-center justify-between space-y-1.5 border-b bg-white p-3">
+        <h2 className="tracking-tight text-base font-semibold text-[#323338]">{range.label}</h2>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Previous period" onClick={() => step(-1)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h2 className="min-w-40 text-center text-base font-semibold">{range.label}</h2>
+          <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => setCursor(new Date())}>
+            Today
+          </Button>
           <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Next period" onClick={() => step(1)}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setCursor(new Date())}>
-            Today
-          </Button>
+          <Select value={mode} onValueChange={(v) => setMode(v as TimelineMode)}>
+            <SelectTrigger className="h-8 w-24 text-xs" aria-label="Timeline zoom">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MODES.map((m) => (
+                <SelectItem key={m.value} value={m.value}>
+                  {m.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={mode} onValueChange={(v) => setMode(v as TimelineMode)}>
-          <SelectTrigger className="w-28" aria-label="Timeline zoom">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {MODES.map((m) => (
-              <SelectItem key={m.value} value={m.value}>
-                {m.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       {scheduled.length === 0 ? (
@@ -92,27 +100,27 @@ export function BoardTimeline({ tasks, onAddTask }: BoardTimelineProps) {
       ) : (
         <div className="overflow-x-auto">
           <div className="min-w-fit">
-            {/* Day header row */}
-            <div className="flex border-b bg-secondary/30">
-              <div className="sticky left-0 z-10 w-48 shrink-0 border-r bg-secondary/30 px-3 py-2 text-xs font-medium text-muted-foreground">
+            {/* Day header row (reference): gray-50 strip, 200px Task column,
+                40px day cells with stacked weekday/number, no highlight. */}
+            <div className="sticky top-[53px] z-[5] flex border-b bg-gray-50">
+              <div className="w-[200px] shrink-0 border-r p-2 text-xs font-medium text-gray-600">
                 Task
               </div>
               {range.days.map((day) => {
                 const inMonth = mode !== "month" || isSameMonth(day, cursor);
-                const today = isToday(day);
                 return (
                   <div
                     key={day.toISOString()}
-                    className={`${columnWidth} flex-1 px-2 py-2 text-center text-xs ${
-                      inMonth ? (today ? "font-bold text-primary" : "font-medium text-muted-foreground") : "text-muted-foreground/50"
-                    }`}
+                    className={`${columnWidth} border-r p-1 text-center last:border-r-0`}
                   >
-                    <span className="block">
+                    <span className={`block text-xs ${inMonth ? "text-gray-500" : "text-gray-500/50"}`}>
                       {mode === "month"
                         ? day.getDate()
                         : day.toLocaleDateString(undefined, { weekday: "short" })}
                     </span>
-                    <span className={`block ${today ? "text-primary" : ""}`}>{day.getDate()}</span>
+                    <span className={`block text-sm font-medium ${inMonth ? "text-gray-900" : "text-gray-900/50"}`}>
+                      {day.getDate()}
+                    </span>
                   </div>
                 );
               })}
@@ -128,26 +136,24 @@ export function BoardTimeline({ tasks, onAddTask }: BoardTimelineProps) {
                   : -1;
                 return (
                   <li key={task.id} className="flex items-stretch hover:bg-secondary/20">
-                    <div className="sticky left-0 z-10 flex w-48 shrink-0 items-center gap-2 border-r bg-card px-3 py-2">
+                    <div className="sticky left-0 z-[5] flex w-[200px] shrink-0 items-center gap-2 border-r bg-card px-2 py-2">
                       <span
                         className="h-2 w-2 shrink-0 rounded-full"
                         style={{ backgroundColor: meta.bg }}
                         aria-hidden="true"
                       />
                       <span
-                        className={`truncate text-sm ${task.completed ? "text-muted-foreground line-through" : ""}`}
+                        className={`truncate text-sm ${task.completed ? "text-muted-foreground" : ""}`}
                         title={task.title}
                       >
                         {task.title}
                       </span>
                     </div>
-                    <div className="relative flex flex-1">
+                    <div className="relative flex">
                       {range.days.map((day, i) => (
                         <div
                           key={day.toISOString()}
-                          className={`${columnWidth} flex-1 border-r border-border/40 last:border-r-0 ${
-                            isToday(day) ? "bg-accent/40" : ""
-                          }`}
+                          className={`${columnWidth} border-r border-border/40 last:border-r-0`}
                           aria-hidden={i === dayIndex ? undefined : true}
                         >
                           {i === dayIndex && (
@@ -172,7 +178,7 @@ export function BoardTimeline({ tasks, onAddTask }: BoardTimelineProps) {
 
       {/* Tasks without due dates stay reachable instead of vanishing. */}
       {unscheduled.length > 0 && (
-        <div className="border-t px-4 py-3">
+        <div className="border-t border-[#E1E5F3] px-4 py-3">
           <p className="mb-2 text-xs font-medium text-muted-foreground">
             {unscheduled.length} task{unscheduled.length === 1 ? "" : "s"} without a due date
           </p>
