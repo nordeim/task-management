@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Activity,
   ArrowLeft,
-  ArrowUpDown,
+  ArrowUpNarrowWide,
   ArrowDown,
   ArrowUp,
   Calendar as CalendarIcon,
@@ -89,6 +89,9 @@ import { BoardTimeline } from "@/components/app/board-timeline";
 import { CreateTaskDialog } from "@/components/app/create-task-dialog";
 import { CreateGroupDialog } from "@/components/app/create-group-dialog";
 import { EditTaskDialog, type EditTaskPatch } from "@/components/app/edit-task-dialog";
+import { BoardAnalyticsDialog } from "@/components/app/board-analytics-dialog";
+import { IntegrationsDialog } from "@/components/app/integrations-dialog";
+import { AutomationsDialog } from "@/components/app/automations-dialog";
 
 type BoardSubView = "table" | "kanban" | "calendar" | "timeline" | "unassigned";
 
@@ -201,6 +204,11 @@ export function BoardView({ boardId }: { boardId: string }) {
   const [titleDraft, setTitleDraft] = useState("");
   const [deleteGroupTarget, setDeleteGroupTarget] = useState<string | null>(null);
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  // Board-header modals (decompiled + probed 2026-09-18): Analytics opens the
+  // in-board Board Analytics modal; Integrate/Automate open their centers.
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [integrationsOpen, setIntegrationsOpen] = useState(false);
+  const [automationsOpen, setAutomationsOpen] = useState(false);
   // Blue header strip (probed live): a binary "has scrolled" marker — the
   // reference renders scaleX(0) at window.scrollY 0 and removes the transform
   // (full width) once scrollY >= 32. The page scrolls on the BODY (main's
@@ -696,7 +704,7 @@ export function BoardView({ boardId }: { boardId: string }) {
             variant="outline"
             size="sm"
             className="h-8 rounded-md border-[#E1E5F3] px-3 text-xs hover:border-green-500 hover:text-green-600"
-            onClick={() => navigate("analytics")}
+            onClick={() => setAnalyticsOpen(true)}
           >
             <TrendingUp className="mr-1 h-3 w-3" aria-hidden="true" /> Analytics
           </Button>
@@ -704,12 +712,7 @@ export function BoardView({ boardId }: { boardId: string }) {
             variant="outline"
             size="sm"
             className="h-8 rounded-md border-[#E1E5F3] px-3 text-xs hover:border-blue-500"
-            onClick={() =>
-              toast({
-                title: "Integrate",
-                description: "Connectors are not configured on this deployment.",
-              })
-            }
+            onClick={() => setIntegrationsOpen(true)}
           >
             <Activity className="mr-1 h-3 w-3" aria-hidden="true" /> Integrate
           </Button>
@@ -717,12 +720,7 @@ export function BoardView({ boardId }: { boardId: string }) {
             variant="outline"
             size="sm"
             className="relative h-8 rounded-md border-[#E1E5F3] px-3 text-xs hover:border-purple-500"
-            onClick={() =>
-              toast({
-                title: "Automate",
-                description: "Automation recipes are not configured on this deployment.",
-              })
-            }
+            onClick={() => setAutomationsOpen(true)}
           >
             <Zap className="mr-1 h-3 w-3" aria-hidden="true" /> Automate
             {/* Reference detail: decorative notification dot on Automate. */}
@@ -958,7 +956,7 @@ export function BoardView({ boardId }: { boardId: string }) {
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="h-10 rounded-lg border-[#E1E5F3] px-4" aria-pressed={sort !== null}>
-                <ArrowUpDown className="mr-2 h-4 w-4" aria-hidden="true" /> Sort
+                <ArrowUpNarrowWide className="mr-2 h-4 w-4" aria-hidden="true" /> Sort
               </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-64 p-6 pt-3 shadow-lg">
@@ -1137,7 +1135,11 @@ export function BoardView({ boardId }: { boardId: string }) {
       )}
 
       {subView === "timeline" && (
-        <BoardTimeline tasks={visibleTasks} onAddTask={() => setTaskDialog({ open: true, groupId: null })} />
+        <BoardTimeline
+          tasks={visibleTasks}
+          boardColor={board.color}
+          onAddTask={() => setTaskDialog({ open: true, groupId: null })}
+        />
       )}
 
       {subView === "unassigned" && (
@@ -1272,6 +1274,29 @@ export function BoardView({ boardId }: { boardId: string }) {
         }}
         onDelete={(taskId) => void deleteTask(taskId)}
       />
+
+      {/* Board-header modals (reference: Analytics/Integrate/Automate open
+          these in place — they are NOT navigations; conditional mounts so
+          closing resets each modal's local state, like the reference). */}
+      {analyticsOpen && (
+        <BoardAnalyticsDialog
+          onClose={() => setAnalyticsOpen(false)}
+          boardTitle={board.title}
+          tasks={allTasks}
+        />
+      )}
+      {integrationsOpen && (
+        <IntegrationsDialog
+          onClose={() => setIntegrationsOpen(false)}
+          boardTitle={board.title}
+        />
+      )}
+      {automationsOpen && (
+        <AutomationsDialog
+          onClose={() => setAutomationsOpen(false)}
+          boardTitle={board.title}
+        />
+      )}
     </div>
   );
 }
