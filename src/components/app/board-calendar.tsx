@@ -5,7 +5,6 @@ import { addMonths, format, isSameDay, isSameMonth, startOfMonth, subMonths } fr
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { TaskDTO } from "@/lib/domain";
-import { statusMeta } from "@/lib/domain";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -49,25 +48,39 @@ export function BoardCalendar({ tasks, onAddTask, onOpenTask }: BoardCalendarPro
   const today = new Date();
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
-      <div className="flex items-center justify-between border-b px-4 py-3">
-        <h2 className="text-base font-semibold">{format(cursor, "MMMM yyyy")}</h2>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Previous month" onClick={() => setCursor((c) => subMonths(c, 1))}>
+    <div className="overflow-hidden rounded-xl border border-[#E1E5F3] bg-card shadow-lg">
+      {/* Reference header (probed 2026-09-17): a p-4 zone with the arrows
+          flanking the CENTERED text-xl month title — no border divider. */}
+      <div className="p-4">
+        <div className="mb-4 flex items-center justify-between px-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            aria-label="Previous month"
+            onClick={() => setCursor((c) => subMonths(c, 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Next month" onClick={() => setCursor((c) => addMonths(c, 1))}>
+          <h2 className="text-xl font-semibold text-[#323338]">{format(cursor, "MMMM yyyy")}</h2>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            aria-label="Next month"
+            onClick={() => setCursor((c) => addMonths(c, 1))}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-      </div>
 
-      <div className="grid grid-cols-7 border-b bg-secondary/30 text-center text-xs font-medium text-muted-foreground">
-        {WEEKDAYS.map((day) => (
-          <div key={day} className="py-2">
-            {day}
-          </div>
-        ))}
+        <div className="grid grid-cols-7 text-center text-xs font-medium text-muted-foreground">
+          {WEEKDAYS.map((day) => (
+            <div key={day} className="py-2">
+              {day}
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-7">
@@ -79,14 +92,19 @@ export function BoardCalendar({ tasks, onAddTask, onOpenTask }: BoardCalendarPro
           return (
             <div
               key={key}
-              className={`min-h-[96px] border-b border-r border-border/60 p-1.5 last:border-r-0 ${
-                inMonth ? "bg-card" : "bg-secondary/20"
+              className={`relative min-h-[100px] border border-[#E1E5F3] p-2 transition-colors hover:bg-[#F9FAFB] ${
+                inMonth ? "" : "bg-[#F9FAFB]/60"
               }`}
             >
               <div className="mb-1 flex items-center justify-between">
+                {/* Reference today marker: blue TEXT, no filled circle. */}
                 <span
-                  className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
-                    isToday ? "bg-primary text-primary-foreground" : inMonth ? "text-foreground" : "text-muted-foreground/60"
+                  className={`text-xs font-medium ${
+                    isToday
+                      ? "text-[#0073EA]"
+                      : inMonth
+                        ? "text-foreground"
+                        : "text-muted-foreground/60"
                   }`}
                 >
                   {format(day, "d")}
@@ -103,22 +121,19 @@ export function BoardCalendar({ tasks, onAddTask, onOpenTask }: BoardCalendarPro
                 )}
               </div>
               <ul className="space-y-1">
-                {dayTasks.slice(0, 3).map((task) => {
-                  const meta = statusMeta(task.status);
-                  return (
-                    <li key={task.id}>
-                      <button
-                        type="button"
-                        onClick={() => onOpenTask?.(task)}
-                        title={task.title}
-                        className="w-full truncate rounded px-1.5 py-1 text-left text-[11px] font-medium transition-transform hover:scale-[1.02]"
-                        style={{ backgroundColor: meta.bg, color: meta.text }}
-                      >
-                        {task.title}
-                      </button>
-                    </li>
-                  );
-                })}
+                {dayTasks.slice(0, 3).map((task) => (
+                  <li key={task.id}>
+                    {/* Reference chips: white bordered cards with dark text. */}
+                    <button
+                      type="button"
+                      onClick={() => onOpenTask?.(task)}
+                      title={task.title}
+                      className="mb-1 cursor-pointer rounded-md border border-[#E1E5F3] bg-white p-1.5 text-left text-xs font-medium text-[#323338] shadow-sm transition-all duration-200 hover:scale-105 hover:bg-gray-50 hover:shadow-md"
+                    >
+                      <span className="block truncate">{task.title}</span>
+                    </button>
+                  </li>
+                ))}
                 {dayTasks.length > 3 && (
                   <li className="px-1.5 text-[10px] text-muted-foreground">+{dayTasks.length - 3} more</li>
                 )}
