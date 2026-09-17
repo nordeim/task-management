@@ -208,9 +208,12 @@ export function AnalyticsView() {
                       aria-label="Completion rate"
                       className="relative mt-2 h-2 w-full overflow-hidden rounded-full bg-green-300"
                     >
+                      {/* Reference fill (probed): near-black #171717, full
+                          width, revealed by a translateX(-{100-value}%) — so 0%
+                          renders nothing visible. */}
                       <div
-                        className="h-full bg-primary transition-all"
-                        style={{ width: `${stats?.completionRate ?? 0}%` }}
+                        className="h-full w-full flex-1 bg-[#171717] transition-all"
+                        style={{ transform: `translateX(-${100 - (stats?.completionRate ?? 0)}%)` }}
                       />
                     </div>
                   )}

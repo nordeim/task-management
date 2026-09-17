@@ -94,7 +94,7 @@ export function BoardCalendar({ tasks, onAddTask, onOpenTask }: BoardCalendarPro
               key={key}
               className={`relative min-h-[100px] border border-[#E1E5F3] p-2 transition-colors hover:bg-[#F9FAFB] ${
                 inMonth ? "" : "bg-[#F9FAFB]/60"
-              }`}
+              } ${isToday ? "bg-white ring-2 ring-[#0073EA] ring-inset" : ""}`}
             >
               <div className="mb-1 flex items-center justify-between">
                 {/* Reference today marker: blue TEXT, no filled circle. */}

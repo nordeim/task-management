@@ -12,7 +12,7 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { format } from "date-fns";
-import { CalendarDays, MoreHorizontal, Plus } from "lucide-react";
+import { CalendarDays, List, MoreHorizontal, Plus } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -274,12 +274,25 @@ export function BoardKanban({ tasks, members, onStatusChange, onOwnerChange, onA
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-gray-700">Group by:</span>
           <Select value={groupMode} onValueChange={(v) => setGroupMode(v as KanbanGroupMode)}>
-            <SelectTrigger className="h-9 w-32" aria-label="Group kanban by">
+            <SelectTrigger
+              className="h-9 w-32 rounded-xl border-2 border-gray-200 bg-white"
+              aria-label="Group kanban by"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="status">Status</SelectItem>
-              <SelectItem value="person">People</SelectItem>
+              <SelectItem value="status">
+                <span className="flex items-center gap-2">
+                  <List className="h-4 w-4" aria-hidden="true" />
+                  Status
+                </span>
+              </SelectItem>
+              <SelectItem value="person">
+                <span className="flex items-center gap-2">
+                  <List className="h-4 w-4" aria-hidden="true" />
+                  People
+                </span>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
