@@ -34,7 +34,7 @@ export function PriorityCell({
           className="flex h-7 w-full max-w-[120px] items-center justify-between gap-1 rounded-md px-1 text-sm transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span
-            className="inline-flex items-center rounded-md border border-transparent px-2.5 py-0.5 text-xs font-medium"
+            className="inline-flex items-center rounded-md border border-transparent px-2.5 py-0.5 text-xs font-normal shadow"
             style={priorityBadgeStyle(value)}
           >
             {meta.label}
@@ -69,7 +69,7 @@ export function PriorityCell({
                 >
                   <span className="flex items-center gap-2">
                     <span
-                      className="inline-flex min-w-14 items-center justify-center rounded-md px-2 py-0.5 text-xs font-medium"
+                      className="inline-flex min-w-14 items-center justify-center rounded-md px-2 py-0.5 text-xs font-normal"
                       style={priorityBadgeStyle(priority.value)}
                     >
                       {priority.label}

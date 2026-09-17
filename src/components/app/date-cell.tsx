@@ -13,9 +13,13 @@ function toDateInputValue(date: Date): string {
 }
 
 /**
- * Reference parity: the due-date cell shows an icon + label and swaps to a
- * native date input on click. Dates are stored at local noon so timezone
- * edges can never shift the rendered day.
+ * Due-date cell (reference states probed 2026-09-17):
+ * - empty: calendar icon + "Set date" in #676879, hover bg #E1E5F3
+ * - set: plain "Sep 29" text-sm #323338 with hover:opacity-80 and NO icon;
+ *   past dates render as a red-tinted chip (bg #E2445C/10, text #E2445C)
+ * - editing: borderless native date input
+ * Dates are stored at local noon so timezone edges can never shift the
+ * rendered day.
  */
 export function DateCell({
   value,
@@ -53,43 +57,52 @@ export function DateCell({
         onKeyDown={(e) => {
           if (e.key === "Escape") setEditing(false);
         }}
-        className="h-7 w-full max-w-[130px] rounded-md border border-input bg-card px-2 py-0 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-7 w-full max-w-[130px] rounded-md border border-input bg-card px-2 py-0 text-xs text-[#323338] outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
     );
   }
 
+  if (!date) {
+    return (
+      <button
+        type="button"
+        aria-label="Set due date"
+        onClick={() => setEditing(true)}
+        className="flex cursor-pointer items-center gap-2 px-2 py-1 -mx-2 -my-1 text-[#676879] transition-colors hover:rounded hover:bg-[#E1E5F3]"
+      >
+        <CalendarIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span>Set date</span>
+      </button>
+    );
+  }
+
   return (
-    <button
-      type="button"
-      aria-label={date ? `Due date ${format(date, "MMM d, yyyy")}, change date` : "Set due date"}
-      onClick={() => setEditing(true)}
-      className="group/date flex h-7 w-full max-w-[130px] items-center gap-1.5 rounded-md px-2 text-xs transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <CalendarIcon
-        className={`h-3.5 w-3.5 shrink-0 ${overdue ? "text-destructive" : "text-muted-foreground"}`}
-        aria-hidden="true"
-      />
-      {date ? (
-        <span
-          className={`font-medium ${overdue ? "text-destructive" : "text-muted-foreground"}`}
-        >
-          {format(date, "MMM d")}
-        </span>
-      ) : (
-        <span className="text-muted-foreground">Set date</span>
-      )}
-      {date && (
-        <span className="hidden shrink-0 rounded p-0.5 group-hover/date:block" title="Clear due date">
-          <X
-            className="h-3 w-3 text-muted-foreground hover:text-destructive"
-            onClick={(e) => {
-              e.stopPropagation();
-              onChange(null);
-            }}
-            aria-label="Clear due date"
-          />
-        </span>
-      )}
-    </button>
+    <div className="group/date relative">
+      <button
+        type="button"
+        aria-label={`Due date ${format(date, "MMM d, yyyy")}, change date`}
+        onClick={() => setEditing(true)}
+        className={`cursor-pointer rounded px-2 py-1 -mx-2 -my-1 text-sm transition-opacity hover:opacity-80 ${
+          overdue ? "bg-[#E2445C]/10 text-[#E2445C]" : "text-[#323338]"
+        }`}
+      >
+        {format(date, "MMM d")}
+      </button>
+      {/* Functional nicety kept from earlier passes: clear without reopening
+          the editor (the reference requires re-editing to remove a date). */}
+      <span
+        className="absolute -right-1 -top-1 hidden shrink-0 rounded p-0.5 group-hover/date:block"
+        title="Clear due date"
+      >
+        <X
+          className="h-3 w-3 text-muted-foreground hover:text-destructive"
+          onClick={(e) => {
+            e.stopPropagation();
+            onChange(null);
+          }}
+          aria-label="Clear due date"
+        />
+      </span>
+    </div>
   );
 }
