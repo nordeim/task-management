@@ -1,7 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import {
+  DndContext,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import type { DragEndEvent } from "@dnd-kit/core";
+import { ChevronDown, ChevronRight, GripVertical, MoreHorizontal, Plus, Settings, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -14,6 +23,7 @@ import { PriorityCell } from "@/components/app/priority-cell";
 import { OwnerCell } from "@/components/app/owner-cell";
 import { DateCell } from "@/components/app/date-cell";
 import { groupSummary, visibleColumns, TASK_STATUSES } from "@/lib/domain";
+import { toast } from "@/hooks/use-toast";
 import type { ColumnKey, GroupDTO, TaskDTO, TaskPriority, TaskStatus, UserDTO } from "@/lib/domain";
 
 /** How the table rows are grouped — set from the board toolbar's Group-by popover. */
@@ -41,45 +51,133 @@ interface BoardTableProps {
   boardColor: string;
   onUpdateTask: (taskId: string, patch: Partial<Pick<TaskDTO, "title" | "status" | "priority" | "owner" | "dueDate" | "completed">>) => void;
   onDeleteTask: (taskId: string) => void;
-  onAddTask: (groupId: string) => void;
-  onRenameGroup: (groupId: string, name: string) => void;
+  /** Inline add-task row + empty-group "Add Item": creates the task in-place. */
+  onCreateTask: (groupId: string, title: string) => Promise<boolean>;
   onToggleCollapse: (groupId: string, collapsed: boolean) => void;
   onDeleteGroup: (groupId: string) => void;
   onAddGroup: () => void;
+  /** Column header gear menu → "Hide from Group" wires into the Hide popover state. */
+  onToggleColumn: (key: ColumnKey) => void;
+  /** Drag-reorder: place a task at `index` inside `groupId`. */
+  onReorderTask: (taskId: string, groupId: string, index: number) => void;
 }
 
-/** Fixed pixel widths per column — probed from the reference (Task 250, Priority 120). */
-const COLUMN_WIDTHS: Record<ColumnKey, string> = {
-  task: "minmax(250px,1fr)",
-  priority: "120px",
-  status: "150px",
-  owner: "150px",
-  dueDate: "130px",
+// ---------- reference geometry (probed 2026-09-17) ----------
+//
+// Rows are flex with STICKY columns inside a per-group overflow-x-auto
+// scroller: 24px drag-handle rail (sticky left 0), 32px checkbox rail
+// (sticky left 24), 250px Task column (sticky left 56), fixed data columns,
+// a flex-1 spacer, and a 50px action rail (sticky right). All visible
+// columns total exactly 926px — the reference's row min-width.
+
+const RAIL_HANDLE = 24;
+const RAIL_CHECK = 32;
+const RAIL_ACTION = 50;
+
+/** Fixed pixel widths per column — Due Date is 150 on the reference. */
+const COLUMN_WIDTHS: Record<ColumnKey, number> = {
+  task: 250,
+  priority: 120,
+  status: 150,
+  owner: 150,
+  dueDate: 150,
 };
 
-/** Builds the grid template from the checkbox + visible columns + actions rail. */
-function gridTemplate(columns: { key: ColumnKey }[]): string {
-  const cells = ["36px", ...columns.map((c) => COLUMN_WIDTHS[c.key]), "36px"];
-  return cells.join(" ");
+/** Row min-width = rails + every visible column (926px with all five shown). */
+function rowMinWidth(columns: { key: ColumnKey }[]): number {
+  return (
+    RAIL_HANDLE +
+    RAIL_CHECK +
+    columns.reduce((sum, c) => sum + COLUMN_WIDTHS[c.key], 0) +
+    RAIL_ACTION
+  );
 }
+
+type CellProps = { children?: React.ReactNode; className?: string; style?: React.CSSProperties };
+
+/** Gutter rails — sticky left with an opaque background like the reference. */
+function HandleRail({ children, bg = "white" }: { children?: React.ReactNode; bg?: string }) {
+  return (
+    <div
+      aria-hidden={!children}
+      className={`flex shrink-0 items-center justify-center${children ? "" : " pointer-events-none"}`}
+      style={{ width: RAIL_HANDLE, position: "sticky", left: 0, zIndex: 1, backgroundColor: bg }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CheckRail({ children, bg = "white" }: { children?: React.ReactNode; bg?: string }) {
+  return (
+    <div
+      aria-hidden={!children}
+      className={`flex shrink-0 items-center justify-center${children ? "" : " pointer-events-none"}`}
+      style={{ width: RAIL_CHECK, position: "sticky", left: RAIL_HANDLE, zIndex: 1, backgroundColor: bg }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Data cell — border-left divider plus the fixed reference width. */
+function DataCell({ width, first, stickyLeft, children, className = "", style }: CellProps & { width: number; first?: boolean; stickyLeft?: number }) {
+  const sticky = stickyLeft !== undefined;
+  return (
+    <div
+      className={`flex items-center px-3 py-2${first ? "" : " border-l border-[#E1E5F3]"} group-hover:bg-[#F5F6F8]${className}`}
+      style={{
+        width,
+        minWidth: width,
+        ...(sticky ? { position: "sticky" as const, left: stickyLeft, zIndex: 1, backgroundColor: "white" } : {}),
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function ActionRail({ children, bg = "white" }: { children?: React.ReactNode; bg?: string }) {
+  return (
+    <div
+      className="flex shrink-0 items-center justify-center"
+      style={{ width: RAIL_ACTION, position: "sticky", right: 0, zIndex: 1, backgroundColor: bg }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ---------- task row ----------
 
 function TaskRow({
   task,
   members,
   columns,
-  grid,
+  minW,
+  canDrag,
   onUpdateTask,
   onDeleteTask,
 }: {
   task: TaskDTO;
   members: UserDTO[];
-  columns: { key: ColumnKey }[];
-  grid: string;
+  columns: { key: ColumnKey; label: string }[];
+  minW: number;
+  canDrag: boolean;
   onUpdateTask: BoardTableProps["onUpdateTask"];
   onDeleteTask: BoardTableProps["onDeleteTask"];
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task.title);
+
+  // Drag: listeners live on the HANDLE only, so clicks/typing still work.
+  const { listeners: dragListeners, setNodeRef: setDragNodeRef, isDragging } = useDraggable({
+    id: task.id,
+    data: { task },
+    disabled: !canDrag,
+  });
+  const { setNodeRef: setDropNodeRef } = useDroppable({ id: `row:${task.id}`, data: { task } });
 
   function commitTitle() {
     setEditing(false);
@@ -91,9 +189,35 @@ function TaskRow({
     }
   }
 
+  const setNodeRefs = (node: HTMLElement | null) => {
+    setDragNodeRef(node);
+    setDropNodeRef(node);
+  };
+
   return (
-    <div className="group grid min-h-12 items-center border-b border-border/60 bg-card py-1.5 transition-colors last:border-b-0 hover:bg-[#F5F6F8]" style={{ gridTemplateColumns: grid }}>
-      <div className="flex justify-center">
+    <div
+      ref={setNodeRefs}
+      className={`group flex items-stretch border-b border-[#E1E5F3] transition-colors min-h-[48px] hover:bg-[#F5F6F8] ${
+        isDragging ? "opacity-40" : ""
+      }`}
+      style={{ minWidth: minW }}
+    >
+      {/* Drag-handle rail — hover-revealed grip, sticky left 0. */}
+      <HandleRail bg="white">
+        {canDrag && (
+          <span
+            {...dragListeners}
+            aria-label={`Reorder ${task.title}`}
+            title="Drag to reorder"
+            className="flex cursor-grab items-center justify-center p-1 opacity-0 transition-opacity hover:cursor-grabbing focus-visible:opacity-100 group-hover:opacity-100"
+          >
+            <GripVertical className="h-3 w-3 text-[#676879]" />
+          </span>
+        )}
+      </HandleRail>
+
+      {/* Checkbox rail — hover-revealed, sticky left 24. */}
+      <CheckRail bg="white">
         <Checkbox
           aria-label={task.completed ? `Mark "${task.title}" not done` : `Mark "${task.title}" done`}
           checked={task.completed}
@@ -103,112 +227,229 @@ function TaskRow({
               status: checked === true ? "done" : "not_started",
             })
           }
-          className="data-[state=checked]:border-[#00c875] data-[state=checked]:bg-[#00c875] data-[state=checked]:text-white"
+          className="opacity-0 transition-opacity group-hover:opacity-100 data-[state=checked]:opacity-100 data-[state=checked]:border-[#00c875] data-[state=checked]:bg-[#00c875] data-[state=checked]:text-white"
         />
-      </div>
+      </CheckRail>
 
-      {columns.some((c) => c.key === "task") && (
-        <div className="min-w-0 px-2">
-          {editing ? (
-            <input
-              autoFocus
-              aria-label="Task title"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onBlur={commitTitle}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") commitTitle();
-                if (e.key === "Escape") {
-                  setDraft(task.title);
-                  setEditing(false);
-                }
-              }}
-              className="w-full rounded-sm border-none bg-accent px-1.5 py-0.5 text-sm outline-none ring-1 ring-primary/40"
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className={`w-full truncate rounded-sm px-1.5 py-0.5 text-left text-base font-medium transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                task.completed ? "text-muted-foreground line-through" : ""
-              }`}
-              title={task.title}
-            >
-              {task.title}
-            </button>
-          )}
-        </div>
-      )}
+      {columns.map((col, i) => {
+        if (col.key === "task") {
+          return (
+            <DataCell key={col.key} width={COLUMN_WIDTHS.task} first={i === 0} stickyLeft={RAIL_HANDLE + RAIL_CHECK}>
+              {editing ? (
+                <input
+                  autoFocus
+                  aria-label="Task title"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onBlur={commitTitle}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitTitle();
+                    if (e.key === "Escape") {
+                      setDraft(task.title);
+                      setEditing(false);
+                    }
+                  }}
+                  className="w-full rounded-md border-none bg-transparent p-0 text-sm font-medium text-[#323338] outline-none focus:ring-0"
+                />
+              ) : (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setEditing(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setEditing(true);
+                    }
+                  }}
+                  title={task.title}
+                  className="w-full cursor-pointer rounded px-2 py-1 text-sm font-medium text-[#323338] transition-colors -mx-2 -my-1 hover:bg-[#E1E5F3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {task.title}
+                </div>
+              )}
+            </DataCell>
+          );
+        }
+        if (col.key === "priority") {
+          return (
+            <DataCell key={col.key} width={COLUMN_WIDTHS.priority} first={i === 0}>
+              <PriorityCell
+                value={task.priority}
+                onChange={(priority: TaskPriority) => onUpdateTask(task.id, { priority })}
+              />
+            </DataCell>
+          );
+        }
+        if (col.key === "status") {
+          return (
+            <DataCell key={col.key} width={COLUMN_WIDTHS.status} first={i === 0}>
+              <StatusCell
+                value={task.status}
+                onChange={(status: TaskStatus) => onUpdateTask(task.id, { status })}
+              />
+            </DataCell>
+          );
+        }
+        if (col.key === "owner") {
+          return (
+            <DataCell key={col.key} width={COLUMN_WIDTHS.owner} first={i === 0}>
+              <OwnerCell
+                owner={task.owner}
+                members={members}
+                onChange={(ownerId) => {
+                  const member = ownerId ? members.find((m) => m.id === ownerId) ?? null : null;
+                  onUpdateTask(task.id, { owner: member });
+                }}
+              />
+            </DataCell>
+          );
+        }
+        return (
+          <DataCell key={col.key} width={COLUMN_WIDTHS.dueDate} first={i === 0}>
+            <DateCell value={task.dueDate} onChange={(isoDate) => onUpdateTask(task.id, { dueDate: isoDate })} />
+          </DataCell>
+        );
+      })}
 
-      {columns.some((c) => c.key === "priority") && (
-        <div className="px-1">
-          <PriorityCell
-            value={task.priority}
-            onChange={(priority: TaskPriority) => onUpdateTask(task.id, { priority })}
-          />
-        </div>
-      )}
-      {columns.some((c) => c.key === "status") && (
-        <div className="px-1">
-          <StatusCell
-            value={task.status}
-            onChange={(status: TaskStatus) => onUpdateTask(task.id, { status })}
-          />
-        </div>
-      )}
-      {columns.some((c) => c.key === "owner") && (
-        <div className="px-1">
-          <OwnerCell
-            owner={task.owner}
-            members={members}
-            onChange={(ownerId) => {
-              const member = ownerId ? members.find((m) => m.id === ownerId) ?? null : null;
-              onUpdateTask(task.id, { owner: member });
-            }}
-          />
-        </div>
-      )}
-      {columns.some((c) => c.key === "dueDate") && (
-        <div className="px-1">
-          <DateCell value={task.dueDate} onChange={(isoDate) => onUpdateTask(task.id, { dueDate: isoDate })} />
-        </div>
-      )}
+      {/* Spacer so the row spans full width like the reference. */}
+      <div className="min-w-0 flex-1" aria-hidden="true" />
 
-      <div className="flex justify-center opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+      <ActionRail bg="white">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               aria-label={`Actions for ${task.title}`}
-              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              className="flex h-6 w-6 items-center justify-center rounded-md opacity-0 transition-opacity hover:bg-[#E1E5F3] focus-visible:opacity-100 group-hover:opacity-100"
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>
           </DropdownMenuTrigger>
+          {/* Reference row menu is a single "Delete Task" item. */}
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setEditing(true)}>Rename</DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() => onDeleteTask(task.id)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete task
+            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDeleteTask(task.id)}>
+              Delete Task
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
+      </ActionRail>
     </div>
   );
 }
 
-/** The per-group footer row: "N items" + priority badges + status bars + dashes. */
+// ---------- inline add-task row ----------
+
+/**
+ * Reference add-task affordance: an EMPTY task row (same chrome) whose title
+ * cell holds a hover-revealed grey "+ Add task" text button; clicking swaps
+ * in a borderless inline input. Enter creates, Escape/blur cancels.
+ */
+function AddTaskRow({
+  groupId,
+  columns,
+  minW,
+  active,
+  onActivate,
+  onCreateTask,
+}: {
+  groupId: string;
+  columns: { key: ColumnKey; label: string }[];
+  minW: number;
+  active: boolean;
+  onActivate: () => void;
+  onCreateTask: BoardTableProps["onCreateTask"];
+}) {
+  const [title, setTitle] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function commit() {
+    const next = title.trim();
+    if (!next || busy) {
+      if (!next) onActivate(); // let the parent collapse the row
+      return;
+    }
+    setBusy(true);
+    const ok = await onCreateTask(groupId, next);
+    setBusy(false);
+    if (ok) setTitle("");
+  }
+
+  return (
+    <div
+      className="group flex items-center border-b border-[#E1E5F3] hover:bg-[#F5F6F8] min-h-[48px]"
+      style={{ minWidth: minW }}
+    >
+      <HandleRail />
+      <CheckRail />
+      {columns.map((col, i) => {
+        if (col.key === "task") {
+          return (
+            <DataCell key={col.key} width={COLUMN_WIDTHS.task} first={i === 0} stickyLeft={RAIL_HANDLE + RAIL_CHECK}>
+              {active ? (
+                <input
+                  autoFocus
+                  aria-label="New task title"
+                  placeholder="Enter item name..."
+                  value={title}
+                  disabled={busy}
+                  onChange={(e) => setTitle(e.target.value)}
+                  onBlur={() => void commit()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void commit();
+                    if (e.key === "Escape") {
+                      setTitle("");
+                      onActivate();
+                    }
+                  }}
+                  className="w-full rounded-md border-none bg-transparent p-0 text-sm font-medium text-[#323338] outline-none placeholder:text-muted-foreground focus:ring-0"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={onActivate}
+                  className="inline-flex h-auto items-center gap-2 whitespace-nowrap rounded-md p-0 text-sm font-normal text-[#676879] opacity-0 transition-opacity hover:text-[#0073EA] focus-visible:opacity-100 group-hover:opacity-100"
+                >
+                  <Plus className="mr-2 h-4 w-4" />Add task
+                </button>
+              )}
+            </DataCell>
+          );
+        }
+        return <DataCell key={col.key} width={COLUMN_WIDTHS[col.key]} first={i === 0} />;
+      })}
+      <div className="min-w-0 flex-1" aria-hidden="true" />
+      <ActionRail />
+    </div>
+  );
+}
+
+/** Empty-group state: a centered "Add Item" button in a padded zone. */
+function EmptyGroupZone({ onActivate }: { onActivate: () => void }) {
+  return (
+    <div className="p-8 text-center">
+      <button
+        type="button"
+        onClick={onActivate}
+        className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#E1E5F3] bg-white px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+      >
+        <Plus className="mr-2 h-4 w-4" /> Add Item
+      </button>
+    </div>
+  );
+}
+
+// ---------- summary row ----------
+
+/** The per-group footer row: "N items" + priority chips + status bars + dashes. */
 function SummaryRow({
   tasks,
   columns,
-  grid,
+  minW,
 }: {
   tasks: TaskDTO[];
   columns: { key: ColumnKey; label: string }[];
-  grid: string;
+  minW: number;
 }) {
   const summary = useMemo(() => groupSummary(tasks), [tasks]);
   // One bar per status with a non-zero count — reference renders w-2 h-4
@@ -222,15 +463,23 @@ function SummaryRow({
   );
   return (
     <div
-      className="grid items-center border-t border-[#E1E5F3] bg-gray-50 text-xs text-muted-foreground"
-      style={{ gridTemplateColumns: grid }}
+      className="flex items-stretch border-b border-[#E1E5F3] bg-gray-50 text-xs min-h-[40px]"
+      style={{ minWidth: minW }}
       aria-label="Group summary"
     >
-      <div aria-hidden="true" />
-      {columns.map((col) => (
-        <div key={col.key} className="border-l border-[#E1E5F3] px-3 py-2 first:border-l-0">
+      <HandleRail bg="#f9fafb" />
+      <CheckRail bg="#f9fafb" />
+      {columns.map((col, i) => (
+        <DataCell
+          key={col.key}
+          width={COLUMN_WIDTHS[col.key]}
+          first={i === 0}
+          stickyLeft={col.key === "task" ? RAIL_HANDLE + RAIL_CHECK : undefined}
+          style={col.key === "task" ? { backgroundColor: "#f9fafb" } : undefined}
+          className=" bg-gray-50"
+        >
           {col.key === "task" && (
-            <span className="flex items-center gap-1 text-gray-600">
+            <span className="flex items-center gap-1 text-xs text-gray-600">
               {summary.items} item{summary.items === 1 ? "" : "s"}
             </span>
           )}
@@ -239,7 +488,7 @@ function SummaryRow({
               {summary.priorities.map((p) => (
                 <span
                   key={p.label}
-                  className="inline-flex items-center rounded-md border bg-card px-1.5 py-0.5 font-semibold"
+                  className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-semibold text-foreground"
                 >
                   {p.count} {p.label}
                 </span>
@@ -264,138 +513,193 @@ function SummaryRow({
             ))}
           {col.key === "owner" && <span className="px-1">-</span>}
           {col.key === "dueDate" && <span className="px-1">-</span>}
-        </div>
+        </DataCell>
       ))}
-      <div aria-hidden="true" />
+      <div className="min-w-0 flex-1 bg-gray-50" aria-hidden="true" />
+      <ActionRail bg="#f9fafb" />
     </div>
   );
 }
 
-function GroupSection({
+// ---------- column header row ----------
+
+/**
+ * Reference header: a sticky grey band of column labels, each opening a
+ * settings dropdown (Rename / Change Type / Configure / Hide from Group),
+ * with a blue plus in the action rail to add a task to this group.
+ */
+function ColumnHeaderRow({
+  columns,
+  minW,
+  onToggleColumn,
+  onAddTask,
+}: {
+  columns: { key: ColumnKey; label: string }[];
+  minW: number;
+  onToggleColumn: BoardTableProps["onToggleColumn"];
+  onAddTask: () => void;
+}) {
+  function notConfigured(feature: string) {
+    toast({ title: "Not available", description: `${feature} is not configurable on this deployment.` });
+  }
+
+  return (
+    <div
+      className="sticky top-0 z-10 flex border-b border-[#E1E5F3] bg-[#F5F6F8]"
+      style={{ minWidth: minW }}
+      role="row"
+    >
+      <HandleRail bg="#F5F6F8" />
+      <CheckRail bg="#F5F6F8" />
+      {columns.map((col, i) => (
+        <div
+          key={col.key}
+          className={`group flex cursor-pointer items-center justify-between px-3 py-3 transition-colors hover:bg-white${
+            i === 0 ? "" : " border-l border-[#E1E5F3]"
+          }`}
+          style={{
+            width: COLUMN_WIDTHS[col.key],
+            minWidth: COLUMN_WIDTHS[col.key],
+            ...(i === 0
+              ? { position: "sticky" as const, left: RAIL_HANDLE + RAIL_CHECK, zIndex: 1, backgroundColor: "#F5F6F8" }
+              : {}),
+          }}
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="truncate text-sm font-medium text-[#323338]">{col.label}</span>
+          </div>
+          <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={`Column settings for ${col.label}`}
+                  className="rounded p-0.5"
+                >
+                  <Settings className="h-3 w-3 text-gray-500 hover:text-gray-700" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => notConfigured("Renaming columns")}>Rename Column</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => notConfigured("Column types")}>Change Column Type</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => notConfigured("Column configuration")}>Configure Column</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onToggleColumn(col.key)}>Hide from Group</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      ))}
+      <div className="min-w-0 flex-1 bg-[#F5F6F8]" aria-hidden="true" />
+      <ActionRail bg="#F5F6F8">
+        <button
+          type="button"
+          aria-label="Add task to this group"
+          onClick={onAddTask}
+          className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-white"
+        >
+          <Plus className="h-4 w-4 text-[#0073EA]" />
+        </button>
+      </ActionRail>
+    </div>
+  );
+}
+
+// ---------- group zone ----------
+
+function GroupZone({
   section,
   members,
   columns,
-  boardColor,
   onUpdateTask,
   onDeleteTask,
-  onAddTask,
-  onRenameGroup,
+  onCreateTask,
   onToggleCollapse,
   onDeleteGroup,
+  onToggleColumn,
 }: {
   section: TableSection;
   members: UserDTO[];
   columns: { key: ColumnKey; label: string }[];
-  boardColor: string;
   onUpdateTask: BoardTableProps["onUpdateTask"];
   onDeleteTask: BoardTableProps["onDeleteTask"];
-  onAddTask: BoardTableProps["onAddTask"];
-  onRenameGroup: BoardTableProps["onRenameGroup"];
+  onCreateTask: BoardTableProps["onCreateTask"];
   onToggleCollapse: BoardTableProps["onToggleCollapse"];
   onDeleteGroup: BoardTableProps["onDeleteGroup"];
+  onToggleColumn: BoardTableProps["onToggleColumn"];
 }) {
   // Synthetic sections (status/priority/person) have no backing group row to
   // edit — they are read-only shells around the same task rows.
   const group = section.group;
-  const [editingName, setEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState(section.name);
+  const [adding, setAdding] = useState(false);
 
+  const minW = rowMinWidth(columns);
   const total = section.tasks.length;
   const done = section.tasks.filter((t) => t.status === "done").length;
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
   const collapsed = group?.collapsed ?? false;
-  const grid = gridTemplate(columns);
 
-  function commitName() {
-    setEditingName(false);
-    if (!group) return;
-    const next = nameDraft.trim();
-    if (next && next !== group.name) {
-      onRenameGroup(group.id, next);
-    } else {
-      setNameDraft(group.name);
-    }
+  // Droppable target for the whole rows area (drop = append at end).
+  const { setNodeRef: setRowsNodeRef } = useDroppable({ id: `rows:${section.id}`, data: { section } });
+
+  function toggleCollapse() {
+    if (group) onToggleCollapse(group.id, !collapsed);
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[#E1E5F3] bg-card shadow-sm" aria-label={`Group ${section.name}`}>
-      {/* Group header — reference layout (probed 2026-09-17): p-4 row with a
-          4px left accent in the BOARD color, h3 + (count) on the left and the
-          grey count dot, progress bar, percentage, and delete on the right. */}
+    <div className="border-b border-[#E1E5F3] last:border-b-0">
+      {/* Group header — the WHOLE row toggles collapse on the reference
+          (cursor-pointer, chevron flips down/right). No rename affordance. */}
       <div
-        className="relative flex items-center justify-between border-b border-[#E1E5F3] p-4 transition-colors hover:bg-[#F5F6F8]"
-        style={{ borderLeft: `4px solid ${boardColor}` }}
+        role={group ? "button" : undefined}
+        tabIndex={group ? 0 : undefined}
+        aria-label={group ? `Toggle group ${section.name}` : undefined}
+        aria-expanded={group ? !collapsed : undefined}
+        onClick={toggleCollapse}
+        onKeyDown={(e) => {
+          if (group && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            toggleCollapse();
+          }
+        }}
+        className="relative flex cursor-pointer items-center justify-between p-4 transition-colors hover:bg-[#F5F6F8]"
+        style={{ borderLeft: `4px solid ${section.color}` }}
       >
         <div className="flex items-center gap-3">
-          {group ? (
-            <button
-              type="button"
-              aria-label={collapsed ? `Expand group ${section.name}` : `Collapse group ${section.name}`}
-              aria-expanded={!collapsed}
-              onClick={() => onToggleCollapse(group.id, !collapsed)}
-              className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[#E1E5F3] hover:text-accent-foreground"
-            >
-              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </button>
-          ) : (
-            <span className="w-6" aria-hidden="true" />
-          )}
-          {editingName && group ? (
-            <input
-              autoFocus
-              aria-label="Group name"
-              value={nameDraft}
-              onChange={(e) => setNameDraft(e.target.value)}
-              onBlur={commitName}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") commitName();
-                if (e.key === "Escape") {
-                  setNameDraft(group.name);
-                  setEditingName(false);
-                }
-              }}
-              className="rounded-sm border-none bg-accent px-1.5 py-0.5 text-lg font-bold outline-none ring-1 ring-primary/40"
-            />
-          ) : (
-            <h3 className="flex items-center gap-2 text-lg font-bold">
-              <button
-                type="button"
-                onClick={() => group && setEditingName(true)}
-                className={`rounded-sm px-1.5 py-0.5 transition-colors ${
-                  group ? "hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" : "cursor-default"
-                }`}
-              >
-                {section.name}
-              </button>
-              <span className="text-sm font-normal text-[#676879]">({total})</span>
-            </h3>
-          )}
+          <span className="flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-[#E1E5F3]">
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </span>
+          <h3 className="text-lg font-bold text-[#323338]">{section.name}</h3>
+          <span className="text-sm text-[#676879]">({total})</span>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1">
-            {/* Reference renders a neutral grey count dot, not a section color. */}
-            <span
-              className="h-3 w-3 rounded-full bg-[#c4c4c4]"
-              aria-hidden="true"
-            />
-            <span className="text-xs text-[#676879]">{total}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-16 overflow-hidden rounded-full bg-[#E1E5F3]" aria-hidden="true">
-              <span
-                className="block h-full rounded-full transition-all duration-300"
-                style={{ width: `${pct}%`, backgroundColor: "var(--group-progress-fill)" }}
-              />
-            </span>
-            <span className="text-xs text-[#676879]">{pct}%</span>
-          </div>
+        <div className="flex items-center gap-2">
+          {total > 0 && (
+            <>
+              {/* Reference renders a neutral grey count dot, not a section color. */}
+              <span className="flex items-center gap-1">
+                <span className="h-3 w-3 rounded-full bg-[#c4c4c4]" aria-hidden="true" />
+                <span className="text-xs text-[#676879]">{total}</span>
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="h-2 w-16 overflow-hidden rounded-full bg-[#E1E5F3]" aria-hidden="true">
+                  <span
+                    className="block h-full rounded-full transition-all duration-300"
+                    style={{ width: `${pct}%`, backgroundColor: "var(--group-progress-fill)" }}
+                  />
+                </span>
+                <span className="text-xs text-[#676879]">{pct}%</span>
+              </span>
+            </>
+          )}
           {group && (
             <button
               type="button"
               aria-label={`Delete group ${section.name}`}
               title="Delete group"
-              onClick={() => onDeleteGroup(group.id)}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-red-500 opacity-50 transition-opacity hover:bg-red-100 hover:text-red-600 hover:opacity-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteGroup(group.id);
+              }}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-red-500 opacity-50 transition-all hover:bg-red-100 hover:text-red-600 hover:opacity-100"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -404,87 +708,148 @@ function GroupSection({
       </div>
 
       {!collapsed && (
-        <>
-          {/* Column headers — light gray band like the reference. */}
-          <div
-            className="grid border-b border-[#E1E5F3] bg-[var(--table-header-bg)] text-xs font-medium text-[#323338]"
-            style={{ gridTemplateColumns: grid }}
-          >
-            <div className="flex items-center justify-center py-2" aria-hidden="true" />
-            {columns.map((col) => (
-              <div key={col.key} className="px-3 py-2 first:px-2">
-                {col.label}
-              </div>
-            ))}
-            <div className="py-2" aria-hidden="true" />
+        <div className="overflow-hidden">
+          <div className="relative overflow-x-auto" ref={setRowsNodeRef}>
+            <ColumnHeaderRow
+              columns={columns}
+              minW={minW}
+              onToggleColumn={onToggleColumn}
+              onAddTask={() => setAdding(true)}
+            />
+
+            {group ? (
+              <>
+                {section.tasks.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    members={members}
+                    columns={columns}
+                    minW={minW}
+                    canDrag
+                    onUpdateTask={onUpdateTask}
+                    onDeleteTask={onDeleteTask}
+                  />
+                ))}
+                {section.tasks.length === 0 && !adding && <EmptyGroupZone onActivate={() => setAdding(true)} />}
+                {(section.tasks.length > 0 || adding) && (
+                  <AddTaskRow
+                    groupId={group.id}
+                    columns={columns}
+                    minW={minW}
+                    active={adding}
+                    onActivate={() => setAdding((prev) => !prev)}
+                    onCreateTask={onCreateTask}
+                  />
+                )}
+                <SummaryRow tasks={section.tasks} columns={columns} minW={minW} />
+              </>
+            ) : (
+              <>
+                {section.tasks.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    members={members}
+                    columns={columns}
+                    minW={minW}
+                    canDrag={false}
+                    onUpdateTask={onUpdateTask}
+                    onDeleteTask={onDeleteTask}
+                  />
+                ))}
+                <SummaryRow tasks={section.tasks} columns={columns} minW={minW} />
+              </>
+            )}
           </div>
-
-          {section.tasks.length === 0 ? (
-            <div className="py-6 text-center text-sm text-muted-foreground">No items in this group</div>
-          ) : (
-            section.tasks.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                members={members}
-                columns={columns}
-                grid={grid}
-                onUpdateTask={onUpdateTask}
-                onDeleteTask={onDeleteTask}
-              />
-            ))
-          )}
-
-          {group && (
-            <div className="border-t border-[#E1E5F3] p-4">
-              <button
-                type="button"
-                onClick={() => onAddTask(group.id)}
-                className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#0073EA] bg-background px-4 py-2 text-sm font-medium text-[#0073EA] shadow-sm transition-colors hover:bg-[#0073EA]/10"
-              >
-                <Plus className="h-4 w-4" /> Add task
-              </button>
-            </div>
-          )}
-
-          <SummaryRow tasks={section.tasks} columns={columns} grid={grid} />
-        </>
+        </div>
       )}
-    </section>
+    </div>
   );
 }
 
+// ---------- board table (one card for every group) ----------
+
 export function BoardTable(props: BoardTableProps) {
-  const { sections, onAddGroup, groupBy, hiddenColumns, boardColor } = props;
+  const { sections, groupBy, hiddenColumns } = props;
   const columns = useMemo(() => visibleColumns(hiddenColumns), [hiddenColumns]);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  /**
+   * Drop resolution: over a ROW → insert before/after it depending on the
+   * translated drag rectangle's center; over the rows AREA → append at the
+   * end. Cross-group drops move the task (the reference drags between
+   * groups too).
+   */
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const dragged = active.data.current?.task as TaskDTO | undefined;
+    if (!dragged) return;
+
+    const overId = String(over.id);
+    const sectionsById = new Map(props.sections.map((s) => [s.id, s]));
+    const zoneOf = (groupId: string) => sectionsById.get(groupId);
+
+    if (overId.startsWith("row:")) {
+      const target = over.data.current?.task as TaskDTO | undefined;
+      if (!target) return;
+      const zone = zoneOf(target.groupId);
+      if (!zone?.group) return; // synthetic sections cannot accept drops
+      const list = zone.tasks;
+      const targetIndex = list.findIndex((t) => t.id === target.id);
+      if (targetIndex < 0) return;
+      const activeRect = active.rect.current.translated;
+      const after =
+        activeRect && over.rect ? activeRect.top + activeRect.height / 2 > over.rect.top + over.rect.height / 2 : true;
+      // Dropping onto your own old slot is a no-op.
+      const index = target.id === dragged.id ? targetIndex : after ? targetIndex + 1 : targetIndex;
+      if (dragged.id === target.id) return;
+      props.onReorderTask(dragged.id, zone.group.id, Math.max(0, Math.min(index, list.length)));
+      return;
+    }
+
+    if (overId.startsWith("rows:")) {
+      const zoneId = overId.slice("rows:".length);
+      const zone = zoneOf(zoneId);
+      if (!zone?.group) return;
+      if (dragged.groupId === zone.group.id) return; // same-group append handled above
+      props.onReorderTask(dragged.id, zone.group.id, zone.tasks.length);
+    }
+  }
 
   return (
-    <div className="space-y-4">
-      {sections.map((section) => (
-        <GroupSection
-          key={section.id}
-          section={section}
-          members={props.members}
-          columns={columns}
-          boardColor={boardColor}
-          onUpdateTask={props.onUpdateTask}
-          onDeleteTask={props.onDeleteTask}
-          onAddTask={props.onAddTask}
-          onRenameGroup={props.onRenameGroup}
-          onToggleCollapse={props.onToggleCollapse}
-          onDeleteGroup={props.onDeleteGroup}
-        />
-      ))}
+    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      {/* Reference architecture: ONE white card wraps every group zone plus
+          the Add New Group zone (probed 2026-09-17). */}
+      <div className="overflow-hidden rounded-xl border border-[#E1E5F3] bg-white shadow-sm">
+        {sections.map((section) => (
+          <GroupZone
+            key={section.id}
+            section={section}
+            members={props.members}
+            columns={columns}
+            onUpdateTask={props.onUpdateTask}
+            onDeleteTask={props.onDeleteTask}
+            onCreateTask={props.onCreateTask}
+            onToggleCollapse={props.onToggleCollapse}
+            onDeleteGroup={props.onDeleteGroup}
+            onToggleColumn={props.onToggleColumn}
+          />
+        ))}
 
-      {groupBy === "default" && (
-        <button
-          type="button"
-          onClick={onAddGroup}
-          className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-primary text-sm font-medium text-muted-foreground transition-colors hover:bg-[#F5F6F8] hover:text-foreground"
-        >
-          <Plus className="h-4 w-4" /> Add New Group
-        </button>
-      )}
-    </div>
+        {groupBy === "default" && (
+          <div className="border-t border-[#E1E5F3] p-4">
+            <button
+              type="button"
+              onClick={props.onAddGroup}
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#0073EA] bg-white px-4 py-2 text-sm font-medium text-[#0073EA] transition-colors hover:bg-[#0073EA]/10"
+            >
+              <Plus className="h-4 w-4" /> Add New Group
+            </button>
+          </div>
+        )}
+      </div>
+    </DndContext>
   );
 }
