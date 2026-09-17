@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   BOARD_COLORS,
+  GROUP_COLOR_OPTIONS,
+  KANBAN_CARD_BORDER,
   TASK_PRIORITIES,
   TASK_STATUSES,
   VISIBILITY_OPTIONS,
+  VIEW_TRIGGER_LABELS,
   distributionBars,
   filterTasks,
   formatSavedAt,
@@ -466,5 +469,57 @@ describe("relativeBoardTime", () => {
   it("falls back to a calendar date beyond a week", () => {
     const now = new Date(2026, 8, 16, 12, 0, 0);
     expect(relativeBoardTime(new Date(2026, 7, 1, 12, 0, 0), now)).toBe("Aug 1");
+  });
+});
+
+// ---------- session-5 reference vocabulary (probed 2026-09-17) ----------
+
+describe("VIEW_TRIGGER_LABELS", () => {
+  it("shows the short labels the reference renders on the view dropdown trigger", () => {
+    expect(VIEW_TRIGGER_LABELS.table).toBe("Main table");
+    expect(VIEW_TRIGGER_LABELS.kanban).toBe("Kanban");
+    expect(VIEW_TRIGGER_LABELS.calendar).toBe("Calendar");
+    expect(VIEW_TRIGGER_LABELS.timeline).toBe("Timeline");
+    expect(VIEW_TRIGGER_LABELS.unassigned).toBe("Unassigned Tasks");
+  });
+
+  it("covers exactly the five board sub-views", () => {
+    expect(Object.keys(VIEW_TRIGGER_LABELS).sort()).toEqual(
+      ["calendar", "kanban", "table", "timeline", "unassigned"],
+    );
+  });
+});
+
+describe("KANBAN_CARD_BORDER", () => {
+  it("is the fixed neutral border the reference renders on every kanban card", () => {
+    // Probed with both a Done and a Not Started card — same neutral color,
+    // so the card accent is NOT status-driven on the reference.
+    expect(KANBAN_CARD_BORDER).toBe("#E1E5F3");
+  });
+});
+
+describe("GROUP_COLOR_OPTIONS", () => {
+  it("lists the seven Add New Group swatches in reference order", () => {
+    expect(GROUP_COLOR_OPTIONS.map((c) => c.value)).toEqual([
+      "#0073ea",
+      "#00c875",
+      "#ffcb00",
+      "#e2445c",
+      "#a25ddb",
+      "#00d9ff",
+      "#676879",
+    ]);
+  });
+
+  it("names every swatch like the reference titles", () => {
+    expect(GROUP_COLOR_OPTIONS.map((c) => c.name)).toEqual([
+      "Ocean Blue",
+      "Success Green",
+      "Warning Orange",
+      "Danger Red",
+      "Purple",
+      "Teal",
+      "Gray",
+    ]);
   });
 });

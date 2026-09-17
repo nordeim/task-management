@@ -40,6 +40,38 @@ export function validateBoardColor(value: string): boolean {
   return BOARD_COLORS.some((c) => c.value === value);
 }
 
+// The seven swatches of the reference's "Add New Group" dialog (probed
+// 2026-09-17). Different set from BOARD_COLORS: adds Gray #676879 and names
+// the third swatch "Warning Orange". Selected swatch renders with a dark
+// ring + scale-110; the group's border-left accent uses the chosen value.
+export const GROUP_COLOR_OPTIONS = [
+  { name: "Ocean Blue", value: "#0073ea" },
+  { name: "Success Green", value: "#00c875" },
+  { name: "Warning Orange", value: "#ffcb00" },
+  { name: "Danger Red", value: "#e2445c" },
+  { name: "Purple", value: "#a25ddb" },
+  { name: "Teal", value: "#00d9ff" },
+  { name: "Gray", value: "#676879" },
+] as const;
+
+// The view dropdown TRIGGER shows short labels while the menu lists the
+// long ones (probed 2026-09-17: trigger reads "Main table", "Kanban",
+// "Calendar", "Timeline", "Unassigned Tasks").
+export const VIEW_TRIGGER_LABELS = {
+  table: "Main table",
+  kanban: "Kanban",
+  calendar: "Calendar",
+  timeline: "Timeline",
+  unassigned: "Unassigned Tasks",
+} as const;
+
+export type BoardSubView = keyof typeof VIEW_TRIGGER_LABELS;
+
+// Kanban card accent (probed 2026-09-17): a FIXED neutral left border on
+// every card — Done and Not Started cards both render #E1E5F3, so the
+// accent is not status-driven on the reference.
+export const KANBAN_CARD_BORDER = "#E1E5F3";
+
 // Board visibility — the closed vocabulary behind the create/edit board
 // dialogs. Stored values stay private|public (API-stable); the reference
 // labels the open option "Shared" (probed 2026-09-17).
@@ -399,6 +431,8 @@ export interface GroupDTO {
   name: string;
   collapsed: boolean;
   position: number;
+  /** Group accent color (Add New Group dialog; defaults to Ocean Blue). */
+  color: string;
   tasks: TaskDTO[];
 }
 

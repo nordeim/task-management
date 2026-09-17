@@ -64,6 +64,8 @@ model Group {
   boardId   String
   collapsed Boolean  @default(false)
   position  Int      @default(0)
+  // Reference: every group owns its accent color (Add New Group dialog).
+  color     String   @default("#0073ea")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
