@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import type { BoardSummaryDTO, DashboardDTO } from "@/lib/domain";
 
-/** GET /api/dashboard — hero stats, recent boards, and the activity feed. */
+/** GET /api/dashboard — hero stats, recent boards, and recently-updated tasks
+ *  (the reference's "Recent Activity" lists tasks, not an event log). */
 export async function GET() {
   const user = await getSessionUser();
   if (!user) {
@@ -47,11 +48,12 @@ export async function GET() {
   const totalTasks = completedTasks + pendingTasks;
   const completionRate = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
-  const activity = await db.activity.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: "desc" },
-    take: 12,
-    include: { user: { select: { id: true, email: true, name: true, avatarColor: true } } },
+  // Recently-updated tasks across the user's boards ("Recent Activity").
+  const recentTasks = await db.task.findMany({
+    where: { group: { board: { ownerId: user.id } } },
+    orderBy: { updatedAt: "desc" },
+    take: 6,
+    select: { id: true, title: true, updatedAt: true },
   });
 
   const data: DashboardDTO = {
@@ -62,12 +64,10 @@ export async function GET() {
       completionRate,
     },
     recentBoards: summaries.slice(0, 5),
-    activity: activity.map((a) => ({
-      id: a.id,
-      type: a.type,
-      message: a.message,
-      createdAt: a.createdAt.toISOString(),
-      user: a.user,
+    recentTasks: recentTasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      updatedAt: t.updatedAt.toISOString(),
     })),
   };
 

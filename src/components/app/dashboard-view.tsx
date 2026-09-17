@@ -4,9 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
   ArrowRight,
-  CalendarDays,
+  Calendar,
   ChartColumn,
-  CheckCircle2,
+  CircleCheck,
   Clock,
   Folder,
   Globe,
@@ -22,22 +22,86 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApp } from "@/components/app/app-context";
 import { api } from "@/lib/api-client";
+import { formatRecentTaskTime, visibilityLabel } from "@/lib/domain";
 import type { DashboardDTO } from "@/lib/domain";
-import { visibilityLabel } from "@/lib/domain";
 
-/** Gradient pairs probed from the reference KPI cards (2026-09-16). */
+/**
+ * Reference KPI cards (probed 2026-09-17): Tailwind gradient pairs with a
+ * `group perspective-1000` wrapper, deco discs, hover particles, an icon tile
+ * (w-10 bg-white/20 backdrop-blur), and a space-y-1 value zone.
+ */
 const STAT_CARDS = [
-  { key: "totalBoards", label: "Total Boards", from: "#3b82f6", to: "#2563eb", icon: Folder, target: "boards" as const },
-  { key: "completedTasks", label: "Completed Tasks", from: "#22c55e", to: "#16a34a", icon: CheckCircle2, target: "analytics" as const },
-  { key: "pendingTasks", label: "Pending Tasks", from: "#f59e0b", to: "#f97316", icon: Clock, target: "boards" as const },
-  { key: "completionRate", label: "Completion Rate", from: "#a855f7", to: "#9333ea", icon: TrendingUp, target: "analytics" as const, suffix: "%" },
+  {
+    key: "totalBoards",
+    label: "Total Boards",
+    gradient: "from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700",
+    icon: Folder,
+    target: "boards" as const,
+  },
+  {
+    key: "completedTasks",
+    label: "Completed Tasks",
+    gradient: "from-green-500 to-green-600 hover:from-green-600 hover:to-green-700",
+    icon: CircleCheck,
+    target: "analytics" as const,
+  },
+  {
+    key: "pendingTasks",
+    label: "Pending Tasks",
+    gradient: "from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600",
+    icon: Clock,
+    target: "boards" as const,
+  },
+  {
+    key: "completionRate",
+    label: "Completion Rate",
+    gradient: "from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700",
+    icon: TrendingUp,
+    target: "analytics" as const,
+    suffix: "%",
+  },
 ] as const;
 
+/** Hover particle positions probed from the reference (left/top %). */
+const STAT_PARTICLES = [
+  { left: "20%", top: "20%" },
+  { left: "35%", top: "30%" },
+  { left: "50%", top: "40%" },
+  { left: "65%", top: "50%" },
+  { left: "80%", top: "60%" },
+  { left: "95%", top: "70%" },
+] as const;
+
+/** Reference quick actions: gradient rows with white/20 icon tiles. */
 const QUICK_ACTIONS = [
-  { label: "Create Board", hint: "Start new project", bg: "#06b6d4", icon: Plus, action: "create" as const },
-  { label: "Invite Team", hint: "Add collaborators", bg: "#22c55e", icon: UserPlus, action: "invite" as const },
-  { label: "Calendar", hint: "View deadlines", bg: "#f97316", icon: CalendarDays, action: "calendar" as const },
-  { label: "Analytics", hint: "View insights", bg: "#d946ef", icon: ChartColumn, action: "analytics" as const },
+  {
+    label: "Create Board",
+    hint: "Start new project",
+    gradient: "from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600",
+    icon: Plus,
+    action: "create" as const,
+  },
+  {
+    label: "Invite Team",
+    hint: "Add collaborators",
+    gradient: "from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600",
+    icon: UserPlus,
+    action: "invite" as const,
+  },
+  {
+    label: "Calendar",
+    hint: "View deadlines",
+    gradient: "from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600",
+    icon: Calendar,
+    action: "calendar" as const,
+  },
+  {
+    label: "Analytics",
+    hint: "View insights",
+    gradient: "from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600",
+    icon: ChartColumn,
+    action: "analytics" as const,
+  },
 ] as const;
 
 function greeting(): string {
@@ -45,18 +109,6 @@ function greeting(): string {
   if (hour < 12) return "Good morning";
   if (hour < 18) return "Good afternoon";
   return "Good evening";
-}
-
-function timeAgo(iso: string): string {
-  const seconds = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 /** The reference renders "Updated Sep 15, 2026" on board cards. */
@@ -118,8 +170,8 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
 
   if (error) {
     return (
-      <div className="p-6">
-        <Card>
+      <div className="min-h-screen bg-[#F5F6F8] p-4 md:p-8">
+        <Card className="mx-auto max-w-7xl">
           <CardContent className="py-10 text-center">
             <p className="mb-2 font-medium">Could not load your dashboard</p>
             <p className="mb-4 text-sm text-muted-foreground">{error}</p>
@@ -134,10 +186,13 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
   const firstName = user.name.split(" ")[0] || user.name;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 p-4 sm:p-6 lg:p-8">
-      {/* Hero — reference (probed 2026-09-17): white gradient card with soft
-          blue deco discs, small blue gradient icon tile, default-size buttons. */}
-      <section className="relative overflow-hidden rounded-2xl border border-white/60 bg-gradient-to-br from-white via-white to-blue-50/30 p-6 shadow-sm sm:p-8">
+    // Reference shell (probed): responsive padding lives OUTSIDE the
+    // max-w-7xl container, on the page background itself.
+    <div className="min-h-screen bg-[#F5F6F8] p-4 md:p-8">
+      <div className="mx-auto max-w-7xl space-y-8">
+      {/* Hero — white gradient card with soft blue deco discs, a small blue
+          gradient icon tile, and h-10 buttons. */}
+      <section className="relative overflow-hidden rounded-2xl border border-white/60 bg-gradient-to-br from-white via-white to-blue-50/30 p-6 shadow-sm md:p-8">
         <div aria-hidden="true" className="absolute right-0 top-0 h-24 w-24 -translate-y-12 translate-x-12 rounded-full bg-gradient-to-br from-blue-500/10 to-transparent" />
         <div aria-hidden="true" className="absolute bottom-0 left-0 h-20 w-20 translate-y-10 -translate-x-10 rounded-full bg-gradient-to-tr from-blue-500/5 to-transparent" />
         <div className="relative z-10 flex items-start gap-4">
@@ -148,28 +203,32 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
             <Sparkles className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            <h1 className="text-2xl font-bold leading-tight text-[#323338] md:text-3xl">
               {greeting()}, {firstName}!
             </h1>
-            <p className="mt-1 text-muted-foreground">
+            <p className="mt-1 text-base text-[#676879]">
               Ready to make today productive?
               {stats && stats.pendingTasks > 0
                 ? ` You have ${stats.pendingTasks} task${stats.pendingTasks === 1 ? "" : "s"} waiting.`
                 : ""}
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <Button className="font-semibold" onClick={() => navigate("boards")}>
-                <Folder className="mr-1 h-4 w-4" /> View All Boards <ArrowRight className="ml-1 h-4 w-4" />
+              <Button
+                className="h-10 rounded-lg bg-[#0073EA] px-4 font-semibold hover:bg-[#0056B3]"
+                onClick={() => navigate("boards")}
+              >
+                <Folder className="mr-2 h-4 w-4" aria-hidden="true" /> View All Boards
+                <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
               </Button>
-              <Button variant="outline" className="font-semibold" onClick={() => navigate("analytics")}>
-                <ChartColumn className="mr-1 h-4 w-4" /> View Analytics
+              <Button variant="outline" className="h-10 rounded-lg px-4 font-semibold" onClick={() => navigate("analytics")}>
+                <ChartColumn className="mr-2 h-4 w-4" aria-hidden="true" /> View Analytics
               </Button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Stats — gradient cards with the reference's deco circles + dots. */}
+      {/* Stats — the reference's gradient KPI cards. */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Key metrics">
         {STAT_CARDS.map((card) => {
           const Icon = card.icon;
@@ -179,40 +238,82 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
               : String(stats[card.key as "totalBoards" | "completedTasks" | "pendingTasks"])
             : null;
           return (
-            <button
-              key={card.key}
-              type="button"
-              onClick={() => navigate(card.target)}
-              className="stat-card-deco relative flex min-h-[136px] flex-col justify-between overflow-hidden rounded-xl p-5 text-left text-white shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              style={{ background: `linear-gradient(to right bottom, ${card.from}, ${card.to})` }}
-            >
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
-                {stats ? <Icon className="h-5 w-5" /> : <Skeleton className="h-5 w-5 bg-white/30" />}
-              </span>
-              <span>
-                <span className="block text-sm font-medium opacity-90">{card.label}</span>
-                <span className="block text-3xl font-bold">{value ?? "—"}</span>
-              </span>
-            </button>
+            <div key={card.key} className="group perspective-1000">
+              <button
+                type="button"
+                onClick={() => navigate(card.target)}
+                className={`relative w-full cursor-pointer transform-gpu overflow-hidden rounded-xl border-0 bg-gradient-to-br text-left shadow-lg transition-all duration-500 hover:shadow-2xl ${card.gradient}`}
+              >
+                <div className="relative p-4">
+                  {/* Deco discs */}
+                  <div
+                    aria-hidden="true"
+                    className="absolute right-0 top-0 h-16 w-16 translate-x-4 -translate-y-4 rounded-full bg-white/10 transition-transform duration-500 group-hover:scale-150"
+                  />
+                  <div
+                    aria-hidden="true"
+                    className="absolute bottom-0 left-0 h-12 w-12 -translate-x-2 translate-y-2 rounded-full bg-white/5 transition-transform duration-500 group-hover:scale-150"
+                  />
+                  {/* Hover particles */}
+                  <div aria-hidden="true" className="absolute inset-0 opacity-0 group-hover:opacity-100">
+                    {STAT_PARTICLES.map((pos) => (
+                      <span
+                        key={`${pos.left}-${pos.top}`}
+                        className="absolute h-1 w-1 rounded-full bg-white/40"
+                        style={pos}
+                      />
+                    ))}
+                  </div>
+                  <div className="relative z-10">
+                    <div className="mb-3 flex items-center justify-between">
+                      <span
+                        className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/20 bg-white/20 shadow-lg backdrop-blur-sm transition-all duration-300 group-hover:bg-white/30"
+                        aria-hidden="true"
+                      >
+                        <Icon className="h-5 w-5 text-white" />
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className="h-6 w-6 rounded-full bg-white/10 transition-colors duration-300 group-hover:bg-white/20"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-white/80 transition-colors duration-300 group-hover:text-white">
+                        {card.label}
+                      </p>
+                      <p className="text-2xl font-bold text-white">{value ?? "—"}</p>
+                    </div>
+                  </div>
+                </div>
+                {/* Shine sweep + hover ring */}
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100"
+                />
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-xl border-2 border-white/30 opacity-0 group-hover:opacity-100"
+                />
+              </button>
+            </div>
           );
         })}
       </section>
 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-4">
-        {/* Recent boards — spans 3 of 4 columns like the reference. */}
-        <Card className="xl:col-span-3">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        {/* Recent boards — gradient card spanning 3 of 4 columns. */}
+        <Card className="border-0 bg-gradient-to-br from-white via-white to-indigo-50/30 shadow-lg backdrop-blur-sm xl:col-span-3">
+          <CardHeader className="flex flex-row items-center justify-between">
             <div className="flex items-center gap-3">
               <span
-                className="flex h-10 w-10 items-center justify-center rounded-lg text-white"
-                style={{ backgroundColor: "#a855f7" }}
+                className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg"
                 aria-hidden="true"
               >
-                <Folder className="h-5 w-5" />
+                <Folder className="h-6 w-6" />
               </span>
               <div>
-                <CardTitle className="text-lg">Recent Boards</CardTitle>
-                <CardDescription>Your latest project boards</CardDescription>
+                <CardTitle className="text-xl font-bold tracking-tight text-[#323338]">Recent Boards</CardTitle>
+                <CardDescription className="text-sm text-[#676879]">Your latest project boards</CardDescription>
               </div>
             </div>
             <button
@@ -220,7 +321,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
               onClick={() => navigate("boards")}
               className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
             >
-              View All <ArrowRight className="h-3.5 w-3.5" />
+              View All <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           </CardHeader>
           <CardContent>
@@ -240,7 +341,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                   Create your first board to get started
                 </p>
                 <Button onClick={onCreateBoard}>
-                  <Plus className="mr-1 h-4 w-4" /> Create Board
+                  <Plus className="mr-1 h-4 w-4" aria-hidden="true" /> Create Board
                 </Button>
               </div>
             ) : (
@@ -251,7 +352,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                       <button
                         type="button"
                         onClick={() => navigate("board", board.id)}
-                        className="group flex w-full items-center gap-4 rounded-xl border border-transparent p-4 text-left transition-all duration-200 hover:border-blue-100 hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-purple-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="group flex w-full items-center gap-4 rounded-xl p-4 text-left transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-purple-50/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         {/* Reference card: full-color folder tile + title + "Updated …" + visibility badge. */}
                         <span
@@ -262,28 +363,34 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                           <Folder className="h-6 w-6 text-white" />
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className="truncate font-semibold">{board.title}</span>
-                            <span
-                              className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                board.visibility === "private"
-                                  ? "bg-rose-100 text-rose-700"
-                                  : "bg-emerald-100 text-emerald-700"
-                              }`}
-                            >
-                              {board.visibility === "private" ? (
-                                <Lock className="h-3 w-3" aria-hidden="true" />
-                              ) : (
-                                <Globe className="h-3 w-3" aria-hidden="true" />
-                              )}
-                              {visibilityLabel(board.visibility, true)}
+                          <span className="flex items-center gap-2">
+                            <span className="truncate font-semibold text-[#323338] transition-colors group-hover:text-[#0073EA]">
+                              {board.title}
                             </span>
                           </span>
-                          <span className="mt-0.5 block truncate text-sm text-muted-foreground">
+                          <span className="mt-1 block truncate text-sm text-[#676879]">
                             Updated {formatUpdatedDate(board.updatedAt)}
                           </span>
                         </span>
-                        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        {/* Reference: the visibility badge sits in the right
+                            zone with the chevron, not inline after the title. */}
+                        <span className="flex shrink-0 items-center gap-3">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              board.visibility === "private"
+                                ? "bg-rose-100 text-rose-700"
+                                : "bg-emerald-100 text-emerald-700"
+                            }`}
+                          >
+                            {board.visibility === "private" ? (
+                              <Lock className="h-3 w-3" aria-hidden="true" />
+                            ) : (
+                              <Globe className="h-3 w-3" aria-hidden="true" />
+                            )}
+                            {visibilityLabel(board.visibility, true)}
+                          </span>
+                          <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                        </span>
                       </button>
                     </li>
                   );
@@ -293,21 +400,19 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
           </CardContent>
         </Card>
 
-        {/* Sidebar: quick actions + activity */}
+        {/* Sidebar: quick actions + recent activity */}
         <div className="space-y-8">
-          <Card>
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-3">
-                <span
-                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white"
-                  aria-hidden="true"
-                >
-                  <Zap className="h-5 w-5" />
-                </span>
-                <div>
-                  <CardTitle className="text-lg">Quick Actions</CardTitle>
-                  <CardDescription>Get things done faster</CardDescription>
-                </div>
+          <Card className="border-0 bg-gradient-to-br from-white via-white to-purple-50/30 shadow-lg backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center gap-3 pb-4">
+              <span
+                className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg"
+                aria-hidden="true"
+              >
+                <Zap className="h-6 w-6" />
+              </span>
+              <div>
+                <CardTitle className="text-lg font-bold tracking-tight text-[#323338]">Quick Actions</CardTitle>
+                <CardDescription className="text-sm text-[#676879]">Get things done faster</CardDescription>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -323,15 +428,17 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                     key={action.label}
                     type="button"
                     onClick={() => handleQuickAction(action.action)}
-                    className="flex w-full items-center gap-3 rounded-lg p-3 text-left text-white shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    style={{ backgroundColor: action.bg }}
+                    className={`flex w-full cursor-pointer items-center gap-4 rounded-xl bg-gradient-to-r p-4 text-left text-white shadow-md transition-all duration-200 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${action.gradient}`}
                   >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/20">
+                    <span
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/20 backdrop-blur-sm"
+                      aria-hidden="true"
+                    >
                       <Icon className="h-5 w-5" />
                     </span>
-                    <span>
-                      <span className="block text-sm font-semibold">{action.label}</span>
-                      <span className="block text-xs opacity-90">{action.hint}</span>
+                    <span className="flex-1">
+                      <span className="block font-medium text-white">{action.label}</span>
+                      <span className="block text-sm text-white/80">{action.hint}</span>
                     </span>
                   </button>
                 );
@@ -339,20 +446,17 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-3">
-                <span
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-white"
-                  style={{ backgroundColor: "#10b981" }}
-                  aria-hidden="true"
-                >
-                  <Activity className="h-5 w-5" />
-                </span>
-                <div>
-                  <CardTitle className="text-lg">Recent Activity</CardTitle>
-                  <CardDescription>Latest updates</CardDescription>
-                </div>
+          <Card className="border-0 bg-gradient-to-br from-white via-white to-green-50/30 shadow-lg backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center gap-3 pb-4">
+              <span
+                className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-teal-500 text-white shadow-lg"
+                aria-hidden="true"
+              >
+                <Activity className="h-6 w-6" />
+              </span>
+              <div>
+                <CardTitle className="text-lg font-bold tracking-tight text-[#323338]">Recent Activity</CardTitle>
+                <CardDescription className="text-sm text-[#676879]">Latest updates</CardDescription>
               </div>
             </CardHeader>
             <CardContent>
@@ -362,31 +466,32 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                     <Skeleton key={i} className="h-10 w-full" />
                   ))}
                 </div>
-              ) : data.activity.length === 0 ? (
+              ) : data.recentTasks.length === 0 ? (
                 <div className="flex flex-col items-center py-6 text-center text-muted-foreground">
                   <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
                     <Activity className="h-6 w-6" />
                   </span>
                   <p className="text-sm">No recent activity</p>
-                  <p className="text-xs">Actions you take will show up here</p>
+                  <p className="text-xs">Tasks you update will show up here</p>
                 </div>
               ) : (
-                <ul className="space-y-1">
-                  {data.activity.slice(0, 6).map((item) => (
-                    <li key={item.id} className="flex items-start gap-3 rounded-md px-2 py-2 hover:bg-secondary/60">
+                <ul>
+                  {data.recentTasks.map((task) => (
+                    <li
+                      key={task.id}
+                      className="flex cursor-pointer items-center gap-3 rounded-lg p-3 transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-green-50/50"
+                    >
                       <span
-                        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
-                        style={{ backgroundColor: item.user.avatarColor }}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-gray-500 to-slate-500 text-white shadow-lg"
                         aria-hidden="true"
                       >
-                        {item.user.name.slice(0, 1).toUpperCase()}
+                        <Clock className="h-4 w-4" />
                       </span>
-                      <span className="min-w-0">
-                        <span className="block text-sm leading-snug">
-                          <span className="font-medium">{item.user.name.split(" ")[0]}</span>{" "}
-                          {item.message}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-[#323338]">{task.title}</span>
+                        <span className="block text-xs text-[#676879]">
+                          {formatRecentTaskTime(new Date(task.updatedAt))}
                         </span>
-                        <span className="text-xs text-muted-foreground">{timeAgo(item.createdAt)}</span>
                       </span>
                     </li>
                   ))}
@@ -395,6 +500,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
             </CardContent>
           </Card>
         </div>
+      </div>
       </div>
     </div>
   );

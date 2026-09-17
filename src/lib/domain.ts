@@ -417,17 +417,6 @@ export function formatRecentTaskTime(date: Date): string {
   return `${months[date.getMonth()]} ${date.getDate()}, ${hours}:${minutes} ${meridiem}`;
 }
 
-export const ACTIVITY_TYPES = {
-  board_created: { icon: "board", color: "#0073ea" },
-  board_deleted: { icon: "board", color: "#e2445c" },
-  task_created: { icon: "task", color: "#00ca72" },
-  task_completed: { icon: "check", color: "#00ca72" },
-  task_updated: { icon: "task", color: "#fcc203" },
-  group_created: { icon: "group", color: "#a25ddb" },
-} as const;
-
-export type ActivityType = keyof typeof ACTIVITY_TYPES;
-
 // ---------- API payload contracts ----------
 
 export interface UserDTO {
@@ -488,12 +477,12 @@ export interface BoardDetailDTO {
   members: UserDTO[];
 }
 
-export interface ActivityDTO {
+/** Dashboard "Recent Activity" row (probed 2026-09-17): the reference lists
+ *  recently-updated TASKS (title + absolute time), not an event log. */
+export interface RecentTaskDTO {
   id: string;
-  type: string;
-  message: string;
-  createdAt: string;
-  user: UserDTO;
+  title: string;
+  updatedAt: string;
 }
 
 export interface DashboardDTO {
@@ -504,7 +493,7 @@ export interface DashboardDTO {
     completionRate: number;
   };
   recentBoards: BoardSummaryDTO[];
-  activity: ActivityDTO[];
+  recentTasks: RecentTaskDTO[];
 }
 
 export interface AnalyticsDTO {
