@@ -44,9 +44,14 @@ export function BoardCalendar({ tasks, onOpenTask }: BoardCalendarProps) {
   const today = new Date();
 
   return (
-    <div className="overflow-hidden rounded-xl border border-[#E1E5F3] bg-card shadow-lg">
-      {/* Reference header (probed 2026-09-17): a p-4 zone with the arrows
-          flanking the CENTERED text-xl month title — no border divider. */}
+    <div className="rounded-xl border border-[#E1E5F3] bg-card text-card-foreground shadow-lg">
+      {/* Reference geometry (probed 2026-09-17): month row, weekday row AND the
+          day grid all live INSIDE one p-4 zone — the grid inherits the 16px
+          side padding (it does not span the full card width), and its
+          container carries grid-rows-5 + gap-px. The 1px gaps show the
+          card's white through the transparent grid background, so each pair
+          of bordered cells renders the reference's "double hairline"
+          (border → white slit → border) instead of a solid 2px line. */}
       <div className="p-4">
         <div className="mb-4 flex items-center justify-between px-2">
           <Button
@@ -77,9 +82,8 @@ export function BoardCalendar({ tasks, onOpenTask }: BoardCalendarProps) {
             </div>
           ))}
         </div>
-      </div>
 
-      <div className="grid grid-cols-7">
+        <div className="grid grid-cols-7 grid-rows-5 gap-px">
         {cells.map((day) => {
           const key = format(day, "yyyy-MM-dd");
           const dayTasks = byDay.get(key) ?? [];
@@ -117,6 +121,7 @@ export function BoardCalendar({ tasks, onOpenTask }: BoardCalendarProps) {
             </div>
           );
         })}
+        </div>
       </div>
     </div>
   );
