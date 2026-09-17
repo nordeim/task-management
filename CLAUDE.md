@@ -1,7 +1,7 @@
 ---
 IMPORTANT: File is read fresh for every conversation. Be brief and practical.
 project_type: nextjs-single-app
-version: 1.3.0
+version: 1.4.0
 last_updated: 2026-09-17
 ---
 
@@ -139,8 +139,12 @@ public demo credentials).
   (`resolveStatusCompletedPatch`), timeline window math (`timelineRange`),
   kanban grouping (`groupTasksByStatus`/`groupTasksByPerson`), analytics
   bars (`distributionBars`), the saved indicator (`formatSavedAt`), the board
-  toolbar pipeline (`filterTasks`/`sortTasks`), column visibility
-  (`visibleColumns`), the group footer row (`groupSummary`), boards-card
+  toolbar pipeline (`filterTasks` incl. the multi-select `personIds` /
+  `sortTasks` across all seven fields with nulls-last), column visibility
+  (`visibleColumns`), the group footer row (`groupSummary` — first-encounter
+  order, 3-badge cap, overflow), the group header dots
+  (`statusHeaderDots`), kanban avatars (`avatarGradient`/`avatarInitials`),
+  distinct owners (`distinctOwnerNames`/`PEOPLE_COLUMN_PALETTE`), boards-card
   relative time (`relativeBoardTime`), the reference palette (status/priority/
   board-color hexes), the priority badge recipe (`priorityBadgeStyle`),
   visibility labels (`visibilityLabel`/`VISIBILITY_OPTIONS`), the view-dropdown
@@ -217,11 +221,11 @@ src/app/(app)/**       authed route group: / · /boards · /board · /analytics 
 src/app/login/         /login — bare, renders even when authed
 src/app/[...path]/     styled 404 catch-all (server-rendered titles)
 src/app/api/**         JSON route handlers, ActionResult envelopes
-src/components/app/**  product UI (shell, header, views, cells, dialogs — incl. edit-board + create-group)
+src/components/app/**  product UI (shell, header, views, cells, dialogs — incl. edit-board + create-group + edit-task)
 src/components/app/routes/** route wrappers (dashboard/boards/board/analytics/login)
 src/components/ui/**   shadcn primitives (vendored)
 src/lib/domain.ts      vocabulary + DTOs + ActionResult + pure helpers (single source)
-src/lib/domain.test.ts Vitest unit suite over the pure seams (87 tests)
+src/lib/domain.test.ts Vitest unit suite over the pure seams (106 tests)
 src/lib/auth.ts        scrypt + cookie sessions
 src/lib/api-client.ts  typed fetch (never throws)
 prisma/schema.prisma   User · Session · Board · Group · Task · Activity

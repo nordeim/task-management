@@ -1,4 +1,4 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.7
+# Tuesday.com — Master Project Architecture Document (PAD) v1.8
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
@@ -7,6 +7,66 @@
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.8 (Parity Deep-Pass #6: Interactive Surfaces, 2026-09-17)
+
+- `[SYN]` Eighth parity pass (session 9, `docs/remediation-plan-session9.md`):
+  19 gaps closed after a **bundle-decompiled + rich-data-probed** drift sweep.
+  Because the reference's live data is sparse (1 board / 1 task), the sweep
+  created a throwaway board on the reference and seeded 10 tasks via the
+  base44 entities API (all statuses/priorities, 3 string owners +
+  unassigned, dates across Sep 15 – Oct 10), then verified every multi-task
+  state against the reference's compiled JS (`/assets/index-BuEJAhK4.js`,
+  decompiled component-by-component: `hZ` OwnerCell, `pZ` DateCell, `fZ`
+  StatusCell, `xZ/wZ` PriorityCell, `bZ` row, `RZ` Person filter, `TZ`
+  Filter, `_Z` Sort, `AZ` Hide, `MZ` Group-by, `bte` KanbanCard, `Ste`
+  Kanban, `kte` Timeline, `pA` Edit-Task modal). **Edit Task modal** added
+  (new `edit-task-dialog.tsx`): `sm:max-w-2xl max-h-[80vh]` dialog opened
+  from kanban cards, their Ellipsis buttons, and calendar chips — Task
+  Title + two-column grid (Priority/Status selects, Owner free-text, Due
+  Date calendar popover with PPP labels) + `pt-4 border-t` footer (Delete
+  Task behind `window.confirm` | Cancel + Save Changes). **OwnerCell**
+  rewritten to the reference's free-text anatomy (bare inline input,
+  commit blur/Enter, Escape cancel, solid-blue 24px FIRST-LETTER avatar);
+  typed names resolve to member accounts. **Status/Priority cells** became
+  real shadcn Selects (pill→Select swap for status; badge-in-trigger for
+  priority) with color-dot items and near-black checks. **Group header**
+  now renders per-status count dots in FIRST-ENCOUNTER order
+  (`statusHeaderDots`); the **footer** caps priority badges at three with a
+  `+N` overflow (`groupSummary` gained `overflowCount`). **Toolbar** menus
+  restyled to the reference's card anatomy (w-64, `text-lg font-bold`
+  title + X close) — Sort lists ALL seven fields with an asc⇄desc toggle
+  (no off state) and its trigger always reads "Sort"; the Person filter is
+  multi-select over the board's distinct owners with blue first-letter
+  avatars and a red "Clear selection"; Filter's priority rows lost their
+  dots; Hide gained Eye/EyeOff rows + "Show all columns"; Person/Filter/
+  Hide buttons carry blue count badges. **Kanban**: card owner avatars are
+  the reference's 8-gradient palette indexed by `charCodeAt(0) % 8` with
+  `substring(0,2)` initials (JO/JA/MI verified against the live
+  reference); People columns list only owners who own tasks (LE-palette
+  badges, conditional Unassigned column, no header avatar/sublabel); drag
+  visuals became `ring-4 ring-blue-200 scale-105` + column-color-tinted
+  drag-over gradients; the overdue date-chip variant was dropped (the
+  reference's chip is always blue). BOARD_COLORS renamed to the live
+  dialog's "Warning Orange"/"Teal" labels.
+- `[GAT]` Unit suite 87→106: `avatarGradient`, `avatarInitials`,
+  `statusHeaderDots`, `distinctOwnerNames`, `PEOPLE_COLUMN_PALETTE`,
+  extended `sortTasks` (4 new fields + nulls-last), `filterTasks`
+  (`personIds` array), `groupSummary` (order + cap + overflow), updated
+  `BOARD_COLORS` labels (TDD: red first — 21 failing tests before
+  implementation). Fixed a pre-existing wiring bug: the default-grouping
+  table now sources rows from the SORTED `visibleTasks` (the Sort menu
+  previously never reordered rows inside real groups).
+- `[DEV]` Deviations updated (§10): the reference's timeline bars NEVER
+  render on current boards (its bar component reads a literal
+  `data.startDate` key that no current column model produces — verified
+  live with 10 dated tasks; bars appear only after API-injecting
+  startDate/endDate; spec captured: 28px rounded, board-color, 0.9
+  opacity, 40px/day); the reference's analytics priority distribution
+  counts its server-default top-level `priority` field (all "medium") and
+  its dashboard "Completed Tasks" KPI reads a different completion source
+  than its analytics (0 vs 2) — both root-caused; owner commits resolve to
+  real member accounts (reference stores arbitrary strings).
 
 #### Revision Block — v1.7 (Parity Deep-Pass #5: View Geometry & Structure, 2026-09-17)
 
@@ -1129,6 +1189,9 @@ bun run dev                # http://localhost:3000
 | Info | Presence dots are `User.online` mock data | reference hardcodes presence on a mock team | Parity — dots render per-user; the flag is seeded demo data, never real presence |
 | Info | Reference 'Unassigned' view renders an empty content area even when unassigned tasks exist (broken owner filter) | reference-side defect | Deliberate deviation — we list the unassigned tasks |
 | Info | Reference timeline silently drops tasks without due dates | dateless work vanishes on the reference | Deliberate deviation — ours keeps a reachable "without a due date" section |
+| Info | Reference timeline never renders bars (its bar component requires a literal `data.startDate` key that no current column model produces) | dateless AND dated work shows no bars on the reference (verified with 10 seeded tasks) | Deliberate deviation — ours renders due-date bars (28px rounded, board-color, 0.9 opacity, 40px/day — the reference's spec, captured by API-injecting startDate) |
+| Info | Reference analytics priority distribution counts the server-default top-level `priority` field | every task counts as "Medium" on the reference | Deliberate deviation — we count real priorities |
+| Info | Reference dashboard "Completed Tasks" KPI (0) disagrees with its analytics completion (2 Done / 17%) | different completion sources inside the reference | Deliberate deviation — ours stays consistent (status=done) |
 | Info | Reference timeline day-mode zoom renders 7 cells at 5.71px (40/7) | reference-side rendering defect | Deliberate deviation — ours keeps a usable single wide column |
 | Info | Reference blue header strip appears on scroll (threshold ~32px) | binary marker, not a progress bar | Parity as of v1.5 — scaleX(0)→full at window.scrollY ≥ 32 |
 | Info | Reference row-trash delete is client-side only (task reappears on reload) | reference-side broken control | Deliberate deviation — our Delete Task calls the API |
@@ -1147,12 +1210,12 @@ bun run dev                # http://localhost:3000
 | `src/app/[...path]/page.tsx` | 30 | Styled 404 catch-all with server-rendered titlecased titles |
 | `src/components/app/app-shell.tsx` | 112 | Shell: flex column, nav + main scroll container, AuthContext + AppProvider |
 | `src/components/app/routes/*.tsx` | 20 ea | Route wrappers (dashboard/boards/board/analytics/login) |
-| `src/components/app/board-view.tsx` | 1280 | Board detail: sticky chrome (gray wrapper + white bar + has-scrolled strip), one-row header, team row + popover, toolbar card, 5 views, all mutations |
+| `src/components/app/board-view.tsx` | 1334 | Board detail: sticky chrome (gray wrapper + white bar + has-scrolled strip), one-row header, team row + popover, toolbar card (card-styled Person/Filter/Sort/Hide/Group-by menus), 5 views, Edit Task modal wiring, all mutations |
 | `src/components/app/boards-view.tsx` | 452 | Boards grid/list cards (color bar / stripe, Options footer), search, inert reference Filter button, edit/delete flows |
 | `src/components/app/dashboard-view.tsx` | 507 | Home: reference KPI perspective cards, hero, RB gradient card, quick actions, recent-TASKS activity |
 | `src/components/app/analytics-view.tsx` | 385 | Filters, stat cards, #171717 translateX completion fill, distributions, gray-50 performance rows |
-| `src/components/app/board-table.tsx` | 875 | Main Table: ONE card + per-group scroll containers, sticky rails, Trash2 row actions, summary aggregates, empty-group flow |
-| `src/components/app/board-kanban.tsx` | 330 | @dnd-kit columns grouped by Status or People (drag assigns owner); reference w-80 shadow columns, Ellipsis icons, dashed empty hints |
+| `src/components/app/board-table.tsx` | 898 | Main Table: ONE card + per-group scroll containers, sticky rails, per-status header dots, Trash2 row actions, capped footer aggregates, empty-group flow |
+| `src/components/app/board-kanban.tsx` | 400 | @dnd-kit columns grouped by Status or People (drag assigns owner); reference w-80 shadow columns, gradient avatars, LE-palette people columns, click-to-edit cards |
 | `src/components/app/board-timeline.tsx` | 203 | Gantt timeline: title-left/nav-right header, 40px day columns, no today highlight |
 | `src/components/app/board-calendar.tsx` | 147 | Sun-first month grid, p-4 header, white bordered due-date chips, ring-inset today |
 | `src/components/app/app-header.tsx` | 430 | Nav (exact-match active state), gradient logo + wordmark, search, honest notifications/help/settings, gradient avatar + "My Account" menu, inline mobile panel |
@@ -1161,12 +1224,13 @@ bun run dev                # http://localhost:3000
 | `src/components/app/board-not-found.tsx` | 29 | In-app "Board not found" card for /Board with missing/unknown id |
 | `src/components/app/create-board-dialog.tsx` | 191 | Board creation (fresh-mount form pattern) |
 | `src/components/app/create-task-dialog.tsx` | 173 | Task creation: sm:max-w-lg h-12 inputs, group Select with color dots |
+| `src/components/app/edit-task-dialog.tsx` | 267 | Edit Task modal (reference `pA`): title + column-field grid + Delete/Save footer; opened from kanban cards, Ellipsis, calendar chips |
 | `src/components/app/create-group-dialog.tsx` | 158 | Add New Group: title + 7 `GROUP_COLOR_OPTIONS` swatches (fresh-mount form pattern) |
 | `src/components/app/edit-board-dialog.tsx` | 195 | Board editing: title/description/colors/visibility (fresh-mount form pattern) |
-| `src/components/app/owner-cell.tsx` | 160 | "Assign" affordance / blue-avatar set state + searchable "Enter name…" assignment popover |
+| `src/components/app/owner-cell.tsx` | 110 | Free-text "Enter name…" inline owner editor (resolves to members); solid-blue first-letter avatar |
 | `src/components/app/date-cell.tsx` | 108 | Native date input, noon storage, plain set-state text, overdue red chip |
-| `src/lib/domain.ts` | 625 | Vocabulary (incl. `ROUTE_PATHS`, `isNavActive`, `calendarCells`, summary/palette seams), DTOs, ActionResult, pure helpers — the contract file |
-| `src/lib/domain.test.ts` | 700 | Vitest suite over the pure seams (87 tests) |
+| `src/lib/domain.ts` | 740 | Vocabulary (incl. `ROUTE_PATHS`, `isNavActive`, `calendarCells`, summary/palette/avatar seams), DTOs, ActionResult, pure helpers — the contract file |
+| `src/lib/domain.test.ts` | 900 | Vitest suite over the pure seams (106 tests) |
 | `src/lib/auth.ts` | 79 | scrypt + sessions |
 | `src/lib/api-client.ts` | 31 | Typed fetch that never throws |
 | `src/app/globals.css` | 185 | Theme tokens (shadcn-neutral grayscale + explicit blues, both modes) + deco discs + global styles |
