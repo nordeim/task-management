@@ -20,8 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { KANBAN_CARD_BORDER, TASK_STATUSES, groupTasksByPerson, groupTasksByStatus, statusMeta } from "@/lib/domain";
+import {
+  KANBAN_CARD_BORDER,
+  PEOPLE_COLUMN_PALETTE,
+  TASK_STATUSES,
+  avatarGradient,
+  avatarInitials,
+  distinctOwnerNames,
+  groupTasksByStatus,
+} from "@/lib/domain";
 import type { TaskDTO, TaskStatus, UserDTO } from "@/lib/domain";
 
 export type KanbanGroupMode = "status" | "person";
@@ -32,90 +39,25 @@ interface KanbanProps {
   onStatusChange: (taskId: string, status: TaskStatus) => void;
   onOwnerChange: (taskId: string, ownerId: string | null) => void;
   onAddTask: () => void;
+  /** Reference: clicking a card (or its Ellipsis) opens the Edit Task modal. */
+  onOpenTask: (task: TaskDTO) => void;
 }
 
-function initialsOf(name: string): string {
-  return (
-    name
-      .split(" ")
-      .map((part) => part[0])
-      .filter(Boolean)
-      .slice(0, 2)
-      .join("")
-      .toUpperCase() || "?"
-  );
-}
-
-function KanbanCard({ task }: { task: TaskDTO }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: task.id,
-    data: { task },
-  });
-  const dueDate = task.dueDate ? new Date(task.dueDate) : null;
-  const overdue = dueDate !== null && dueDate < new Date() && task.status !== "done";
-
+/** The reference's empty-column placeholder (decompiled): a dashed border
+ * box with a tinted disc, colored "Drag tasks here" (the unassigned column
+ * reads "Drag unassigned tasks here") + gray hint line. */
+function EmptyColumnHint({
+  color,
+  isUnassigned,
+  onAddTask,
+}: {
+  color: string;
+  isUnassigned: boolean;
+  onAddTask: () => void;
+}) {
   return (
     <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      role="button"
-      aria-label={`Task card: ${task.title}`}
-      className={`group mb-4 cursor-grab touch-none rounded-2xl border-l-4 bg-white p-4 shadow-lg transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-        isDragging ? "opacity-40" : ""
-      }`}
-      style={{ borderLeftColor: KANBAN_CARD_BORDER }}
-    >
-      {/* Card head — title + hover-revealed kebab (reference: h-8 w-8 round). */}
-      <div className="mb-3 flex items-start justify-between">
-        <h4 className="pr-2 text-lg font-bold leading-tight text-gray-800">{task.title}</h4>
-        <button
-          type="button"
-          aria-label={`Actions for ${task.title}`}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-gray-600 focus-visible:opacity-100 group-hover:opacity-100"
-        >
-          <Ellipsis className="h-4 w-4" />
-        </button>
-      </div>
-      {/* Card footer — reference: due-date chip left, owner avatar right. */}
-      <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-500">
-        <div className="flex items-center gap-3">
-          {dueDate && (
-            <span
-              className={`flex items-center gap-1.5 rounded-full px-2 py-1 ${
-                overdue ? "bg-red-50" : "bg-blue-50"
-              }`}
-            >
-              <CalendarDays
-                className={`h-3.5 w-3.5 ${overdue ? "text-red-500" : "text-blue-500"}`}
-                aria-hidden="true"
-              />
-              <span className={`font-medium ${overdue ? "text-red-700" : "text-blue-700"}`}>
-                {format(dueDate, "MMM d")}
-              </span>
-            </span>
-          )}
-        </div>
-        {task.owner ? (
-          <span
-            className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white shadow-md"
-            style={{ backgroundColor: task.owner.avatarColor }}
-            title={task.owner.name}
-          >
-            {initialsOf(task.owner.name)}
-          </span>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-/** The reference's empty-column placeholder (probed 2026-09-17): a dashed
- *  border box with a tinted disc, colored "Drag tasks here" + hint line. */
-function EmptyColumnHint({ color, onAddTask }: { color: string; onAddTask: () => void }) {
-  return (
-    <div
-      className="rounded-2xl border-3 border-dashed px-4 py-8 transition-colors"
+      className="rounded-2xl border-3 border-dashed px-4 py-8 text-center transition-colors"
       style={{ borderColor: `${color}40` }}
     >
       <button
@@ -128,7 +70,7 @@ function EmptyColumnHint({ color, onAddTask }: { color: string; onAddTask: () =>
         <Plus className="h-6 w-6" style={{ color }} />
       </button>
       <p className="text-sm font-medium" style={{ color }}>
-        Drag tasks here
+        {isUnassigned ? "Drag unassigned tasks here" : "Drag tasks here"}
       </p>
       <p className="mt-1 text-xs text-gray-500">or click + to add new</p>
     </div>
@@ -138,47 +80,43 @@ function EmptyColumnHint({ color, onAddTask }: { color: string; onAddTask: () =>
 interface ColumnSpec {
   id: string;
   label: string;
-  sublabel: string | null;
   dotColor: string;
   tasks: TaskDTO[];
-  avatar?: UserDTO | null;
+  isUnassigned?: boolean;
 }
 
 function KanbanColumn({
   column,
   onAddTask,
-  children,
+  onOpenTask,
 }: {
   column: ColumnSpec;
   onAddTask: () => void;
-  children: React.ReactNode;
+  onOpenTask: (task: TaskDTO) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
     <div
       ref={setNodeRef}
-      className="w-80 flex-shrink-0 rounded-2xl p-2 shadow-lg transition-all duration-300"
+      className={`w-80 flex-shrink-0 rounded-2xl p-2 transition-all duration-300 ${
+        isOver ? "scale-105 shadow-2xl" : "shadow-lg"
+      }`}
       data-column={column.id}
-      style={{ background: "linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)" }}
+      style={{
+        // Reference drag-over: the COLUMN's own color tinted at 12.5%/6.25%
+        // (replaces any ring) — neutral slate gradient at rest.
+        background: isOver
+          ? `linear-gradient(135deg, ${column.dotColor}20 0%, ${column.dotColor}10 100%)`
+          : "linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)",
+      }}
     >
       {/* Reference column anatomy (probed 2026-09-17): the droppable IS the
           w-80 column div; its two direct children are the header zone and the
-          scroll zone — no inner wrapper. */}
+          scroll zone — no inner wrapper, no avatar, no sublabel. */}
       <div className="mb-2 px-4 py-3">
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {column.avatar ? (
-              <Avatar className="h-6 w-6">
-                <AvatarFallback
-                  className="text-[9px] font-semibold text-white"
-                  style={{ backgroundColor: column.avatar.avatarColor }}
-                >
-                  {initialsOf(column.avatar.name)}
-                </AvatarFallback>
-              </Avatar>
-            ) : null}
-            {/* Reference column header: bold title + tinted count badge (no dot). */}
             <h3 className="text-lg font-bold text-gray-800">{column.label}</h3>
             <span
               className="rounded-full px-2.5 py-1 text-sm font-bold shadow-sm"
@@ -196,24 +134,115 @@ function KanbanColumn({
             <Plus className="h-5 w-5" style={{ color: column.dotColor }} />
           </button>
         </div>
-        {column.sublabel && <p className="-mt-1 text-[11px] text-muted-foreground">{column.sublabel}</p>}
       </div>
-      <div
-        className={`tuesday-scroll group max-h-[calc(100vh-300px)] min-h-[200px] overflow-y-auto px-2 pb-2 transition-colors ${
-          isOver ? "rounded-2xl bg-accent ring-2 ring-[#0073EA]/30" : ""
-        }`}
-      >
+      <div className="tuesday-scroll group max-h-[calc(100vh-300px)] min-h-[200px] overflow-y-auto px-2 pb-2">
         {column.tasks.map((task) => (
-          <KanbanCard key={task.id} task={task} />
+          <KanbanCard key={task.id} task={task} onOpenTask={onOpenTask} />
         ))}
-        {column.tasks.length === 0 && <EmptyColumnHint color={column.dotColor} onAddTask={onAddTask} />}
+        {column.tasks.length === 0 && (
+          <EmptyColumnHint
+            color={column.dotColor}
+            isUnassigned={column.isUnassigned ?? false}
+            onAddTask={onAddTask}
+          />
+        )}
       </div>
-      {children}
     </div>
   );
 }
 
-export function BoardKanban({ tasks, members, onStatusChange, onOwnerChange, onAddTask }: KanbanProps) {
+function KanbanCard({
+  task,
+  onOpenTask,
+}: {
+  task: TaskDTO;
+  onOpenTask: (task: TaskDTO) => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: task.id,
+    data: { task },
+  });
+  const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      role="button"
+      aria-label={`Task card: ${task.title}`}
+      onClick={(e) => {
+        // Reference: a plain click opens the Edit Task modal; drags still
+        // work because PointerSensor needs 6px before it captures.
+        if (!isDragging) {
+          e.preventDefault();
+          onOpenTask(task);
+        }
+      }}
+      className={`group mb-4 cursor-grab touch-none rounded-2xl border-l-4 bg-white p-4 shadow-lg transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        // Reference drag state (decompiled): ring-4 blue + scale + gradient
+        // fill — NOT an opacity dim.
+        isDragging
+          ? "scale-105 shadow-2xl ring-4 ring-blue-200"
+          : ""
+      }`}
+      style={{
+        borderLeftColor: KANBAN_CARD_BORDER,
+        background: isDragging
+          ? "linear-gradient(135deg, #ffffff 0%, #f8faff 100%)"
+          : "white",
+      }}
+    >
+      {/* Card head — title + hover-revealed kebab (reference: h-8 w-8 round,
+          opens the Edit Task modal). */}
+      <div className="mb-3 flex items-start justify-between">
+        <h4 className="pr-2 text-lg font-bold leading-tight text-gray-800">{task.title}</h4>
+        <button
+          type="button"
+          aria-label={`Actions for ${task.title}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenTask(task);
+          }}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-gray-600 focus-visible:opacity-100 group-hover:opacity-100"
+        >
+          <Ellipsis className="h-4 w-4" />
+        </button>
+      </div>
+      {/* Card footer — reference: due-date chip left (always blue — no
+          overdue variant exists on the reference), gradient owner avatar
+          right (8-palette by first char code, 2-char initials). */}
+      <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-500">
+        <div className="flex items-center gap-3">
+          {dueDate && (
+            <span className="flex items-center gap-1.5 rounded-full bg-blue-50 px-2 py-1">
+              <CalendarDays className="h-3.5 w-3.5 text-blue-500" aria-hidden="true" />
+              <span className="font-medium text-blue-700">{format(dueDate, "MMM d")}</span>
+            </span>
+          )}
+        </div>
+        {task.owner ? (
+          <span
+            className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white shadow-md"
+            style={{ background: avatarGradient(task.owner.name) }}
+            title={task.owner.name}
+          >
+            {avatarInitials(task.owner.name)}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export function BoardKanban({
+  tasks,
+  members,
+  onStatusChange,
+  onOwnerChange,
+  onAddTask,
+  onOpenTask,
+}: KanbanProps) {
   const [activeTask, setActiveTask] = useState<TaskDTO | null>(null);
   const [groupMode, setGroupMode] = useState<KanbanGroupMode>("status");
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -223,22 +252,36 @@ export function BoardKanban({ tasks, members, onStatusChange, onOwnerChange, onA
     return TASK_STATUSES.map((status) => ({
       id: `status:${status.value}`,
       label: status.label,
-      sublabel: null,
       dotColor: status.bg,
       tasks: grouped.get(status.value) ?? [],
-      avatar: null,
     })) satisfies ColumnSpec[];
   }, [tasks]);
 
+  // Reference people grouping (`Ste`): columns ONLY for owners who own
+  // tasks (distinct owner strings in first-encounter order, badge colors
+  // from the LE palette by index) — the Unassigned column renders only
+  // when it holds items (or when no people exist at all). No member
+  // registry, no header avatar, no sublabel.
   const personColumns = useMemo(() => {
-    return groupTasksByPerson(tasks, members).map((column) => ({
-      id: `person:${column.key}`,
-      label: column.label,
-      sublabel: column.sublabel,
-      dotColor: column.user ? column.user.avatarColor : statusMeta("not_started").bg,
-      tasks: column.tasks,
-      avatar: column.user,
-    })) satisfies ColumnSpec[];
+    const ownerNames = distinctOwnerNames(tasks);
+    const byName = new Map(members.map((m) => [m.name, m]));
+    const columns: ColumnSpec[] = ownerNames.map((name, index) => ({
+      id: `person:${byName.get(name)?.id ?? name}`,
+      label: name,
+      dotColor: PEOPLE_COLUMN_PALETTE[index % PEOPLE_COLUMN_PALETTE.length]!,
+      tasks: tasks.filter((t) => t.owner?.name === name),
+    }));
+    const unassigned = tasks.filter((t) => t.owner === null);
+    if (unassigned.length > 0 || ownerNames.length === 0) {
+      columns.unshift({
+        id: "person:unassigned",
+        label: "Unassigned",
+        dotColor: "#9CA3AF",
+        tasks: unassigned,
+        isUnassigned: true,
+      });
+    }
+    return columns;
   }, [tasks, members]);
 
   const columns = groupMode === "status" ? statusColumns : personColumns;
@@ -317,14 +360,20 @@ export function BoardKanban({ tasks, members, onStatusChange, onOwnerChange, onA
             card wrapper — with fixed w-80 shadow columns. */}
         <div className="flex gap-6 overflow-x-auto p-2 pb-8">
           {columns.map((column) => (
-            <KanbanColumn key={column.id} column={column} onAddTask={onAddTask}>
-              {null}
-            </KanbanColumn>
+            <KanbanColumn
+              key={column.id}
+              column={column}
+              onAddTask={onAddTask}
+              onOpenTask={onOpenTask}
+            />
           ))}
         </div>
         <DragOverlay>
           {activeTask ? (
-            <div className="w-64 rotate-2 rounded-2xl border-l-4 bg-white p-4 shadow-xl" style={{ borderLeftColor: KANBAN_CARD_BORDER }}>
+            <div
+              className="w-64 rotate-2 rounded-2xl border-l-4 bg-white p-4 shadow-xl ring-4 ring-blue-200"
+              style={{ borderLeftColor: KANBAN_CARD_BORDER }}
+            >
               <p className="text-lg font-bold leading-tight text-gray-800">{activeTask.title}</p>
             </div>
           ) : null}

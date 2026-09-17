@@ -5,10 +5,13 @@ import Link from "next/link";
 import {
   Activity,
   ArrowLeft,
-  ArrowUpNarrowWide,
+  ArrowUpDown,
+  ArrowDown,
+  ArrowUp,
   Calendar as CalendarIcon,
   Check,
   Eye,
+  EyeOff,
   Filter,
   GanttChartSquare,
   Group,
@@ -21,14 +24,15 @@ import {
   Star,
   Table2,
   TrendingUp,
+  User as UserIcon,
   UserRound,
   UserPlus,
   Users,
+  X,
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,9 +52,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Popover,
+  PopoverClose,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useApp } from "@/components/app/app-context";
 import { api } from "@/lib/api-client";
@@ -58,6 +64,7 @@ import {
   TASK_PRIORITIES,
   TASK_STATUSES,
   VIEW_TRIGGER_LABELS,
+  distinctOwnerNames,
   filterTasks,
   formatSavedAt,
   memberPopoverPalette,
@@ -81,6 +88,7 @@ import { BoardCalendar } from "@/components/app/board-calendar";
 import { BoardTimeline } from "@/components/app/board-timeline";
 import { CreateTaskDialog } from "@/components/app/create-task-dialog";
 import { CreateGroupDialog } from "@/components/app/create-group-dialog";
+import { EditTaskDialog, type EditTaskPatch } from "@/components/app/edit-task-dialog";
 
 type BoardSubView = "table" | "kanban" | "calendar" | "timeline" | "unassigned";
 
@@ -94,11 +102,16 @@ const GROUP_BY_OPTIONS: { value: GroupByMode; label: string }[] = [
   { value: "priority", label: "Priority" },
 ];
 
-/** Sort popover options — mirrors the reference 'Sort By' menu. */
+/** Sort menu options — the reference lists Task Name, both dates, then EVERY
+ * board column (decompiled `_Z`: `[title, created, updated, ...columns]`). */
 const SORT_OPTIONS: { value: SortField; label: string }[] = [
   { value: "title", label: "Task Name" },
   { value: "createdAt", label: "Created Date" },
   { value: "updatedAt", label: "Updated Date" },
+  { value: "priority", label: "Priority" },
+  { value: "status", label: "Status" },
+  { value: "owner", label: "Owner" },
+  { value: "dueDate", label: "Due Date" },
 ];
 
 interface SortState {
@@ -170,12 +183,16 @@ export function BoardView({ boardId }: { boardId: string }) {
   const [subView, setSubView] = useState<BoardSubView>("table");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortState | null>(null);
-  const [personFilter, setPersonFilter] = useState<string | null>(null);
+  // Reference: MULTI-select person filter over the board's distinct owners.
+  const [personFilter, setPersonFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<TaskStatus[]>([]);
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority[]>([]);
   const [hiddenColumns, setHiddenColumns] = useState<ColumnKey[]>([]);
   const [groupBy, setGroupBy] = useState<GroupByMode>("default");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  // The reference's Edit Task modal — opened from kanban cards, their
+  // Ellipsis buttons, and calendar chips.
+  const [editingTask, setEditingTask] = useState<TaskDTO | null>(null);
   const [taskDialog, setTaskDialog] = useState<{ open: boolean; groupId: string | null }>({
     open: false,
     groupId: null,
@@ -228,7 +245,7 @@ export function BoardView({ boardId }: { boardId: string }) {
   const visibleTasks = useMemo(() => {
     const filtered = filterTasks(allTasks, {
       search,
-      personId: personFilter,
+      personIds: personFilter,
       statuses: statusFilter,
       priorities: priorityFilter,
     });
@@ -236,6 +253,10 @@ export function BoardView({ boardId }: { boardId: string }) {
   }, [allTasks, search, personFilter, statusFilter, priorityFilter, sort]);
 
   const filtersActive = statusFilter.length > 0 || priorityFilter.length > 0;
+
+  // The Person filter lists the board's DISTINCT owners (reference derives
+  // its checkbox list from item owner strings, not a member registry).
+  const ownerChoices = useMemo(() => distinctOwnerNames(allTasks), [allTasks]);
 
   function toggleStatusFilter(value: TaskStatus) {
     setStatusFilter((prev) =>
@@ -253,27 +274,28 @@ export function BoardView({ boardId }: { boardId: string }) {
     setHiddenColumns((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   }
 
-  /** Clicking a sort field cycles asc → desc → off, like the reference. */
+  /** Clicking a sort field toggles asc <-> desc (reference `_Z`: there is
+   * NO "off" state — a different field just resets to asc). */
   function applySortField(field: SortField) {
-    setSort((prev) => {
-      if (!prev || prev.field !== field) return { field, dir: "asc" };
-      if (prev.dir === "asc") return { field, dir: "desc" };
-      return null;
-    });
+    setSort((prev) =>
+      !prev || prev.field !== field
+        ? { field, dir: "asc" }
+        : { field, dir: prev.dir === "asc" ? "desc" : "asc" },
+    );
   }
 
   /** The table renders either the board's real groups or synthetic sections
-   *  built from the Group-by choice — same row component either way. */
+   *  built from the Group-by choice — same row component either way. Rows
+   *  come from `visibleTasks` (already filtered AND sorted) so the Sort
+   *  menu reorders rows inside every section, like the reference. */
   const tableSections = useMemo(() => {
-    const byId = new Map(visibleTasks.map((t) => [t.id, t]));
-    const filtered = (tasks: TaskDTO[]) => tasks.filter((t) => byId.has(t.id));
     if (groupBy === "default") {
       return (board?.groups ?? []).map((g) => ({
         id: g.id,
         name: g.name,
         // Each group owns its accent (Add New Group dialog swatch).
         color: g.color,
-        tasks: filtered(g.tasks),
+        tasks: visibleTasks.filter((t) => t.groupId === g.id),
         group: g,
       }));
     }
@@ -770,261 +792,307 @@ export function BoardView({ boardId }: { boardId: string }) {
             />
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#676879]" />
           </div>
-          {/* Filter by Person — single-select member filter like the reference. */}
+          {/* Filter by Person — reference `RZ`: MULTI-select checkboxes over the
+              board's DISTINCT owners, blue first-letter avatars, red
+              "Clear selection" link. */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${personFilter ? "border-[#0073EA] text-[#0073EA]" : ""}`}
-              >
+              <Button variant="outline" className="h-10 rounded-lg border-[#E1E5F3] px-4">
                 <Users className="mr-2 h-4 w-4" aria-hidden="true" /> Person
+                {personFilter.length > 0 && (
+                  <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#0073EA] p-0 text-xs text-white">
+                    {personFilter.length}
+                  </span>
+                )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-64 p-0">
-              <div className="border-b px-3 py-2.5 text-sm font-bold">Filter by Person</div>
-              <ul role="listbox" aria-label="Filter by person" className="max-h-64 overflow-auto p-1">
-                {board.members.length === 0 ? (
-                  <li className="px-2 py-3 text-sm text-muted-foreground">No people assigned yet</li>
+            <PopoverContent align="start" className="w-64 p-6 pt-3 shadow-lg">
+              <div className="flex flex-row items-center justify-between pb-3">
+                <h3 className="text-lg font-bold text-[#323338]">Filter by Person</h3>
+                <PopoverClose aria-label="Close" className="text-[#676879] hover:text-[#323338]">
+                  <X className="h-4 w-4" />
+                </PopoverClose>
+              </div>
+              <div className="space-y-3">
+                {ownerChoices.length === 0 ? (
+                  <div className="py-4 text-center text-[#676879]">
+                    <UserIcon className="mx-auto mb-2 h-8 w-8 opacity-50" aria-hidden="true" />
+                    <p className="text-sm">No people assigned yet</p>
+                  </div>
                 ) : (
-                  board.members.map((member) => {
-                    const selected = personFilter === member.id;
+                  ownerChoices.map((name) => {
+                    const member = board.members.find((m) => m.name === name);
+                    const id = member?.id ?? name;
+                    const selected = personFilter.includes(id);
                     return (
-                      <li key={member.id}>
-                        <button
-                          type="button"
-                          role="option"
-                          aria-selected={selected}
-                          onClick={() => setPersonFilter(selected ? null : member.id)}
-                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
+                      <div key={id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`person-${id}`}
+                          checked={selected}
+                          onCheckedChange={() =>
+                            setPersonFilter((prev) =>
+                              prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+                            )
+                          }
+                        />
+                        <label
+                          htmlFor={`person-${id}`}
+                          className="flex flex-1 cursor-pointer items-center gap-2 text-sm"
                         >
-                          <Avatar className="h-6 w-6">
-                            <AvatarFallback
-                              className="text-[10px] font-semibold text-white"
-                              style={{ backgroundColor: member.avatarColor }}
-                            >
-                              {initialsOf(member.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="min-w-0 flex-1 truncate">{member.name}</span>
-                          {selected && <Check className="h-4 w-4 shrink-0 text-[#0073EA]" />}
-                        </button>
-                      </li>
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0073EA]">
+                            <span className="text-xs font-medium text-white">
+                              {name.charAt(0).toUpperCase()}
+                            </span>
+                          </span>
+                          <span>{name}</span>
+                        </label>
+                      </div>
                     );
                   })
                 )}
-              </ul>
-              {personFilter && (
-                <button
-                  type="button"
-                  onClick={() => setPersonFilter(null)}
-                  className="w-full border-t px-3 py-2 text-left text-sm text-[#0073EA] hover:bg-secondary"
-                >
-                  Clear person filter
-                </button>
-              )}
-            </PopoverContent>
-          </Popover>
-          {/* Filter — Status + Priority checkboxes, like the reference "Filter Items". */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${filtersActive ? "border-[#0073EA] text-[#0073EA]" : ""}`}
-                aria-pressed={filtersActive}
-              >
-                <Filter className="mr-2 h-4 w-4" aria-hidden="true" /> Filter
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-56 p-0">
-              <div className="border-b px-3 py-2.5 text-sm font-bold">Filter Items</div>
-              <div className="p-2">
-                <p className="px-1 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Status
-                </p>
-                <ul className="mb-2 space-y-0.5" aria-label="Filter by status">
-                  {TASK_STATUSES.map((status) => {
-                    const checked = statusFilter.includes(status.value);
-                    return (
-                      <li key={status.value}>
-                        <button
-                          type="button"
-                          role="menuitemcheckbox"
-                          aria-checked={checked}
-                          onClick={() => toggleStatusFilter(status.value)}
-                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
-                        >
-                          <span
-                            className="h-4 w-4 shrink-0 rounded-md border border-black/10"
-                            style={{ backgroundColor: status.bg }}
-                            aria-hidden="true"
-                          />
-                          <span className="flex-1">{status.label}</span>
-                          {checked && <Check className="h-4 w-4 shrink-0 text-[#0073EA]" />}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <p className="px-1 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Priority
-                </p>
-                <ul aria-label="Filter by priority">
-                  {TASK_PRIORITIES.map((priority) => {
-                    const checked = priorityFilter.includes(priority.value);
-                    return (
-                      <li key={priority.value}>
-                        <button
-                          type="button"
-                          role="menuitemcheckbox"
-                          aria-checked={checked}
-                          onClick={() => togglePriorityFilter(priority.value)}
-                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
-                        >
-                          <span
-                            className="h-3 w-3 shrink-0 rounded-full"
-                            style={{ backgroundColor: priority.color }}
-                            aria-hidden="true"
-                          />
-                          <span className="flex-1">{priority.label}</span>
-                          {checked && <Check className="h-4 w-4 shrink-0 text-[#0073EA]" />}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
+                {personFilter.length > 0 && (
+                  <div className="border-t border-[#E1E5F3] pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setPersonFilter([])}
+                      className="text-sm text-[#E2445C] hover:underline"
+                    >
+                      Clear selection
+                    </button>
+                  </div>
+                )}
               </div>
-              {filtersActive && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStatusFilter([]);
-                    setPriorityFilter([]);
-                  }}
-                  className="w-full border-t px-3 py-2 text-left text-sm text-[#0073EA] hover:bg-secondary"
-                >
-                  Clear filters
-                </button>
-              )}
             </PopoverContent>
           </Popover>
-          {/* Sort — Task Name / Created Date / Updated Date, cycling asc → desc → off. */}
+          {/* Filter — reference `TZ`: status rows keep their color dots,
+              priority rows have NO dots, "Clear all filters" is red. */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${sort ? "border-[#0073EA] text-[#0073EA]" : ""}`}
-                aria-pressed={sort !== null}
-              >
-                <ArrowUpNarrowWide className="mr-2 h-4 w-4" aria-hidden="true" />
-                {sort
-                  ? `Sort: ${
-                      SORT_OPTIONS.find((o) => o.value === sort.field)?.label ?? ""
-                    } ${sort.dir === "asc" ? "↑" : "↓"}`
-                  : "Sort"}
+              <Button variant="outline" className="h-10 rounded-lg border-[#E1E5F3] px-4" aria-pressed={filtersActive}>
+                <Filter className="mr-2 h-4 w-4" aria-hidden="true" /> Filter
+                {statusFilter.length + priorityFilter.length > 0 && (
+                  <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#0073EA] p-0 text-xs text-white">
+                    {statusFilter.length + priorityFilter.length}
+                  </span>
+                )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-52 p-1.5">
-              <p className="px-2 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Sort By
-              </p>
-              <ul role="listbox" aria-label="Sort tasks by">
+            <PopoverContent align="start" className="w-64 p-6 pt-3 shadow-lg">
+              <div className="flex flex-row items-center justify-between pb-3">
+                <h3 className="text-lg font-bold text-[#323338]">Filter Items</h3>
+                <PopoverClose aria-label="Close" className="text-[#676879] hover:text-[#323338]">
+                  <X className="h-4 w-4" />
+                </PopoverClose>
+              </div>
+              <div className="space-y-6">
+                <div>
+                  <h4 className="mb-3 font-medium text-[#323338]">Status</h4>
+                  <div className="space-y-2">
+                    {TASK_STATUSES.map((status) => {
+                      const checked = statusFilter.includes(status.value);
+                      return (
+                        <div key={status.value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`status-${status.value}`}
+                            checked={checked}
+                            onCheckedChange={() => toggleStatusFilter(status.value)}
+                          />
+                          <label
+                            htmlFor={`status-${status.value}`}
+                            className="flex cursor-pointer items-center gap-2 text-sm"
+                          >
+                            <span
+                              className="h-3 w-3 rounded-full"
+                              style={{ backgroundColor: status.bg }}
+                              aria-hidden="true"
+                            />
+                            <span>{status.label}</span>
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <h4 className="mb-3 font-medium text-[#323338]">Priority</h4>
+                  <div className="space-y-2">
+                    {TASK_PRIORITIES.map((priority) => {
+                      const checked = priorityFilter.includes(priority.value);
+                      return (
+                        <div key={priority.value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`priority-${priority.value}`}
+                            checked={checked}
+                            onCheckedChange={() => togglePriorityFilter(priority.value)}
+                          />
+                          <label
+                            htmlFor={`priority-${priority.value}`}
+                            className="cursor-pointer text-sm"
+                          >
+                            {priority.label}
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                {filtersActive && (
+                  <div className="border-t border-[#E1E5F3] pt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStatusFilter([]);
+                        setPriorityFilter([]);
+                      }}
+                      className="text-sm text-[#E2445C] hover:underline"
+                    >
+                      Clear all filters
+                    </button>
+                  </div>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+          {/* Sort — reference `_Z`: every column, asc <-> desc toggle, no "off"
+              state; the trigger always reads just "Sort". */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-10 rounded-lg border-[#E1E5F3] px-4" aria-pressed={sort !== null}>
+                <ArrowUpDown className="mr-2 h-4 w-4" aria-hidden="true" /> Sort
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 p-6 pt-3 shadow-lg">
+              <div className="flex flex-row items-center justify-between pb-3">
+                <h3 className="text-lg font-bold text-[#323338]">Sort By</h3>
+                <PopoverClose aria-label="Close" className="text-[#676879] hover:text-[#323338]">
+                  <X className="h-4 w-4" />
+                </PopoverClose>
+              </div>
+              <div className="space-y-1">
                 {SORT_OPTIONS.map((option) => {
                   const active = sort?.field === option.value;
                   return (
-                    <li key={option.value}>
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={active}
-                        onClick={() => applySortField(option.value)}
-                        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
-                      >
-                        <span>{option.label}</span>
-                        {active && (
-                          <span className="flex items-center gap-0.5 text-[#0073EA]">
-                            {sort?.dir === "asc" ? "↑" : "↓"}
-                            <Check className="h-4 w-4" />
-                          </span>
-                        )}
-                      </button>
-                    </li>
+                    <Button
+                      key={option.value}
+                      type="button"
+                      variant="ghost"
+                      aria-pressed={active}
+                      onClick={() => applySortField(option.value)}
+                      className={`h-auto w-full justify-between p-3 ${
+                        active ? "bg-[#E1E5F3] text-[#0073EA] hover:bg-[#E1E5F3] hover:text-[#0073EA]" : "hover:bg-[#F5F6F8]"
+                      }`}
+                    >
+                      <span>{option.label}</span>
+                      {active &&
+                        (sort?.dir === "asc" ? (
+                          <ArrowUp className="h-4 w-4" aria-label="Ascending" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4" aria-label="Descending" />
+                        ))}
+                    </Button>
                   );
                 })}
-              </ul>
-              {sort && (
-                <button
-                  type="button"
-                  onClick={() => setSort(null)}
-                  className="mt-1 w-full border-t px-3 py-2 text-left text-sm text-[#0073EA] hover:bg-secondary"
-                >
-                  Clear sort
-                </button>
-              )}
+              </div>
             </PopoverContent>
           </Popover>
-          {/* Hide — Show/Hide Columns toggles like the reference. */}
+          {/* Hide — reference `AZ`: checkbox + Eye/EyeOff rows and a blue
+              "Show all columns" link when anything is hidden. */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${hiddenColumns.length > 0 ? "border-[#0073EA] text-[#0073EA]" : ""}`}
-              >
-                <Eye className="mr-2 h-4 w-4" aria-hidden="true" /> Hide
+              <Button variant="outline" className="h-10 rounded-lg border-[#E1E5F3] px-4">
+                {hiddenColumns.length > 0 ? (
+                  <EyeOff className="mr-2 h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <Eye className="mr-2 h-4 w-4" aria-hidden="true" />
+                )}
+                Hide
+                {hiddenColumns.length > 0 && (
+                  <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#0073EA] p-0 text-xs text-white">
+                    {hiddenColumns.length}
+                  </span>
+                )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-52 p-1.5">
-              <p className="px-2 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Show/Hide Columns
-              </p>
-              <ul aria-label="Toggle table columns">
+            <PopoverContent align="start" className="w-64 p-6 pt-3 shadow-lg">
+              <div className="flex flex-row items-center justify-between pb-3">
+                <h3 className="text-lg font-bold text-[#323338]">Show/Hide Columns</h3>
+                <PopoverClose aria-label="Close" className="text-[#676879] hover:text-[#323338]">
+                  <X className="h-4 w-4" />
+                </PopoverClose>
+              </div>
+              <div className="space-y-3">
                 {COLUMN_KEYS.map((key) => {
                   const shown = !hiddenColumns.includes(key);
                   return (
-                    <li key={key}>
-                      <button
-                        type="button"
-                        role="menuitemcheckbox"
-                        aria-checked={shown}
-                        onClick={() => toggleHiddenColumn(key)}
-                        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
+                    <div key={key} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`column-${key}`}
+                        checked={shown}
+                        onCheckedChange={() => toggleHiddenColumn(key)}
+                      />
+                      <label
+                        htmlFor={`column-${key}`}
+                        className="flex flex-1 cursor-pointer items-center gap-2 text-sm"
                       >
-                        {COLUMN_LABELS[key]}
-                        {shown && <Check className="h-4 w-4 text-[#0073EA]" />}
-                      </button>
-                    </li>
+                        {shown ? (
+                          <Eye className="h-4 w-4 text-[#0073EA]" aria-hidden="true" />
+                        ) : (
+                          <EyeOff className="h-4 w-4 text-[#676879]" aria-hidden="true" />
+                        )}
+                        <span className={shown ? "text-[#323338]" : "text-[#676879]"}>
+                          {COLUMN_LABELS[key]}
+                        </span>
+                      </label>
+                    </div>
                   );
                 })}
-              </ul>
+                {hiddenColumns.length > 0 && (
+                  <div className="border-t border-[#E1E5F3] pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setHiddenColumns([])}
+                      className="text-sm text-[#0073EA] hover:underline"
+                    >
+                      Show all columns
+                    </button>
+                  </div>
+                )}
+              </div>
             </PopoverContent>
           </Popover>
-          {/* Group by — regroups the Main Table rows like the reference. */}
+          {/* Group by — reference `MZ`: card menu that closes on select. */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={`h-10 rounded-lg border-[#E1E5F3] px-4 ${groupBy !== "default" ? "border-[#0073EA] text-[#0073EA]" : ""}`}
-              >
+              <Button variant="outline" className="h-10 rounded-lg border-[#E1E5F3] px-4">
                 <Group className="mr-2 h-4 w-4" aria-hidden="true" /> Group by
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-52 p-1.5">
-              <p className="px-2 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Group By</p>
-              <ul role="listbox" aria-label="Group table by">
+            <PopoverContent align="start" className="w-64 p-6 pt-3 shadow-lg">
+              <div className="flex flex-row items-center justify-between pb-3">
+                <h3 className="text-lg font-bold text-[#323338]">Group By</h3>
+                <PopoverClose aria-label="Close" className="text-[#676879] hover:text-[#323338]">
+                  <X className="h-4 w-4" />
+                </PopoverClose>
+              </div>
+              <div className="space-y-1">
                 {GROUP_BY_OPTIONS.map((option) => (
-                  <li key={option.value}>
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={groupBy === option.value}
-                      onClick={() => setGroupBy(option.value)}
-                      className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
-                    >
-                      {option.label}
-                      {groupBy === option.value && <Check className="h-4 w-4 text-[#0073EA]" />}
-                    </button>
-                  </li>
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant="ghost"
+                    aria-pressed={groupBy === option.value}
+                    onClick={() => setGroupBy(option.value)}
+                    className={`h-auto w-full justify-between p-3 ${
+                      groupBy === option.value
+                        ? "bg-[#E1E5F3] text-[#0073EA] hover:bg-[#E1E5F3] hover:text-[#0073EA]"
+                        : "hover:bg-[#F5F6F8]"
+                    }`}
+                  >
+                    <span>{option.label}</span>
+                    {groupBy === option.value && <Check className="h-4 w-4" />}
+                  </Button>
                 ))}
-              </ul>
+              </div>
             </PopoverContent>
           </Popover>
           </div>
@@ -1060,11 +1128,12 @@ export function BoardView({ boardId }: { boardId: string }) {
             void updateTask(taskId, { owner: member });
           }}
           onAddTask={() => setTaskDialog({ open: true, groupId: null })}
+          onOpenTask={setEditingTask}
         />
       )}
 
       {subView === "calendar" && (
-        <BoardCalendar tasks={visibleTasks} />
+        <BoardCalendar tasks={visibleTasks} onOpenTask={setEditingTask} />
       )}
 
       {subView === "timeline" && (
@@ -1184,6 +1253,24 @@ export function BoardView({ boardId }: { boardId: string }) {
           setGroupDialogOpen(false);
           load().then(applyResult);
         }}
+      />
+
+      {/* The reference's Edit Task modal — opened from kanban cards, their
+          Ellipsis buttons, and calendar chips (decompiled `pA`). */}
+      <EditTaskDialog
+        task={editingTask}
+        members={board.members}
+        onClose={() => setEditingTask(null)}
+        onSave={(taskId, patch: EditTaskPatch) => {
+          void updateTask(taskId, {
+            title: patch.title,
+            status: patch.status,
+            priority: patch.priority,
+            owner: patch.owner,
+            dueDate: patch.dueDate,
+          });
+        }}
+        onDelete={(taskId) => void deleteTask(taskId)}
       />
     </div>
   );
