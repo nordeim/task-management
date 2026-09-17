@@ -2,36 +2,32 @@
 
 import { useMemo, useState } from "react";
 import { addMonths, format, isSameDay, isSameMonth, startOfMonth, subMonths } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { calendarCells } from "@/lib/domain";
 import type { TaskDTO } from "@/lib/domain";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 interface BoardCalendarProps {
   tasks: TaskDTO[];
-  onAddTask: () => void;
   onOpenTask?: (task: TaskDTO) => void;
 }
 
 /**
  * Month grid — each cell lists tasks whose dueDate falls on that day,
  * color-coded by status like the reference app's calendar view.
+ *
+ * Reference geometry (probed 2026-09-17): the grid renders ONLY the weeks
+ * needed to cover the month (35 cells for Sep 2026), every cell holds a bare
+ * number span plus an `mt-1 max-h-[70px]` scrollable events list, out-of-month
+ * cells are solid `bg-[#F9FAFB] text-gray-400`, and the weekday header is
+ * `text-[#676879]` with a bottom border on each label.
  */
-export function BoardCalendar({ tasks, onAddTask, onOpenTask }: BoardCalendarProps) {
+export function BoardCalendar({ tasks, onOpenTask }: BoardCalendarProps) {
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
 
-  const cells = useMemo(() => {
-    // Sun-first 6-week grid covering the month in view, matching the reference.
-    const first = startOfMonth(cursor);
-    const gridStart = new Date(first);
-    gridStart.setDate(first.getDate() - first.getDay()); // Sun=0
-    return Array.from({ length: 42 }, (_, i) => {
-      const day = new Date(gridStart);
-      day.setDate(gridStart.getDate() + i);
-      return day;
-    });
-  }, [cursor]);
+  const cells = useMemo(() => calendarCells(cursor), [cursor]);
 
   const byDay = useMemo(() => {
     const map = new Map<string, TaskDTO[]>();
@@ -74,9 +70,9 @@ export function BoardCalendar({ tasks, onAddTask, onOpenTask }: BoardCalendarPro
           </Button>
         </div>
 
-        <div className="grid grid-cols-7 text-center text-xs font-medium text-muted-foreground">
+        <div className="mb-2 grid grid-cols-7 text-center text-xs font-medium text-[#676879]">
           {WEEKDAYS.map((day) => (
-            <div key={day} className="py-2">
+            <div key={day} className="border-b py-2">
               {day}
             </div>
           ))}
@@ -93,51 +89,31 @@ export function BoardCalendar({ tasks, onAddTask, onOpenTask }: BoardCalendarPro
             <div
               key={key}
               className={`relative min-h-[100px] border border-[#E1E5F3] p-2 transition-colors hover:bg-[#F9FAFB] ${
-                inMonth ? "" : "bg-[#F9FAFB]/60"
+                inMonth ? "bg-white" : "bg-[#F9FAFB] text-gray-400"
               } ${isToday ? "bg-white ring-2 ring-[#0073EA] ring-inset" : ""}`}
             >
-              <div className="mb-1 flex items-center justify-between">
-                {/* Reference today marker: blue TEXT, no filled circle. */}
-                <span
-                  className={`text-xs font-medium ${
-                    isToday
-                      ? "text-[#0073EA]"
-                      : inMonth
-                        ? "text-foreground"
-                        : "text-muted-foreground/60"
-                  }`}
-                >
-                  {format(day, "d")}
-                </span>
-                {dayTasks.length === 0 && isToday && (
+              {/* Reference cell anatomy: a bare number span (color inherited
+                  from the cell; today is blue) over a capped events list. */}
+              <span
+                className={`text-xs font-medium ${
+                  isToday ? "text-[#0073EA]" : ""
+                }`}
+              >
+                {format(day, "d")}
+              </span>
+              <div className="mt-1 max-h-[70px] space-y-1 overflow-y-auto">
+                {dayTasks.map((task) => (
                   <button
+                    key={task.id}
                     type="button"
-                    aria-label="Add task today"
-                    onClick={onAddTask}
-                    className="rounded p-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    onClick={() => onOpenTask?.(task)}
+                    title={task.title}
+                    className="mb-1 w-full cursor-pointer rounded-md border border-[#E1E5F3] bg-white p-1.5 text-left text-xs font-medium text-[#323338] shadow-sm transition-all duration-200 hover:scale-105 hover:bg-gray-50 hover:shadow-md"
                   >
-                    <Plus className="h-3 w-3" />
+                    <span className="block truncate">{task.title}</span>
                   </button>
-                )}
-              </div>
-              <ul className="space-y-1">
-                {dayTasks.slice(0, 3).map((task) => (
-                  <li key={task.id}>
-                    {/* Reference chips: white bordered cards with dark text. */}
-                    <button
-                      type="button"
-                      onClick={() => onOpenTask?.(task)}
-                      title={task.title}
-                      className="mb-1 cursor-pointer rounded-md border border-[#E1E5F3] bg-white p-1.5 text-left text-xs font-medium text-[#323338] shadow-sm transition-all duration-200 hover:scale-105 hover:bg-gray-50 hover:shadow-md"
-                    >
-                      <span className="block truncate">{task.title}</span>
-                    </button>
-                  </li>
                 ))}
-                {dayTasks.length > 3 && (
-                  <li className="px-1.5 text-[10px] text-muted-foreground">+{dayTasks.length - 3} more</li>
-                )}
-              </ul>
+              </div>
             </div>
           );
         })}
