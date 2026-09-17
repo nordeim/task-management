@@ -16,6 +16,9 @@ const updateTaskSchema = z.object({
   ownerId: z.string().nullable().optional(),
   dueDate: z.string().datetime().nullable().optional(),
   completed: z.boolean().optional(),
+  /** Drag-reorder: target group and insertion index within that group. */
+  groupId: z.string().optional(),
+  index: z.number().int().min(0).optional(),
 });
 
 /**
@@ -49,6 +52,9 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
   }
 
   const patch: Record<string, unknown> = { ...parsed.data };
+  // Reorder directives are handled below, not spread into the update.
+  delete patch.groupId;
+  delete patch.index;
   if (parsed.data.ownerId !== undefined) {
     // Assignment accepts any seeded user; clear by sending null.
     if (parsed.data.ownerId !== null) {
@@ -65,7 +71,48 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
   // and this handler can never drift apart.
   Object.assign(patch, resolveStatusCompletedPatch(parsed.data));
 
-  await db.task.update({ where: { id }, data: patch });
+  // Drag-reorder: place the task at `index` inside `groupId` (stays in its
+  // group when only `index` is sent) and renumber siblings 0..n so the
+  // position column never accumulates collisions.
+  const reorderRequested = parsed.data.groupId !== undefined || parsed.data.index !== undefined;
+  if (reorderRequested) {
+    const targetGroupId = parsed.data.groupId ?? task.groupId;
+    const targetGroup = await db.group.findFirst({
+      where: { id: targetGroupId, boardId: task.boardId },
+    });
+    if (!targetGroup) {
+      return NextResponse.json({ ok: false, error: "Group not found" }, { status: 404 });
+    }
+    const siblings = await db.task.findMany({
+      where: { groupId: targetGroupId, id: { not: task.id } },
+      orderBy: { position: "asc" },
+      select: { id: true },
+    });
+    const index = Math.min(parsed.data.index ?? siblings.length, siblings.length);
+    const ordered = [...siblings.slice(0, index), { id }, ...siblings.slice(index)];
+    await db.$transaction(
+      ordered.map((t, i) =>
+        db.task.update({ where: { id: t.id }, data: { position: i, groupId: targetGroupId } }),
+      ),
+    );
+    // A cross-group move leaves a gap in the old group — close it.
+    if (targetGroupId !== task.groupId) {
+      const remainders = await db.task.findMany({
+        where: { groupId: task.groupId },
+        orderBy: { position: "asc" },
+        select: { id: true },
+      });
+      await db.$transaction(
+        remainders.map((t, i) => db.task.update({ where: { id: t.id }, data: { position: i } })),
+      );
+    }
+  }
+
+  if (Object.keys(patch).length > 0) {
+    await db.task.update({ where: { id }, data: patch });
+  } else if (!reorderRequested) {
+    return NextResponse.json({ ok: false, error: "No valid fields to update" }, { status: 400 });
+  }
 
   if (parsed.data.status === "done" && task.status !== "done") {
     const board = await db.board.findUnique({ where: { id: task.boardId }, select: { title: true } });

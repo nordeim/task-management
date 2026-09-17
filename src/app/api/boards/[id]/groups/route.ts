@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { GROUP_COLOR_OPTIONS } from "@/lib/domain";
+
+const GROUP_COLORS = GROUP_COLOR_OPTIONS.map((c) => c.value) as [string, ...string[]];
 
 const createGroupSchema = z.object({
   name: z.string().trim().min(1, "Group name is required").max(80),
+  color: z.enum(GROUP_COLORS).default("#0073ea"),
 });
 
 /** POST /api/boards/[id]/groups — append a group to the end of the board. */
@@ -42,6 +46,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       name: parsed.data.name,
       boardId: id,
       position: (lastGroup?.position ?? -1) + 1,
+      color: parsed.data.color,
     },
   });
 

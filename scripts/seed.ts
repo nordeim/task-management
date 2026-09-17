@@ -38,6 +38,8 @@ interface SeedTask {
 
 interface SeedGroup {
   name: string;
+  /** Group accent color from GROUP_COLOR_OPTIONS (Add New Group palette). */
+  color: string;
   tasks: SeedTask[];
 }
 
@@ -58,6 +60,7 @@ const BOARDS: SeedBoard[] = [
     groups: [
       {
         name: "Discovery",
+        color: "#0073ea",
         tasks: [
           { title: "Stakeholder interviews", status: "done", priority: "medium", owner: "jane", dueInDays: -6, completed: true },
           { title: "Competitive analysis", status: "done", priority: "low", owner: "john", dueInDays: -4, completed: true },
@@ -66,6 +69,7 @@ const BOARDS: SeedBoard[] = [
       },
       {
         name: "Design",
+        color: "#00c875",
         tasks: [
           { title: "Wireframes for homepage", status: "done", priority: "critical", owner: "jane", dueInDays: -2, completed: true },
           { title: "Design system tokens", status: "working", priority: "high", owner: "jane", dueInDays: 3 },
@@ -75,6 +79,7 @@ const BOARDS: SeedBoard[] = [
       },
       {
         name: "Build",
+        color: "#ffcb00",
         tasks: [
           { title: "Set up CMS collections", status: "not_started", priority: "medium", owner: "john", dueInDays: 10 },
           { title: "Component library scaffold", status: "not_started", priority: "high", owner: "john", dueInDays: 12 },
@@ -90,6 +95,7 @@ const BOARDS: SeedBoard[] = [
     groups: [
       {
         name: "Go-to-market",
+        color: "#0073ea",
         tasks: [
           { title: "Positioning and messaging doc", status: "done", priority: "critical", owner: "jane", dueInDays: -3, completed: true },
           { title: "Launch webinar script", status: "working", priority: "medium", owner: "jane", dueInDays: 5 },
@@ -98,6 +104,7 @@ const BOARDS: SeedBoard[] = [
       },
       {
         name: "Enablement",
+        color: "#e2445c",
         tasks: [
           { title: "Sales deck refresh", status: "working", priority: "medium", owner: "mike", dueInDays: 4 },
           { title: "Support macros for new tier", status: "not_started", priority: "low", owner: "mike", dueInDays: 9 },
@@ -113,6 +120,7 @@ const BOARDS: SeedBoard[] = [
     groups: [
       {
         name: "October",
+        color: "#0073ea",
         tasks: [
           { title: "Newsletter #42 draft", status: "done", priority: "medium", owner: "jane", dueInDays: -1, completed: true },
           { title: "Blog: analytics benchmarks 2026", status: "working", priority: "high", owner: "jane", dueInDays: 2 },
@@ -121,6 +129,7 @@ const BOARDS: SeedBoard[] = [
       },
       {
         name: "November",
+        color: "#a25ddb",
         tasks: [
           { title: "Guest post outreach", status: "not_started", priority: "medium", owner: "mike", dueInDays: 14 },
           { title: "Year-in-review template", status: "not_started", priority: "low", dueInDays: 20 },
@@ -135,6 +144,7 @@ const BOARDS: SeedBoard[] = [
     groups: [
       {
         name: "Logistics",
+        color: "#0073ea",
         tasks: [
           { title: "Book venue", status: "done", priority: "critical", owner: "john", dueInDays: -8, completed: true },
           { title: "Travel arrangements", status: "working", priority: "high", owner: "john", dueInDays: 3 },
@@ -143,6 +153,7 @@ const BOARDS: SeedBoard[] = [
       },
       {
         name: "Agenda",
+        color: "#00c875",
         tasks: [
           { title: "Day 1 workshop topics", status: "working", priority: "medium", owner: "jane", dueInDays: 5 },
           { title: "Team dinner reservation", status: "not_started", priority: "low", dueInDays: 11 },
@@ -205,7 +216,7 @@ async function main() {
 
     for (const [groupIndex, seedGroup] of seedBoard.groups.entries()) {
       const group = await db.group.create({
-        data: { name: seedGroup.name, boardId: board.id, position: groupIndex },
+        data: { name: seedGroup.name, boardId: board.id, position: groupIndex, color: seedGroup.color },
       });
 
       for (const [taskIndex, seedTask] of seedGroup.tasks.entries()) {

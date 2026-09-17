@@ -98,6 +98,7 @@ export async function GET(_request: NextRequest, ctx: { params: Promise<{ id: st
       name: g.name,
       collapsed: g.collapsed,
       position: g.position,
+      color: g.color,
       tasks: g.tasks.map(toTaskDTO),
     })),
     members,
