@@ -1,4 +1,4 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.6
+# Tuesday.com — Master Project Architecture Document (PAD) v1.7
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
@@ -7,6 +7,56 @@
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.7 (Parity Deep-Pass #5: View Geometry & Structure, 2026-09-17)
+
+- `[SYN]` Seventh parity pass (session 8, `docs/remediation-plan-session8.md`):
+  5 verified gaps closed after a full 10-view drift sweep (VLM + DOM probes +
+  pixel reads; the recurring "black N button" flag was identified as the
+  Next.js dev toolbar, a dev-mode-only artifact absent from production).
+  **Calendar grid geometry**: the day grid moved INSIDE the card's single
+  `p-4` zone (it previously sat outside, spanning the full card width and
+  starting 16px lower) and its container gained `grid-rows-5 gap-px` — the
+  1px gaps show the card's white between each bordered cell pair, producing
+  the reference's double-hairline grid lines (pixel-verified identical);
+  columns now compute to exactly 7×193.141px like the reference.
+  **Login card structure**: padding moved to an inner `p-8 sm:p-10
+  md:pt-12 md:pb-10 md:px-10` div; one `space-y-6 sm:space-y-8` column holds
+  every section (logo, title, Google in a `w-full > space-y-3` wrapper, OR
+  divider in its own `w-full` wrapper — without it the line shrinks behind
+  the chip — form, in-form footer); the Google icon rides in a `-ml-4`
+  wrapper; the OR divider uses slate literals (`h-[1px] bg-slate-200` line,
+  `bg-white px-3 text-slate-500 font-medium tracking-wider` chip); the form
+  is `space-y-4 sm:space-y-5` with `space-y-3 sm:space-y-4` fields,
+  `pl-10` inputs, `text-slate-700` labels; "Need an account? Sign up" is
+  ONE button with a font-medium slate-700 span. **Dashboard greeting
+  card**: deco circles removed; icon row is `flex items-center gap-3 mb-3`
+  with a separate card-level `flex flex-wrap gap-3 mt-6` buttons row
+  wrapped in real `Link` anchors (`/Boards`, `/Analytics`); primary button
+  `px-5 rounded-xl font-medium shadow-lg hover:shadow-xl`, secondary
+  `border-2 border-[#E1E5F3] hover:border-[#0073EA] hover:bg-[#0073EA]/5`.
+  **Timeline**: zoom is the reference's NATIVE `<select>`
+  (`h-8 border-gray-300 rounded-md px-2 text-sm`) in a `gap-1` toolbar;
+  month-mode columns are a fixed `w-[171.43px]` (the reference's computed
+  1200/7, viewport-independent); day cells always stack weekday-over-number
+  with `border-r` on every column and inherited near-black numbers; the
+  day-header row renders even with zero scheduled tasks, followed by the
+  `p-8 text-center text-gray-500` empty message. **Kanban column**: the
+  dnd-kit droppable ref moved onto the `w-80` column div itself (no inner
+  `flex flex-col` wrapper — the column's two direct children are the
+  `px-4 py-3 mb-2` header zone and the scroll zone, like the reference);
+  plain `text-lg font-bold` column titles; `.tuesday-scroll` (kanban-only)
+  updated to the reference's `custom-scrollbar` spec (8px bar, transparent
+  10px-radius track, slate-300→400 gradient thumb + 1px slate-200 border,
+  hover slate-400→500).
+- `[GAT]` No new domain seams — all five gaps are presentational (JSX/CSS);
+  the 87-test suite stayed green throughout and is the regression gate.
+- `[DEV]` Deviations updated (§10): the reference's unassigned view renders
+  an empty content area even when unassigned tasks exist (broken owner
+  filter — ours lists them); the reference silently drops dateless tasks
+  from the timeline (ours keeps a reachable section); the reference's
+  day-mode zoom renders 5.71px cells (40/7 — a defect; ours keeps a usable
+  single wide column).
 
 #### Revision Block — v1.6 (Parity Deep-Pass #4: Reference Drift & Token Architecture, 2026-09-17)
 
@@ -1077,7 +1127,9 @@ bun run dev                # http://localhost:3000
 | Info | Reference boards-page Filter button is inert | reference-side dead control | Parity as of v1.5 — our Filter button matches (inert); favorites toggle from the board header where the reference actually works |
 | Info | Reference popovers stay mounted after Escape | focus-management quirk | Deliberate deviation — standard Radix dismiss |
 | Info | Presence dots are `User.online` mock data | reference hardcodes presence on a mock team | Parity — dots render per-user; the flag is seeded demo data, never real presence |
-| Info | Reference 'Unassigned' view renders an empty div | reference-side quirk | Deliberate deviation — we keep a helpful empty state |
+| Info | Reference 'Unassigned' view renders an empty content area even when unassigned tasks exist (broken owner filter) | reference-side defect | Deliberate deviation — we list the unassigned tasks |
+| Info | Reference timeline silently drops tasks without due dates | dateless work vanishes on the reference | Deliberate deviation — ours keeps a reachable "without a due date" section |
+| Info | Reference timeline day-mode zoom renders 7 cells at 5.71px (40/7) | reference-side rendering defect | Deliberate deviation — ours keeps a usable single wide column |
 | Info | Reference blue header strip appears on scroll (threshold ~32px) | binary marker, not a progress bar | Parity as of v1.5 — scaleX(0)→full at window.scrollY ≥ 32 |
 | Info | Reference row-trash delete is client-side only (task reappears on reload) | reference-side broken control | Deliberate deviation — our Delete Task calls the API |
 | Info | Reference user-menu items are dead `/Board` links; Sign out clears cookies then dead-ends | reference-side dead UI | Deliberate deviation — toasts for Profile/Settings, working Sign out |

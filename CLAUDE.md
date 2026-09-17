@@ -1,7 +1,7 @@
 ---
 IMPORTANT: File is read fresh for every conversation. Be brief and practical.
 project_type: nextjs-single-app
-version: 1.2.0
+version: 1.3.0
 last_updated: 2026-09-17
 ---
 
@@ -221,7 +221,7 @@ src/components/app/**  product UI (shell, header, views, cells, dialogs — incl
 src/components/app/routes/** route wrappers (dashboard/boards/board/analytics/login)
 src/components/ui/**   shadcn primitives (vendored)
 src/lib/domain.ts      vocabulary + DTOs + ActionResult + pure helpers (single source)
-src/lib/domain.test.ts Vitest unit suite over the pure seams (69 tests)
+src/lib/domain.test.ts Vitest unit suite over the pure seams (87 tests)
 src/lib/auth.ts        scrypt + cookie sessions
 src/lib/api-client.ts  typed fetch (never throws)
 prisma/schema.prisma   User · Session · Board · Group · Task · Activity

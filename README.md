@@ -32,8 +32,8 @@ SQLite for persistence — which makes the whole product cloneable with
 | 📋 Main Table view | monday-style spreadsheet: all groups live in ONE white card, each group zone with a 4px **group-color** left accent (per-group swatch from the Add New Group dialog), live progress, per-row checkbox / tinted priority badge / status pill (white text) / owner avatar / due date — all editable inline, regroupable by Status / Person / Priority, with sticky column headers + sticky title/gutter columns in a horizontally scrollable sheet and a per-group footer summary row ("N items", priority count chips, status count bars) |
 | 🔍 Board toolbar | Search + Filter by Person + **Filter Items** (Status & Priority checkboxes) + **Sort By** (Task Name / Created Date / Updated Date, cycling asc-desc-off) + **Show/Hide Columns** + Group by — all mirroring the reference; the toolbar renders only in the Main Table view |
 | 🗂 Kanban view | Status columns (Not Started / Working on it / Done / Stuck) or People columns (Unassigned + one per member) with pointer-based drag-and-drop that persists status **and** owner changes to the database |
-| 📅 Calendar view | Sun-first month grid with tasks pinned to their due dates, color-coded by status, overdue-safe date handling (noon storage) |
-| 📈 Timeline & Unassigned views | Gantt-style timeline with Day/Week/Month zoom (title left, ‹ Today › nav + zoom right), fixed 40px day columns with stacked weekday/number headers and **no** today highlight, plus status-colored bars on due dates and a filter for tasks with no owner |
+| 📅 Calendar view | Sun-first month grid rendering only the weeks needed (35 cells for most months), `gap-px` double-hairline cell borders, tasks pinned to their due dates and color-coded by status, overdue-safe date handling (noon storage) |
+| 📈 Timeline & Unassigned views | Gantt-style timeline with Day/Week/Month zoom (native select, `gap-1` toolbar), fixed 40px week / ~171px month day columns with stacked weekday/number headers and no today highlight, plus status-colored bars on due dates and a filter for tasks with no owner |
 | 📊 Analytics dashboard | Gradient KPI cards (inline icon + text-lg label, text-3xl value, color-100 subtitle; completion rate with full-width green-300 track), status + priority horizontal-bar distributions (blue Activity / orange TrendingUp headers), and per-board performance rows (gray-50 row cards with progress bar + bordered % chip), filterable by board and time window (7/30/90 days) |
 | 🏠 Dashboard home | Time-of-day greeting with live task count, four reference KPI cards (`group perspective-1000` gradient buttons with deco discs, hover particles, white/20 icon tiles, shine sweep + hover ring), recent boards with folder tiles and visibility badges in the right zone, gradient quick-action rows, and a **Recent Activity feed of recently-updated tasks** (clock tiles, absolute `Sep 17, 1:36 AM` times) |
 | 🧭 Real URL routes | Dashboard `/`, boards `/Boards`, board `/Board?id=`, analytics `/Analytics`, login `/login` — case-insensitive via rewrites, browser back/forward works, per-route document titles (`… | Task Management`), logged-out visits redirect to `/login?from_url=…` and return after sign-in, unknown paths render the styled slate 404 (server-rendered catch-all) |
@@ -42,7 +42,7 @@ SQLite for persistence — which makes the whole product cloneable with
 | 📅 Due dates | Native date input (matches the reference), stored at local noon so timezone edges never shift the rendered day; the set state renders as plain `Sep 22` text (no icon) and past dates turn into red-tinted chips |
 | 🔐 Email + password auth | scrypt-hashed passwords, opaque session tokens in httpOnly cookies (30-day TTL), login/signup/sign-out flows |
 | 🎨 Themes | Six board colors (Ocean Blue, Success Green, Sunny Yellow, Danger Red, Purple, Cyan) driving accents across every surface, plus seven per-group swatches (adds Gray `#676879`) driving each group's 4px left accent |
-| 📱 Responsive shell | Desktop nav (reference-accurate: no active-state highlight, hover `#F5F6F8` → blue text) plus a mobile hamburger drawer; global "Search everything…" board search; **no app footer** (like the reference) |
+| 📱 Responsive shell | Desktop nav with the reference's exact-match active highlight (`bg-[#E1E5F3] text-[#0073EA]` via `isNavActive`; `/` highlights nothing) plus a mobile hamburger with an inline collapsible panel; global "Search everything…" board search; **no app footer** (like the reference) |
 
 ## Architecture
 
@@ -199,17 +199,23 @@ natural next step; see `Project_Architecture_Document.md` §7 and §10.
 
 ## Design System
 
-| Token | Hex | Usage |
+| Token | Value | Usage |
 |-------|-----|-------|
 | `--background` | `#f5f6f8` | App background |
 | `--card` | `#ffffff` | Cards, header, table rows |
-| `--foreground` | `#323338` | Primary text |
-| `--muted-foreground` | `#6b7385` | Secondary text |
-| `--border` | `#e6e9ef` | Hairlines and card borders |
-| `--primary` | `#0073ea` | Brand blue: buttons, links, focus rings |
+| `--foreground` | `hsl(0 0% 3.9%)` | Inherited text (button labels, calendar numbers) |
+| `--primary` | `hsl(0 0% 9%)` | Checkbox checked fill, shadcn default buttons |
+| `--muted-foreground` | `#676879` | Secondary text |
+| `--border` / `--input` | `hsl(0 0% 89.8%)` | Hairlines and card borders |
 | `--table-header-bg` | `#f5f6f8` | Table column-header band |
 | `--table-track-bg` | `#e1e5f3` | Group progress track |
 | `--group-progress-fill` | `#00c875` | Group progress fill |
+
+The app blue is **not a token**: like the reference, every blue surface is an
+explicit `#0073EA` class (New Task button, nav links, picker checkmarks,
+focus accents, calendar today ring), while the grayscale tokens mirror the
+reference's shadcn defaults — Tailwind v4 passes raw `var()` values through,
+so HSL tokens must be complete `hsl(…)` colors.
 
 | Status pill (all white text) | Background |
 |-------------|-----------|
