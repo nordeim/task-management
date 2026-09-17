@@ -9,7 +9,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Tuesday.com — Task Management",
+  // Reference <title> is exactly "Task Management" on the dashboard and login
+  // routes; every other route appends " | Task Management".
+  title: "Task Management",
   description:
     "Monday-style task management: boards, groups, kanban, calendar, and analytics for teams that ship.",
   keywords: ["task management", "project boards", "kanban", "teamwork", "productivity"],
@@ -17,7 +19,7 @@ export const metadata: Metadata = {
     icon: "/icon.svg",
   },
   openGraph: {
-    title: "Tuesday.com — Task Management",
+    title: "Task Management",
     description: "Boards, tasks, and teamwork in one place.",
     siteName: "Tuesday.com",
     type: "website",

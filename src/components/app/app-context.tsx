@@ -1,10 +1,12 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import type { UserDTO } from "@/lib/domain";
+import { ROUTE_PATHS } from "@/lib/domain";
 
-export type ViewName = "dashboard" | "boards" | "board" | "analytics";
+export type ViewName = keyof typeof ROUTE_PATHS;
 
 interface ViewState {
   name: ViewName;
@@ -20,6 +22,12 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+/**
+ * Route-aware app context. The reference serves real URLs (`/`, `/Boards`,
+ * `/Board?id=`, `/Analytics`) — navigate() pushes those paths and the active
+ * view is DERIVED from the pathname, so browser back/forward and deep links
+ * always land on the right screen.
+ */
 export function AppProvider({
   user,
   onSignOut,
@@ -29,14 +37,25 @@ export function AppProvider({
   onSignOut: () => void;
   children: ReactNode;
 }) {
-  const [view, setView] = useState<ViewState>({ name: "dashboard", boardId: null });
+  const router = useRouter();
+  const pathname = usePathname();
 
-  const navigate = useCallback((name: ViewName, boardId?: string) => {
-    setView({ name, boardId: boardId ?? null });
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0 });
-    }
-  }, []);
+  // Rewrites keep the typed URL (e.g. "/boards"), so compare lowercased.
+  const view = useMemo<ViewState>(() => {
+    const p = (pathname ?? "/").toLowerCase();
+    if (p.startsWith("/boards")) return { name: "boards", boardId: null };
+    if (p.startsWith("/board")) return { name: "board", boardId: null };
+    if (p.startsWith("/analytics")) return { name: "analytics", boardId: null };
+    return { name: "dashboard", boardId: null };
+  }, [pathname]);
+
+  const navigate = useCallback(
+    (name: ViewName, boardId?: string) => {
+      const base = ROUTE_PATHS[name];
+      router.push(name === "board" && boardId ? `${base}?id=${boardId}` : base);
+    },
+    [router],
+  );
 
   const signOut = useCallback(() => {
     onSignOut();

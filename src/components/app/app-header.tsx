@@ -31,11 +31,12 @@ import { api } from "@/lib/api-client";
 import { toast } from "@/hooks/use-toast";
 import type { ViewName } from "@/components/app/app-context";
 import type { BoardSummaryDTO } from "@/lib/domain";
+import { ROUTE_PATHS } from "@/lib/domain";
 
-const NAV_ITEMS: { label: string; view: ViewName }[] = [
-  { label: "Dashboard", view: "dashboard" },
-  { label: "My Boards", view: "boards" },
-  { label: "Analytics", view: "analytics" },
+const NAV_ITEMS: { label: string; view: ViewName; href: string }[] = [
+  { label: "Dashboard", view: "dashboard", href: "/Dashboard" },
+  { label: "My Boards", view: "boards", href: ROUTE_PATHS.boards },
+  { label: "Analytics", view: "analytics", href: ROUTE_PATHS.analytics },
 ];
 
 function initialsOf(name: string): string {
@@ -94,16 +95,9 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
     <header className="sticky top-0 z-50 border-b bg-card shadow-sm">
       <div className="mx-auto flex h-16 max-w-[1400px] items-center justify-between gap-4 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-6 lg:gap-10">
-          {/* Reference logo: gradient tile with a white briefcase. */}
-          <Link
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("dashboard");
-            }}
-            className="flex shrink-0 items-center gap-2"
-            aria-label="Tuesday.com home"
-          >
+          {/* Reference logo: gradient tile with a white briefcase, linking to
+              /Dashboard like the reference's own anchor. */}
+          <Link href="/Dashboard" className="flex shrink-0 items-center gap-2" aria-label="Tuesday.com home">
             <span
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-[#2563EB] to-[#1D4ED8]"
               aria-hidden="true"
@@ -116,15 +110,14 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
             {NAV_ITEMS.map((item) => {
               const active = view.name === item.view;
               return (
-                <button
+                <Link
                   key={item.view}
-                  type="button"
-                  onClick={() => navigate(item.view)}
+                  href={item.href}
                   aria-current={active ? "page" : undefined}
                   className="rounded-md px-3 py-2 text-sm font-medium text-[#323338] transition-colors hover:bg-[#F5F6F8] hover:text-[#0073EA]"
                 >
                   {item.label}
-                </button>
+                </Link>
               );
             })}
           </nav>
@@ -156,15 +149,14 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
                 {NAV_ITEMS.map((item) => {
                   const active = view.name === item.view;
                   return (
-                    <button
+                    <Link
                       key={item.view}
-                      type="button"
-                      onClick={() => navigate(item.view)}
+                      href={item.href}
                       aria-current={active ? "page" : undefined}
                       className="rounded-md px-3 py-2 text-left text-sm font-medium text-[#323338] transition-colors hover:bg-[#F5F6F8] hover:text-[#0073EA]"
                     >
                       {item.label}
-                    </button>
+                    </Link>
                   );
                 })}
               </nav>

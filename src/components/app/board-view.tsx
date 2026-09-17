@@ -493,15 +493,22 @@ export function BoardView({ boardId }: { boardId: string }) {
   }, [board, titleDraft]);
 
   if (error) {
+    // Reference pattern (probed at /Board?id=<unknown>): an in-app card on
+    // the page background — "Board not found" + a blue Back to Boards pill.
     return (
-      <div className="mx-auto max-w-[1400px] p-6">
-        <Button variant="ghost" className="mb-4" onClick={() => navigate("boards")}>
-          Back to boards
-        </Button>
-        <div className="rounded-xl border bg-card py-10 text-center">
-          <p className="mb-2 font-medium">Could not load this board</p>
-          <p className="mb-4 text-sm text-muted-foreground">{error}</p>
-          <Button onClick={() => load().then(applyResult)}>Try again</Button>
+      <div className="min-h-screen bg-[#F5F6F8] p-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="py-16 text-center">
+            <h2 className="mb-4 text-2xl font-bold text-[#323338]">Board not found</h2>
+            <p className="mb-4 text-sm text-[#676879]">{error}</p>
+            <Button
+              className="h-9 rounded-xl bg-[#0073EA] px-4 font-medium shadow hover:bg-[#0056B3]"
+              onClick={() => navigate("boards")}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
+              Back to Boards
+            </Button>
+          </div>
         </div>
       </div>
     );

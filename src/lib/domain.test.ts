@@ -4,16 +4,19 @@ import {
   BOARD_COLORS,
   GROUP_COLOR_OPTIONS,
   KANBAN_CARD_BORDER,
+  ROUTE_PATHS,
   TASK_PRIORITIES,
   TASK_STATUSES,
   VISIBILITY_OPTIONS,
   VIEW_TRIGGER_LABELS,
   distributionBars,
   filterTasks,
+  formatRecentTaskTime,
   formatSavedAt,
   groupSummary,
   groupTasksByPerson,
   groupTasksByStatus,
+  notFoundTitle,
   priorityBadgeStyle,
   priorityMeta,
   relativeBoardTime,
@@ -521,5 +524,50 @@ describe("GROUP_COLOR_OPTIONS", () => {
       "Teal",
       "Gray",
     ]);
+  });
+});
+
+describe("notFoundTitle", () => {
+  it("titlecases the last path segment like the reference 404 page", () => {
+    // Reference: /unassigned -> "Unassigned | Task Management"
+    expect(notFoundTitle("/unassigned")).toBe("Unassigned");
+  });
+
+  it("splits hyphenated segments into words", () => {
+    // Reference: /boards/does-not-exist -> "Does Not Exist | Task Management"
+    expect(notFoundTitle("/boards/does-not-exist")).toBe("Does Not Exist");
+  });
+
+  it("handles nested segments and stray slashes", () => {
+    expect(notFoundTitle("/a/b/missing-page/")).toBe("Missing Page");
+  });
+
+  it("falls back to Not Found for a bare root", () => {
+    expect(notFoundTitle("/")).toBe("Not Found");
+  });
+});
+
+describe("ROUTE_PATHS", () => {
+  it("maps the four app views onto the reference's real routes", () => {
+    expect(ROUTE_PATHS).toEqual({
+      dashboard: "/",
+      boards: "/Boards",
+      board: "/Board",
+      analytics: "/Analytics",
+    });
+  });
+});
+
+describe("formatRecentTaskTime", () => {
+  it("renders the reference's 'Sep 17, 1:36 AM' dashboard activity format", () => {
+    expect(formatRecentTaskTime(new Date("2026-09-17T01:36:00"))).toBe("Sep 17, 1:36 AM");
+  });
+
+  it("pads minutes and lowers the meridiem", () => {
+    expect(formatRecentTaskTime(new Date("2026-12-05T13:05:00"))).toBe("Dec 5, 1:05 PM");
+  });
+
+  it("renders midnight without a leading zero hour", () => {
+    expect(formatRecentTaskTime(new Date("2026-01-09T00:08:00"))).toBe("Jan 9, 12:08 AM");
   });
 });

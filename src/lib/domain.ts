@@ -378,6 +378,45 @@ export function formatSavedAt(date: Date): string {
   return `${hours}:${minutes}:${seconds} ${meridiem}`;
 }
 
+/**
+ * The reference app's real route surface (probed 2026-09-17): the dashboard
+ * lives at "/", the boards list at "/Boards", a board detail at "/Board?id=",
+ * analytics at "/Analytics". Lowercase spellings are rewrites, not routes.
+ */
+export const ROUTE_PATHS = {
+  dashboard: "/",
+  boards: "/Boards",
+  board: "/Board",
+  analytics: "/Analytics",
+} as const;
+
+/**
+ * The styled 404 page titles itself from the LAST path segment, titlecased:
+ * /unassigned -> "Unassigned", /boards/does-not-exist -> "Does Not Exist".
+ */
+export function notFoundTitle(path: string): string {
+  const segments = path.split("/").filter(Boolean);
+  const last = segments[segments.length - 1];
+  if (!last) return "Not Found";
+  return last
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+/**
+ * Dashboard "Recent Activity" timestamps (probed 2026-09-17): the reference
+ * renders "Sep 17, 1:36 AM" — short month, unpadded day, h:mm meridiem.
+ */
+export function formatRecentTaskTime(date: Date): string {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  let hours = date.getHours();
+  const meridiem = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${months[date.getMonth()]} ${date.getDate()}, ${hours}:${minutes} ${meridiem}`;
+}
+
 export const ACTIVITY_TYPES = {
   board_created: { icon: "board", color: "#0073ea" },
   board_deleted: { icon: "board", color: "#e2445c" },
