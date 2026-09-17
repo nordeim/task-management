@@ -1,16 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { addDays, isSameDay, isSameMonth, subDays, subMonths, addMonths } from "date-fns";
+import { addDays, isSameDay, subDays, subMonths, addMonths } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { timelineRange, statusMeta } from "@/lib/domain";
 import type { TaskDTO, TimelineMode } from "@/lib/domain";
 
@@ -30,10 +23,14 @@ interface BoardTimelineProps {
  * task's due date, zoomable Day/Week/Month like the reference app. Tasks
  * without a due date are listed below the grid so nothing is silently lost.
  *
- * Reference chrome (probed 2026-09-17): header row is a sticky white bar with
- * the window title LEFT and the ‹ Today › nav + zoom Select RIGHT; the day
- * header row sticks below it on a gray-50 strip with 40px stacked day cells
- * (weekday text-xs gray over number text-sm medium) and NO today highlight.
+ * Reference chrome (probed 2026-09-17): the toolbar's right cluster is
+ * `flex items-center gap-1` with a NATIVE <select> zoom
+ * (`h-8 border border-gray-300 rounded-md px-2 text-sm`). Day header cells
+ * always stack weekday over number, keep their border-r on EVERY column
+ * (no last:border-r-0), and the number inherits the near-black foreground.
+ * Month-mode columns are a FIXED ~171.43px (the reference computes 1200/7,
+ * viewport-independent). With no scheduled tasks the day header row still
+ * renders, followed by a `p-8 text-center text-gray-500` message.
  */
 export function BoardTimeline({ tasks, onAddTask }: BoardTimelineProps) {
   const [mode, setMode] = useState<TimelineMode>("week");
@@ -58,17 +55,19 @@ export function BoardTimeline({ tasks, onAddTask }: BoardTimelineProps) {
     });
   }
 
-  // Reference day columns are a FIXED 40px (w-10, probed 2026-09-17) — the
-  // week grid stays narrower than the card with open space to its right.
-  // Day mode widens the single column so it remains usable.
-  const columnWidth = mode === "day" ? "min-w-[320px]" : "w-10 shrink-0";
+  // Reference day columns (probed 2026-09-17): week mode = FIXED 40px
+  // (w-10); month mode = FIXED ~171.43px (their computed 1200/7,
+  // viewport-independent). Day mode keeps a usable single wide column (the
+  // reference's own day mode renders 5.71px cells — a defect we do not copy).
+  const columnWidth =
+    mode === "day" ? "min-w-[320px] shrink-0" : mode === "month" ? "w-[171.43px] shrink-0" : "w-10 shrink-0";
 
   return (
     <div className="overflow-hidden rounded-xl border border-[#E1E5F3] bg-card shadow-lg">
       {/* Window controls (reference): title LEFT, ‹ Today › + zoom RIGHT. */}
       <div className="sticky top-0 z-10 flex flex-row items-center justify-between space-y-1.5 border-b bg-white p-3">
         <h2 className="tracking-tight text-base font-semibold text-[#323338]">{range.label}</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Previous period" onClick={() => step(-1)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -78,55 +77,45 @@ export function BoardTimeline({ tasks, onAddTask }: BoardTimelineProps) {
           <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Next period" onClick={() => step(1)}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Select value={mode} onValueChange={(v) => setMode(v as TimelineMode)}>
-            <SelectTrigger className="h-8 w-24 text-xs" aria-label="Timeline zoom">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MODES.map((m) => (
-                <SelectItem key={m.value} value={m.value}>
-                  {m.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Reference zoom: a NATIVE select, not a shadcn Select. */}
+          <select
+            className="h-8 rounded-md border border-gray-300 px-2 text-sm"
+            value={mode}
+            aria-label="Timeline zoom"
+            onChange={(e) => setMode(e.target.value as TimelineMode)}
+          >
+            {MODES.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {scheduled.length === 0 ? (
-        <p className="px-4 py-12 text-center text-sm text-muted-foreground">
-          No items with valid start and end dates to display in the timeline.
-        </p>
-      ) : (
-        <div className="overflow-x-auto">
-          <div className="min-w-fit">
-            {/* Day header row (reference): gray-50 strip, 200px Task column,
-                40px day cells with stacked weekday/number, no highlight. */}
-            <div className="sticky top-[53px] z-[5] flex border-b bg-gray-50">
-              <div className="w-[200px] shrink-0 border-r p-2 text-xs font-medium text-gray-600">
-                Task
-              </div>
-              {range.days.map((day) => {
-                const inMonth = mode !== "month" || isSameMonth(day, cursor);
-                return (
-                  <div
-                    key={day.toISOString()}
-                    className={`${columnWidth} border-r p-1 text-center last:border-r-0`}
-                  >
-                    <span className={`block text-xs ${inMonth ? "text-gray-500" : "text-gray-500/50"}`}>
-                      {mode === "month"
-                        ? day.getDate()
-                        : day.toLocaleDateString(undefined, { weekday: "short" })}
-                    </span>
-                    <span className={`block text-sm font-medium ${inMonth ? "text-gray-900" : "text-gray-900/50"}`}>
-                      {day.getDate()}
-                    </span>
-                  </div>
-                );
-              })}
+      <div className="overflow-x-auto p-0">
+        <div className="min-w-fit">
+          {/* Day header row (reference): gray-50 strip, 200px Task column,
+              day cells with stacked weekday/number, border-r on every column. */}
+          <div className="sticky top-[53px] z-[5] flex border-b bg-gray-50">
+            <div className="w-[200px] shrink-0 border-r p-2 text-xs font-medium text-gray-600">
+              Task
             </div>
+            {range.days.map((day) => (
+              <div
+                key={day.toISOString()}
+                className={`${columnWidth} border-r p-1 text-center`}
+              >
+                <span className="block text-xs text-gray-500">
+                  {day.toLocaleDateString(undefined, { weekday: "short" })}
+                </span>
+                <span className="block text-sm font-medium">{day.getDate()}</span>
+              </div>
+            ))}
+          </div>
 
-            {/* Task rows: one bar per task, pinned to its due-date column */}
+          {/* Task rows: one bar per task, pinned to its due-date column */}
+          {scheduled.length > 0 ? (
             <ul className="divide-y">
               {scheduled.map((task) => {
                 const due = task.dueDate ? new Date(task.dueDate) : null;
@@ -153,7 +142,7 @@ export function BoardTimeline({ tasks, onAddTask }: BoardTimelineProps) {
                       {range.days.map((day, i) => (
                         <div
                           key={day.toISOString()}
-                          className={`${columnWidth} border-r border-border/40 last:border-r-0`}
+                          className={`${columnWidth} border-r border-border/40`}
                           aria-hidden={i === dayIndex ? undefined : true}
                         >
                           {i === dayIndex && (
@@ -172,9 +161,17 @@ export function BoardTimeline({ tasks, onAddTask }: BoardTimelineProps) {
                 );
               })}
             </ul>
-          </div>
+          ) : (
+            /* Reference empty state: the header row above still renders,
+               followed by this centered gray note. */
+            <div className="relative">
+              <div className="p-8 text-center text-gray-500">
+                No items with valid start and end dates to display in the timeline.
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Tasks without due dates stay reachable instead of vanishing. */}
       {unscheduled.length > 0 && (
