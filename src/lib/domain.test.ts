@@ -9,13 +9,16 @@ import {
   TASK_STATUSES,
   VISIBILITY_OPTIONS,
   VIEW_TRIGGER_LABELS,
+  calendarCells,
   distributionBars,
   filterTasks,
+  isNavActive,
   formatRecentTaskTime,
   formatSavedAt,
   groupSummary,
   groupTasksByPerson,
   groupTasksByStatus,
+  memberPopoverPalette,
   notFoundTitle,
   priorityBadgeStyle,
   priorityMeta,
@@ -23,6 +26,9 @@ import {
   resolveStatusCompletedPatch,
   sortTasks,
   statusMeta,
+  summaryDateLabel,
+  summaryOwnerLabel,
+  teamAvatarPalette,
   timelineRange,
   validateBoardColor,
   visibilityLabel,
@@ -33,7 +39,7 @@ import type { TaskDTO, UserDTO } from "@/lib/domain";
 // ---------- helpers ----------
 
 function user(id: string, name: string): UserDTO {
-  return { id, email: `${id}@example.com`, name, avatarColor: "#00d5c0" };
+  return { id, email: `${id}@example.com`, name, avatarColor: "#00d5c0", role: "Editor", online: true };
 }
 
 function task(overrides: Partial<TaskDTO> & { id: string }): TaskDTO {
@@ -569,5 +575,122 @@ describe("formatRecentTaskTime", () => {
 
   it("renders midnight without a leading zero hour", () => {
     expect(formatRecentTaskTime(new Date("2026-01-09T00:08:00"))).toBe("Jan 9, 12:08 AM");
+  });
+});
+
+// ---------- session 7: reference-drift seams ----------
+
+describe("isNavActive", () => {
+  it("matches the exact href, case-sensitively, like the reference", () => {
+    expect(isNavActive("/Boards", "/Boards")).toBe(true);
+    expect(isNavActive("/Analytics", "/Analytics")).toBe(true);
+    expect(isNavActive("/Dashboard", "/Dashboard")).toBe(true);
+  });
+
+  it("does not highlight lowercase rewrites of the same route", () => {
+    expect(isNavActive("/boards", "/Boards")).toBe(false);
+    expect(isNavActive("/analytics", "/Analytics")).toBe(false);
+  });
+
+  it("does not highlight Dashboard on the root path (href mismatch)", () => {
+    expect(isNavActive("/", "/Dashboard")).toBe(false);
+  });
+
+  it("does not highlight anything on a board detail URL", () => {
+    expect(isNavActive("/Board?id=abc", "/Board")).toBe(false);
+    expect(isNavActive("/Board?id=abc", "/Boards")).toBe(false);
+  });
+});
+
+describe("calendarCells", () => {
+  it("renders only the weeks needed — 35 cells for September 2026", () => {
+    const cells = calendarCells(new Date(2026, 8, 1));
+    expect(cells).toHaveLength(35);
+    expect(cells[0].toISOString()).toContain("2026-08-30"); // Sun before Sep 1
+    expect(cells[cells.length - 1].toISOString()).toContain("2026-10-03"); // Sat of week 5
+  });
+
+  it("renders 28 cells when a month exactly fills four Sun-first weeks", () => {
+    // Feb 1 2026 is a Sunday and 2026 is not a leap year.
+    const cells = calendarCells(new Date(2026, 1, 1));
+    expect(cells).toHaveLength(28);
+    expect(cells[0].getDate()).toBe(1);
+    expect(cells[cells.length - 1].getDate()).toBe(28);
+  });
+
+  it("renders 42 cells for a month spilling across six weeks", () => {
+    // Aug 1 2026 is a Saturday -> 6 leading days + 31 days = 37 -> 6 weeks.
+    const cells = calendarCells(new Date(2026, 7, 1));
+    expect(cells).toHaveLength(42);
+    expect(cells[0].toISOString()).toContain("2026-07-26");
+    expect(cells[cells.length - 1].toISOString()).toContain("2026-09-05");
+  });
+
+  it("always starts on a Sunday and spans consecutive days", () => {
+    const cells = calendarCells(new Date(2026, 8, 1));
+    expect(cells[0].getDay()).toBe(0);
+    const noon = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12).getTime();
+    for (let i = 1; i < cells.length; i++) {
+      expect(noon(cells[i]) - noon(cells[i - 1])).toBe(24 * 60 * 60 * 1000);
+    }
+  });
+});
+
+describe("summaryDateLabel", () => {
+  it("is empty when no task has a due date", () => {
+    expect(summaryDateLabel([null, null])).toBe("");
+    expect(summaryDateLabel([])).toBe("");
+  });
+
+  it("renders a single short date when all dates are the same day", () => {
+    expect(summaryDateLabel(["2026-09-25T12:00:00.000Z", "2026-09-25T12:00:00.000Z"])).toBe("Sep 25");
+  });
+
+  it("renders a min-max range when dates differ", () => {
+    expect(summaryDateLabel(["2026-09-25T12:00:00.000Z", "2026-09-18T12:00:00.000Z"])).toBe("Sep 18 - Sep 25");
+  });
+
+  it("ignores nulls mixed with real dates", () => {
+    expect(summaryDateLabel([null, "2026-09-25T12:00:00.000Z"])).toBe("Sep 25");
+  });
+});
+
+describe("summaryOwnerLabel", () => {
+  it("is empty with no owners", () => {
+    expect(summaryOwnerLabel([null, null])).toBe("");
+    expect(summaryOwnerLabel([])).toBe("");
+  });
+
+  it("counts assigned owners as 'N people' — even one", () => {
+    expect(summaryOwnerLabel(["u1"])).toBe("1 people");
+    expect(summaryOwnerLabel(["u1", null, "u2", "u3"])).toBe("3 people");
+  });
+});
+
+describe("teamAvatarPalette", () => {
+  it("colors the visible team row by position like the reference", () => {
+    expect(teamAvatarPalette(0)).toBe("bg-blue-500");
+    expect(teamAvatarPalette(1)).toBe("bg-green-500");
+    expect(teamAvatarPalette(2)).toBe("bg-purple-500");
+  });
+
+  it("clamps out-of-range positions to the last color", () => {
+    expect(teamAvatarPalette(3)).toBe("bg-purple-500");
+    expect(teamAvatarPalette(99)).toBe("bg-purple-500");
+  });
+});
+
+describe("memberPopoverPalette", () => {
+  it("colors popover members by id modulo 3 like the reference", () => {
+    expect(memberPopoverPalette("3")).toBe("bg-blue-500"); // 3 % 3 === 0
+    expect(memberPopoverPalette("1")).toBe("bg-green-500"); // 1 % 3 === 1
+    expect(memberPopoverPalette("2")).toBe("bg-purple-500"); // 2 % 3 === 2
+    expect(memberPopoverPalette("4")).toBe("bg-green-500"); // 4 % 3 === 1
+  });
+
+  it("hashes non-numeric ids deterministically into the same palette", () => {
+    const first = memberPopoverPalette("cmu572z45000xr10jah0q56q6");
+    expect(["bg-blue-500", "bg-green-500", "bg-purple-500"]).toContain(first);
+    expect(memberPopoverPalette("cmu572z45000xr10jah0q56q6")).toBe(first);
   });
 });

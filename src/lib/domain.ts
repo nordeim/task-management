@@ -391,6 +391,102 @@ export const ROUTE_PATHS = {
 } as const;
 
 /**
+ * Nav active state (reference drift confirmed 2026-09-17): the reference
+ * highlights a nav link ONLY on an exact, case-sensitive pathname === href
+ * match — so "/Boards" highlights "My Boards", lowercase "/boards" does not,
+ * and "/" highlights nothing (Dashboard's href is "/Dashboard").
+ */
+export function isNavActive(pathname: string, href: string): boolean {
+  return pathname === href;
+}
+
+// ---------- calendar month grid ----------
+
+/**
+ * Calendar cells for the month in view — exactly the weeks needed, like the
+ * reference: ceil((leading-Sunday offset + days in month) / 7) weeks. Sep 2026
+ * renders 35 cells (Aug 30 – Oct 3); a month starting on Sunday in a plain
+ * February renders 28.
+ */
+export function calendarCells(cursor: Date): Date[] {
+  const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+  const gridStart = new Date(first);
+  gridStart.setDate(first.getDate() - first.getDay()); // Sun = 0
+  const daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+  const weeks = Math.ceil((first.getDay() + daysInMonth) / 7);
+  return Array.from({ length: weeks * 7 }, (_, i) => {
+    const day = new Date(gridStart);
+    day.setDate(gridStart.getDate() + i);
+    return day;
+  });
+}
+
+// ---------- group summary aggregates (probed 2026-09-17) ----------
+
+/**
+ * Summary-row date label: "" when no task has a due date, a single short
+ * date ("Sep 25") when every date falls on the same day, and a min-max range
+ * ("Sep 18 - Sep 25") otherwise. Input: ISO strings or nulls.
+ */
+export function summaryDateLabel(dates: (string | null)[]): string {
+  const days = dates
+    .filter((d): d is string => Boolean(d))
+    .map((d) => new Date(d))
+    .map((d) => ({ time: d.getTime(), label: formatShortMonthDay(d) }));
+  if (days.length === 0) return "";
+  const min = days.reduce((a, b) => (a.time <= b.time ? a : b));
+  const max = days.reduce((a, b) => (a.time >= b.time ? a : b));
+  return min.time === max.time ? min.label : `${min.label} - ${max.label}`;
+}
+
+function formatShortMonthDay(date: Date): string {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${months[date.getMonth()]} ${date.getDate()}`;
+}
+
+/**
+ * Summary-row owner label: "" with no owners, otherwise "N people" — even
+ * for a single person, matching the reference's un-pluralized string.
+ */
+export function summaryOwnerLabel(owners: (string | null)[]): string {
+  const count = owners.filter(Boolean).length;
+  return count === 0 ? "" : `${count} people`;
+}
+
+// ---------- team avatar palettes (probed 2026-09-17) ----------
+
+/**
+ * Board-header team row: position-based colors (the reference renders its
+ * first three members blue / green / purple). Out-of-range positions clamp
+ * to the last color.
+ */
+export function teamAvatarPalette(index: number): string {
+  if (index <= 0) return "bg-blue-500";
+  if (index === 1) return "bg-green-500";
+  return "bg-purple-500";
+}
+
+/**
+ * Team popover: the reference colors members by numeric `id % 3`. Cuid ids
+ * hash deterministically into the same three-way split.
+ */
+export function memberPopoverPalette(id: string): string {
+  const numeric = /^\d+$/.test(id) ? Number(id) : hashString(id);
+  const mod = Math.abs(numeric) % 3;
+  if (mod === 0) return "bg-blue-500";
+  if (mod === 1) return "bg-green-500";
+  return "bg-purple-500";
+}
+
+function hashString(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0;
+  }
+  return hash;
+}
+
+/**
  * The styled 404 page titles itself from the LAST path segment, titlecased:
  * /unassigned -> "Unassigned", /boards/does-not-exist -> "Does Not Exist".
  */
@@ -424,6 +520,10 @@ export interface UserDTO {
   email: string;
   name: string;
   avatarColor: string;
+  /** Team role label shown in the team popover ("Owner" | "Editor" | "Viewer"). */
+  role: string;
+  /** Mock presence flag driving the green dot on team avatars. */
+  online: boolean;
 }
 
 export interface BoardSummaryDTO {
