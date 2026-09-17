@@ -12,9 +12,9 @@ import {
   Pencil,
   Plus,
   Search,
-  Star,
   Trash2,
 } from "lucide-react";
+import { Calendar, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,7 +44,6 @@ import { EditBoardDialog } from "@/components/app/edit-board-dialog";
 import type { BoardSummaryDTO } from "@/lib/domain";
 
 type Layout = "grid" | "list";
-type FilterKind = "all" | "favorites";
 
 export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
   const { navigate } = useApp();
@@ -52,7 +51,6 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [layout, setLayout] = useState<Layout>("grid");
-  const [filter, setFilter] = useState<FilterKind>("all");
   const [deleteTarget, setDeleteTarget] = useState<BoardSummaryDTO | null>(null);
   const [editTarget, setEditTarget] = useState<BoardSummaryDTO | null>(null);
 
@@ -81,17 +79,17 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
     if (!boards) return null;
     const query = search.trim().toLowerCase();
     return boards.filter((b) => {
-      if (filter === "favorites" && !b.isFavorite) return false;
       if (!query) return true;
       return (
         b.title.toLowerCase().includes(query) ||
         (b.description ?? "").toLowerCase().includes(query)
       );
     });
-  }, [boards, search, filter]);
+  }, [boards, search]);
 
-  // Favorites are toggled from the board header (star) — the boards page only
-  // reads the flag (card badge + Favorites filter).
+  // Favorites are toggled from the board header (star) — the boards page no
+  // longer filters by them: the reference's boards page shows a DEAD Filter
+  // button (opens nothing) and no favorite stars on cards.
 
   async function confirmDelete() {
     if (!deleteTarget) return;
@@ -185,15 +183,16 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
             >
               <ChartNoAxesColumnIncreasing className="mr-1.5 h-4 w-4" /> Analytics
             </Button>
+            {/* Reference Filter button (probed): outline h-10 px-3
+                border-[#E1E5F3] text-[#323338], funnel icon w-4 h-4 mr-1.5 —
+                dead UI on the reference, so it stays non-mutating here. */}
             <Button
               variant="outline"
-              className={`h-10 rounded-lg border-[#E1E5F3] bg-background px-3 py-2 text-sm shadow-sm hover:bg-accent hover:text-accent-foreground ${
-                filter === "favorites" ? "text-[#0073EA]" : "text-[#323338]"
-              }`}
-              onClick={() => setFilter((f) => (f === "favorites" ? "all" : "favorites"))}
+              className="h-10 rounded-lg border-[#E1E5F3] bg-background px-3 py-2 text-sm text-[#323338] shadow-sm hover:bg-accent hover:text-accent-foreground"
+              aria-label="Filter boards (not available)"
+              onClick={() => undefined}
             >
-              <Star className={`mr-1.5 h-4 w-4 ${filter === "favorites" ? "fill-[#0073EA]" : ""}`} />
-              Favorites
+              <Filter className="mr-1.5 h-4 w-4" aria-hidden="true" /> Filter
             </Button>
           </div>
         </div>
@@ -212,19 +211,18 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
               </span>
               {boards && boards.length > 0 ? (
                 <>
-                  <p className="font-semibold">No boards match your filters</p>
+                  <p className="font-semibold">No boards match your search</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Try a different search or clear the favorites filter.
+                    Try a different search term.
                   </p>
                   <Button
                     variant="outline"
                     className="mt-5"
                     onClick={() => {
                       setSearch("");
-                      setFilter("all");
                     }}
                   >
-                    Clear filters
+                    Clear search
                   </Button>
                 </>
               ) : (
@@ -294,10 +292,10 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
                   </p>
 
                   <div className="mt-auto flex items-center justify-between border-t border-gray-100 pt-4 text-xs text-gray-500">
+                    {/* Reference timestamp zone: calendar icon + relative time,
+                        no favorite star (verified via a favorite experiment). */}
                     <span className="flex items-center gap-1.5">
-                      {board.isFavorite && (
-                        <Star className="h-3 w-3 fill-[#ca8a04] text-[#ca8a04]" aria-label="Favorite" />
-                      )}
+                      <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
                       {relativeBoardTime(new Date(board.updatedAt))}
                     </span>
                   </div>
@@ -385,10 +383,8 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
                           {visibilityLabel(board.visibility, true)}
                         </span>
                         <div className="hidden text-right sm:block">
-                          <p className="text-xs text-gray-400">
-                            {board.isFavorite && (
-                              <Star className="mr-1 inline h-3 w-3 fill-[#ca8a04] text-[#ca8a04]" aria-label="Favorite" />
-                            )}
+                          <p className="flex items-center justify-end gap-1.5 text-xs text-gray-400">
+                            <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
                             {relativeBoardTime(new Date(board.updatedAt))}
                           </p>
                         </div>
