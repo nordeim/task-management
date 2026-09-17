@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
-import { TASK_PRIORITIES, TASK_STATUSES } from "@/lib/domain";
-import type { AnalyticsDTO } from "@/lib/domain";
+import { TASK_STATUSES, TASK_PRIORITIES, distributionEntries } from "@/lib/domain";
+import type { AnalyticsDTO, TaskStatus, TaskPriority } from "@/lib/domain";
 
 const ALLOWED_WINDOWS = [7, 30, 90];
 
@@ -32,18 +32,8 @@ export async function GET(request: NextRequest) {
     const empty: AnalyticsDTO = {
       filters: { boardId: boardIdParam ?? null, days },
       stats: { totalTasks: 0, completionRate: 0, overdueTasks: 0, activeBoards: 0 },
-      statusDistribution: TASK_STATUSES.map((s) => ({
-        status: s.value,
-        label: s.label,
-        count: 0,
-        color: s.bg,
-      })),
-      priorityDistribution: TASK_PRIORITIES.map((p) => ({
-        priority: p.value,
-        label: p.label,
-        count: 0,
-        color: p.color,
-      })),
+      statusDistribution: [],
+      priorityDistribution: [],
       boardPerformance: [],
     };
     return NextResponse.json({ ok: true, data: empty });
@@ -58,6 +48,11 @@ export async function GET(request: NextRequest) {
       // Tasks edited inside the window; a brand-new task has updatedAt=createdAt.
       updatedAt: { gte: windowStart },
     },
+    // Reference probe (2026-09-18): the analytics page iterates its items in
+    // updated_date DESC order and renders Object.entries of the counts
+    // object, so distribution rows follow FIRST-ENCOUNTER order over this
+    // sequence and zero-count rows never appear.
+    orderBy: { updatedAt: "desc" },
     select: { status: true, priority: true, dueDate: true, boardId: true },
   });
 
@@ -68,12 +63,8 @@ export async function GET(request: NextRequest) {
   ).length;
   const completionRate = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
 
-  const statusCounts = new Map<string, number>(TASK_STATUSES.map((s) => [s.value as string, 0]));
-  const priorityCounts = new Map<string, number>(TASK_PRIORITIES.map((p) => [p.value as string, 0]));
-  for (const t of tasks) {
-    statusCounts.set(t.status, (statusCounts.get(t.status) ?? 0) + 1);
-    priorityCounts.set(t.priority, (priorityCounts.get(t.priority) ?? 0) + 1);
-  }
+  const statusEntries = distributionEntries(tasks, (t) => t.status);
+  const priorityEntries = distributionEntries(tasks, (t) => t.priority);
 
   // Board performance uses unbounded task counts (a board isn't "inactive"
   // just because its tasks weren't edited inside the analytics window).
@@ -94,31 +85,27 @@ export async function GET(request: NextRequest) {
   const data: AnalyticsDTO = {
     filters: { boardId: boardIdParam ?? null, days },
     stats: { totalTasks, completionRate, overdueTasks, activeBoards: boards.length },
-    statusDistribution: TASK_STATUSES.map((s) => ({
-      status: s.value,
-      label: s.label,
-      count: statusCounts.get(s.value as string) ?? 0,
-      color: s.bg,
-    })),
-    priorityDistribution: TASK_PRIORITIES.map((p) => ({
-      priority: p.value,
-      label: p.label,
-      count: priorityCounts.get(p.value as string) ?? 0,
-      color: p.color,
-    })),
-    boardPerformance: boards
-      .map((b) => {
-        const agg = perBoard.get(b.id) ?? { total: 0, done: 0 };
-        return {
-          boardId: b.id,
-          title: b.title,
-          color: b.color,
-          total: agg.total,
-          done: agg.done,
-          rate: agg.total === 0 ? 0 : Math.round((agg.done / agg.total) * 100),
-        };
-      })
-      .sort((a, b) => b.rate - a.rate),
+    statusDistribution: statusEntries.flatMap((entry) => {
+      const meta = TASK_STATUSES.find((s) => s.value === entry.key);
+      if (!meta) return [];
+      return [{ status: meta.value as TaskStatus, label: meta.label, count: entry.count, color: meta.bg }];
+    }),
+    priorityDistribution: priorityEntries.flatMap((entry) => {
+      const meta = TASK_PRIORITIES.find((p) => p.value === entry.key);
+      if (!meta) return [];
+      return [{ priority: meta.value as TaskPriority, label: meta.label, count: entry.count, color: meta.color }];
+    }),
+    boardPerformance: boards.map((b) => {
+      const agg = perBoard.get(b.id) ?? { total: 0, done: 0 };
+      return {
+        boardId: b.id,
+        title: b.title,
+        color: b.color,
+        total: agg.total,
+        done: agg.done,
+        rate: agg.total === 0 ? 0 : Math.round((agg.done / agg.total) * 100),
+      };
+    }),
   };
 
   return NextResponse.json({ ok: true, data });

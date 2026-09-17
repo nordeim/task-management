@@ -260,7 +260,7 @@ export function AnalyticsView() {
                           aria-label={`${bar.label}: ${bar.count} tasks, ${bar.pct}%`}
                         >
                           <span
-                            className="block h-full rounded-full transition-all duration-500"
+                            className="block h-full transition-all duration-500"
                             style={{ width: `${bar.pct}%`, backgroundColor: bar.color }}
                           />
                         </span>
@@ -308,7 +308,7 @@ export function AnalyticsView() {
                           aria-label={`${bar.label}: ${bar.count} tasks, ${bar.pct}%`}
                         >
                           <span
-                            className="block h-full rounded-full transition-all duration-500"
+                            className="block h-full transition-all duration-500"
                             style={{ width: `${bar.pct}%`, backgroundColor: bar.color }}
                           />
                         </span>
