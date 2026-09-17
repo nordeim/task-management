@@ -22,7 +22,7 @@ import { StatusCell } from "@/components/app/status-cell";
 import { PriorityCell } from "@/components/app/priority-cell";
 import { OwnerCell } from "@/components/app/owner-cell";
 import { DateCell } from "@/components/app/date-cell";
-import { groupSummary, visibleColumns, TASK_STATUSES, summaryDateLabel, summaryOwnerLabel } from "@/lib/domain";
+import { groupSummary, visibleColumns, TASK_STATUSES, summaryDateLabel, summaryOwnerLabel, statusHeaderDots } from "@/lib/domain";
 import { toast } from "@/hooks/use-toast";
 import type { ColumnKey, GroupDTO, TaskDTO, TaskPriority, TaskStatus, UserDTO } from "@/lib/domain";
 
@@ -500,6 +500,10 @@ function SummaryRow({
                   {p.count} {p.label}
                 </span>
               ))}
+              {/* Reference "+N" overflow: extra priority TYPES past three. */}
+              {summary.overflowCount > 0 && (
+                <span className="text-xs text-gray-400">+{summary.overflowCount}</span>
+              )}
               {summary.priorities.length === 0 && <span className="px-1">-</span>}
             </span>
           )}
@@ -667,6 +671,9 @@ function GroupZone({
   const done = section.tasks.filter((t) => t.status === "done").length;
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
   const collapsed = group?.collapsed ?? false;
+  // Reference group header (probed with 10 tasks): ONE DOT PER STATUS with
+  // its count, in first-encounter order — not a single total dot.
+  const dots = statusHeaderDots(section.tasks);
 
   // Droppable target for the whole rows area (drop = append at end).
   const { setNodeRef: setRowsNodeRef } = useDroppable({ id: `rows:${section.id}`, data: { section } });
@@ -704,10 +711,19 @@ function GroupZone({
         <div className="flex items-center gap-2">
           {total > 0 && (
             <>
-              {/* Reference renders a neutral grey count dot, not a section color. */}
-              <span className="flex items-center gap-1">
-                <span className="h-3 w-3 rounded-full bg-[#c4c4c4]" aria-hidden="true" />
-                <span className="text-xs text-[#676879]">{total}</span>
+              {/* Per-status dots with counts, first-encounter order. */}
+              <span className="flex items-center gap-2">
+                {dots.map((dot) => (
+                  <span key={dot.label} className="flex items-center gap-1">
+                    <span
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: dot.color }}
+                      aria-label={`${dot.count} ${dot.label}`}
+                      aria-hidden="true"
+                    />
+                    <span className="text-xs text-[#676879]">{dot.count}</span>
+                  </span>
+                ))}
               </span>
               <span className="flex items-center gap-2">
                 <span className="h-2 w-16 overflow-hidden rounded-full bg-[#E1E5F3]" aria-hidden="true">
