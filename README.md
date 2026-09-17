@@ -187,7 +187,7 @@ buttons.
 |-------|---------|-------|
 | Lint | `bun run lint` | ESLint 9 flat config, `eslint-config-next` defaults with **no rule weakening**; must exit 0 |
 | Types | `bun run typecheck` | `tsc --noEmit`; strict mode fully on; `skills/` and `docs/` excluded — the vendored skill library is outside every gate |
-| Unit tests | `bun run test` | Vitest, colocated `src/lib/*.test.ts` (69 tests) over the pure domain seams (status↔completed coupling, timeline window math, kanban grouping, distribution bars, saved-indicator format, task filter/sort pipeline, column visibility, group summary, relative time, reference palette, priority badge recipe, visibility labels, view-trigger labels, kanban card border token, group color options, route paths, 404 titlecase helper, recent-task time format) |
+| Unit tests | `bun run test` | Vitest, colocated `src/lib/*.test.ts` (87 tests) over the pure domain seams (status↔completed coupling, timeline window math, kanban grouping, distribution bars, saved-indicator format, task filter/sort pipeline, column visibility, group summary, relative time, reference palette, priority badge recipe, visibility labels, view-trigger labels, kanban card border token, group color options, route paths, nav active-state matcher, dynamic calendar weeks, summary date/owner labels, team avatar palettes, 404 titlecase helper, recent-task time format) |
 | Build | `bun run build` | Standalone production build |
 | Smoke (manual/agent-browser) | sign in as the demo user, edit a board, filter/hide/sort, drag a kanban card, reload | changes persist — verified against the database during development |
 

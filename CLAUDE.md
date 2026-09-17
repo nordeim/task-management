@@ -75,17 +75,26 @@ Follow this six-phase workflow for all implementation tasks:
 
 - **Next.js 16 App Router**: `cookies()`/`params`/`searchParams` are async —
   always `await`. Page files export only framework-known keys.
-- **Single route discipline**: the app is one client-side view switch inside
-  `src/app/page.tsx` behind the auth gate. API routes are the only other
-  surface. Do not introduce new pages.
+- **Real URL routes** (reference surface): `/` (dashboard), `/login`,
+  `/boards` (boards list), `/board?id=` (board detail), `/analytics` —
+  implemented as lowercase page routes in `src/app/(app)/` plus a route
+  group whose layout renders the app shell. Case-insensitive rewrites in
+  `next.config.ts` map the reference's capitalized spellings (`/Boards`,
+  `/Board`, `/Analytics`, `/Dashboard`) onto the same pages, and a
+  catch-all renders the reference's styled 404 for unknown paths. Nav
+  active state is an exact, case-sensitive `pathname === href` match
+  (`isNavActive` in `src/lib/domain.ts`).
 - **Client components by necessity**: `"use client"` on the interactive
   leaves; `src/app/api/**` stays server-only.
 - **React hooks lint is strict** (`react-hooks/set-state-in-effect`): data
   loads as `load().then(setState)` with a cancelled-flag cleanup; dialog forms
   mount fresh inside `<DialogContent>` instead of resetting via effect.
 - **Tailwind v4**: utility classes + theme tokens from `globals.css` only.
-  No JS theme config, no hardcoded hex outside `src/lib/domain.ts` and the
-  documented design tokens.
+  Grayscale tokens mirror the reference's shadcn defaults (`--primary`,
+  `--foreground`, `--accent`, `--ring` are neutral HSL values — Tailwind v4
+  passes raw `var()` values through, so they must be complete `hsl(…)`
+  colors); the app's blues are explicit `#0073EA` classes exactly like the
+  reference, which hardcodes blues and keeps shadcn's neutral tokens.
 - **shadcn/ui primitives first**: wrap/styled library components (Dialog,
   Popover, Select, Calendar, DropdownMenu, AlertDialog) instead of building
   custom equivalents.
@@ -255,7 +264,9 @@ sign-in; board sub-views are client state (URL unchanged, like the reference).
 
 ## Anti-Patterns to Avoid
 
-- New page routes or a router — the app is deliberately one client-switched route.
+- Adding routes outside the documented reference surface (`/`, `/login`,
+  `/boards`, `/board`, `/analytics`) — the route group + rewrites already
+  cover it; unknown paths must keep hitting the styled 404 catch-all.
 - Hardcoding status/priority/color strings in components instead of `src/lib/domain.ts`.
 - `useEffect(() => { if (open) reset() })` in dialogs — mount the form inside `<DialogContent>` instead.
 - Async `load()` helpers that call `setState` internally (lint blocks it; return the promise).

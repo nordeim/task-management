@@ -1,4 +1,4 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.5
+# Tuesday.com — Master Project Architecture Document (PAD) v1.6
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
@@ -7,6 +7,67 @@
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.6 (Parity Deep-Pass #4: Reference Drift & Token Architecture, 2026-09-17)
+
+- `[SYN]` Sixth parity pass (session 7, `docs/remediation-plan-session7.md`):
+  18 numbered gaps closed after re-probing the live reference. **Nav active
+  state is NEW reference drift** — the reference now highlights the current
+  route's link (`bg-[#E1E5F3] text-[#0073EA]`, desktop AND mobile) on an
+  exact, case-sensitive `pathname === href` match, so `/Boards` highlights
+  "My Boards" while `/`, `/Board?id=`, and lowercase rewrites highlight
+  nothing (`isNavActive` seam; the v1.4 "no active highlight" invariant is
+  obsolete). The **mobile menu is an inline collapsible panel** under the
+  header (not a Sheet): nav links, a `search-mobile` field, a user section
+  (40px gradient avatar, name/email, bell), and three footer links; the
+  hamburger is a `h-10 w-10` ghost on the RIGHT whose icon swaps Menu↔X.
+  Header user avatar is the 32px `bg-gradient-to-r from-[#0073EA]
+  to-[#00C875]` circle; the user menu is a plain "My Account" label +
+  separator + three standard-color items. **Team row + popover** re-architected
+  to the reference's hardcoded-team anatomy: three position-colored avatars
+  (`bg-blue/green/purple-500`, hover scale-110, `+N` `bg-gray-400` overflow)
+  with `bg-green-400` 1px-border presence dots driven by the new
+  `User.online` flag; a `w-80` "Team (N)" popover with Invite button and
+  member rows (id-mod-3 avatar colors via `memberPopoverPalette`, role from
+  the new `User.role` column, Mail/MessageSquare ghost buttons). Board table:
+  task-row rails carry `bg-white group-hover:bg-[#F5F6F8]` classes (handle
+  rail adds zone-level `cursor-grab opacity-0 group-hover:opacity-100 p-1`),
+  the action rail gains `border-l border-[#E1E5F3]`, the row action is a
+  small `Trash2 w-3 h-3 text-[#676879]` dropdown trigger (single
+  standard-color "Delete Task" item), the add-task row is fully transparent
+  with a `flex-1` title zone, and the **summary row aggregates** Owner
+  (Users icon + "N people") and Date (Calendar icon + "Sep 25" / "Sep 18 -
+  Sep 25" range; `summaryDateLabel`/`summaryOwnerLabel` seams). OwnerCell
+  renders the reference affordances ("Assign" / hover-fade blue-avatar
+  state). Calendar: dynamic week count (`calendarCells` — 35 cells for Sep
+  2026), bare number spans, `mt-1 max-h-[70px]` scrollable event lists,
+  solid out-month `bg-[#F9FAFB] text-gray-400`, weekday row
+  `text-[#676879] mb-2` with `border-b` cells, no per-cell add button.
+  Kanban aligned to the reference DOM: bare `flex gap-6 p-2 pb-8` scroller
+  (no outer card), `w-80` shadow columns with slate-gradient backgrounds,
+  `Ellipsis` icons (3 dots), dashed-border empty-column hints. Board-title
+  edit input matches the reference (`border-input h-8 w-64` spec).
+- `[TOK]` **Token architecture realigned**: the reference keeps shadcn's
+  neutral defaults and hardcodes every blue — the clone now does the same.
+  `--primary` is near-black `hsl(0 0% 9%)` (checkbox checked state renders
+  `#171717`), `--foreground`/`--card-foreground`/`--popover-foreground` are
+  `hsl(0 0% 3.9%)` (inherited button labels/calculator numbers render
+  `#0a0a0a`), `--accent`/`--secondary` `hsl(0 0% 96.1%)`, `--ring`/`--border`/
+  `--input` `hsl(0 0% 3.9% / 89.8%)`, `--muted-foreground` `#676879`; ~27
+  app-level `text/border/ring-primary` usages converted to explicit
+  `#0073EA`. ⚠ Tailwind v4 passes raw `var()` values through — token values
+  must be complete `hsl(…)` colors, never bare `0 0% 9%` triples.
+- `[GAT]` Unit suite 69→87 tests: `isNavActive`, `calendarCells`,
+  `summaryDateLabel`, `summaryOwnerLabel`, `teamAvatarPalette`,
+  `memberPopoverPalette` seams (TDD: red first). `UserDTO` gained
+  `role` + `online` (schema + seed + all API selects; seed mirrors the
+  reference's mock team mix — one Owner, two Editors, one offline Viewer).
+- `[DEV]` Deviations updated (§10): reference row-trash delete is
+  client-side-only (ours keeps the real API); reference user-menu items are
+  dead `/Board` links (ours toasts "not available"; Sign out works);
+  reference never updates SPA titles; `/Board` without id hangs on the
+  reference (ours renders the not-found card); team data is real users, not
+  the reference's hardcoded mock members.
 
 #### Revision Block — v1.5 (Parity Deep-Pass #3: Routing & Chrome, 2026-09-17)
 
@@ -661,6 +722,8 @@ erDiagram
       string name
       string passwordHash "salt:scrypt-hex"
       string avatarColor
+      string role "Owner|Editor|Viewer — team popover label"
+      boolean online "mock presence flag for team dots"
       datetime createdAt
       datetime updatedAt
     }
@@ -744,18 +807,27 @@ The client only ever sees DTOs.
 
 ### 5.2 Color Tokens
 
-| Token | Hex | WCAG (on white) | Usage |
+| Token | Value | WCAG (on white) | Usage |
 |-------|-----|-----------------|-------|
 | `--background` | `#f5f6f8` | — | App canvas |
 | `--card` | `#ffffff` | — | Surfaces |
-| `--foreground` | `#323338` | 12.6:1 | Primary text |
-| `--muted-foreground` | `#6b7385` | 5.0:1 | Secondary text (AA body) |
-| `--border` | `#e6e9ef` | — | Hairlines |
-| `--primary` | `#0073ea` | 4.6:1 | Buttons, links, focus rings (AA) |
+| `--foreground` | `hsl(0 0% 3.9%)` | 15.9:1 | Inherited text (button labels, calendar numbers) |
+| `--primary` | `hsl(0 0% 9%)` | 15.9:1 | Checkbox checked fill, shadcn default buttons |
+| `--muted-foreground` | `#676879` | 5.0:1 | Secondary text (AA body) |
+| `--accent` / `--secondary` | `hsl(0 0% 96.1%)` | — | Primitive hover tints |
+| `--border` / `--input` | `hsl(0 0% 89.8%)` | — | Hairlines, default input borders |
+| `--ring` | `hsl(0 0% 3.9%)` | — | Focus rings |
 | `--destructive` | `#e2445c` | 4.5:1 | Danger actions, overdue |
 | `--table-header-bg` | `#f5f6f8` | — | Column-header band |
 | `--table-track-bg` | `#e1e5f3` | — | Group progress track |
 | `--group-progress-fill` | `#00c875` | — | Group progress fill |
+
+The app blue is **not a token**: like the reference, every blue surface is an
+explicit `#0073EA` class (New Task button, nav links, picker checkmarks,
+focus accents, calendar today ring). Grayscale tokens mirror the reference's
+shadcn defaults (v1.6) — the earlier blue `--primary` leaked into inheriting
+primitives (checkbox fills, hover tints, focus rings) that the reference
+renders neutral.
 
 Status pills (probed 2026-09-17) are bg + **white text on all four**: Not
 Started `#c4c4c4`, Working on it `#ffcb00`, Done `#00c875`, Stuck `#e2445c`
@@ -778,10 +850,12 @@ green→teal activity). Board palette (6): `#0073ea`, `#00c875`, `#ffcb00`,
 `#e2445c`, `#a25ddb`, `#00d9ff`; group palette (7, `GROUP_COLOR_OPTIONS`):
 adds Gray `#676879` — each group's 4px table accent derives from its own
 swatch, not the board color. Kanban card left borders are the fixed neutral
-`#E1E5F3` (`KANBAN_CARD_BORDER`), not status-colored. The app nav has **no
-active-state highlight** (reference-accurate) and the shell has **no
-footer**. The header logo is a gradient tile (`#2563EB→#1D4ED8`) with a
-white briefcase icon; board cards tint the folder icon at 12.5% alpha of
+`#E1E5F3` (`KANBAN_CARD_BORDER`), not status-colored. The app nav
+**highlights the active route** (`bg-[#E1E5F3] text-[#0073EA]`, exact
+case-sensitive pathname match — reference drift re-probed v1.6) and the
+shell has **no footer**. The header logo is a gradient tile (`#2563EB→#1D4ED8`)
+with a white briefcase icon and an always-visible `text-xl font-bold
+text-[#323338]` wordmark; board cards tint the folder icon at 12.5% alpha of
 the board color. Board chrome tokens (v1.5): header meta `#A0A0A0`,
 sub-row controls `#676879` on `hover:#E1E5F3`, favored state `#ca8a04`,
 right buttons `#0a0a0a` on `1px #E1E5F3` h-32px, calendar today
@@ -1002,9 +1076,13 @@ bun run dev                # http://localhost:3000
 | Info | Reference analytics reports Medium priority for a Low task | reference-side inconsistency | Deliberate deviation — we count actual priorities |
 | Info | Reference boards-page Filter button is inert | reference-side dead control | Parity as of v1.5 — our Filter button matches (inert); favorites toggle from the board header where the reference actually works |
 | Info | Reference popovers stay mounted after Escape | focus-management quirk | Deliberate deviation — standard Radix dismiss |
-| Info | Presence dots are decorative (aria-hidden) | reference renders green dots on every avatar | Parity — rendered as pure chrome, never presented as real presence data |
+| Info | Presence dots are `User.online` mock data | reference hardcodes presence on a mock team | Parity — dots render per-user; the flag is seeded demo data, never real presence |
 | Info | Reference 'Unassigned' view renders an empty div | reference-side quirk | Deliberate deviation — we keep a helpful empty state |
 | Info | Reference blue header strip appears on scroll (threshold ~32px) | binary marker, not a progress bar | Parity as of v1.5 — scaleX(0)→full at window.scrollY ≥ 32 |
+| Info | Reference row-trash delete is client-side only (task reappears on reload) | reference-side broken control | Deliberate deviation — our Delete Task calls the API |
+| Info | Reference user-menu items are dead `/Board` links; Sign out clears cookies then dead-ends | reference-side dead UI | Deliberate deviation — toasts for Profile/Settings, working Sign out |
+| Info | Reference never updates document.title on SPA navigation | stale titles on the reference | Deliberate deviation — Next.js metadata keeps titles correct |
+| Info | Reference `/Board` without id hangs on "Loading board…" forever | reference-side defect | Deliberate deviation — we render the Board-not-found card |
 
 ---
 
@@ -1017,15 +1095,15 @@ bun run dev                # http://localhost:3000
 | `src/app/[...path]/page.tsx` | 30 | Styled 404 catch-all with server-rendered titlecased titles |
 | `src/components/app/app-shell.tsx` | 112 | Shell: flex column, nav + main scroll container, AuthContext + AppProvider |
 | `src/components/app/routes/*.tsx` | 20 ea | Route wrappers (dashboard/boards/board/analytics/login) |
-| `src/components/app/board-view.tsx` | 1208 | Board detail: sticky chrome (gray wrapper + white bar + has-scrolled strip), one-row header, toolbar card, 5 views, all mutations |
+| `src/components/app/board-view.tsx` | 1280 | Board detail: sticky chrome (gray wrapper + white bar + has-scrolled strip), one-row header, team row + popover, toolbar card, 5 views, all mutations |
 | `src/components/app/boards-view.tsx` | 452 | Boards grid/list cards (color bar / stripe, Options footer), search, inert reference Filter button, edit/delete flows |
 | `src/components/app/dashboard-view.tsx` | 507 | Home: reference KPI perspective cards, hero, RB gradient card, quick actions, recent-TASKS activity |
 | `src/components/app/analytics-view.tsx` | 385 | Filters, stat cards, #171717 translateX completion fill, distributions, gray-50 performance rows |
-| `src/components/app/board-table.tsx` | 855 | Main Table: ONE card + per-group scroll containers, sticky rails, settings menus, summary row, empty-group flow |
-| `src/components/app/board-kanban.tsx` | 320 | @dnd-kit columns grouped by Status or People (drag assigns owner); neutral-border cards; List-icon Group-by select |
+| `src/components/app/board-table.tsx` | 875 | Main Table: ONE card + per-group scroll containers, sticky rails, Trash2 row actions, summary aggregates, empty-group flow |
+| `src/components/app/board-kanban.tsx` | 330 | @dnd-kit columns grouped by Status or People (drag assigns owner); reference w-80 shadow columns, Ellipsis icons, dashed empty hints |
 | `src/components/app/board-timeline.tsx` | 203 | Gantt timeline: title-left/nav-right header, 40px day columns, no today highlight |
 | `src/components/app/board-calendar.tsx` | 147 | Sun-first month grid, p-4 header, white bordered due-date chips, ring-inset today |
-| `src/components/app/app-header.tsx` | 329 | Nav (no active highlight), gradient logo, "Search everything…", honest notifications/help/settings, user menu, mobile drawer |
+| `src/components/app/app-header.tsx` | 430 | Nav (exact-match active state), gradient logo + wordmark, search, honest notifications/help/settings, gradient avatar + "My Account" menu, inline mobile panel |
 | `src/components/app/login-view.tsx` | 238 | Login/signup: slate-900 h-12 sign-in, slate-50/50 inputs, split footer links |
 | `src/components/app/not-found-view.tsx` | 39 | Styled slate 404 (404 / divider / quoted path / Go Home) |
 | `src/components/app/board-not-found.tsx` | 29 | In-app "Board not found" card for /Board with missing/unknown id |
@@ -1033,15 +1111,15 @@ bun run dev                # http://localhost:3000
 | `src/components/app/create-task-dialog.tsx` | 173 | Task creation: sm:max-w-lg h-12 inputs, group Select with color dots |
 | `src/components/app/create-group-dialog.tsx` | 158 | Add New Group: title + 7 `GROUP_COLOR_OPTIONS` swatches (fresh-mount form pattern) |
 | `src/components/app/edit-board-dialog.tsx` | 195 | Board editing: title/description/colors/visibility (fresh-mount form pattern) |
-| `src/components/app/owner-cell.tsx` | 155 | Searchable "Enter name…" assignment popover |
+| `src/components/app/owner-cell.tsx` | 160 | "Assign" affordance / blue-avatar set state + searchable "Enter name…" assignment popover |
 | `src/components/app/date-cell.tsx` | 108 | Native date input, noon storage, plain set-state text, overdue red chip |
-| `src/lib/domain.ts` | 520 | Vocabulary (incl. `ROUTE_PATHS`, `VIEW_TRIGGER_LABELS`, `KANBAN_CARD_BORDER`, `GROUP_COLOR_OPTIONS`), DTOs, ActionResult, pure helpers — the contract file |
-| `src/lib/domain.test.ts` | 573 | Vitest suite over the pure seams (69 tests) |
+| `src/lib/domain.ts` | 625 | Vocabulary (incl. `ROUTE_PATHS`, `isNavActive`, `calendarCells`, summary/palette seams), DTOs, ActionResult, pure helpers — the contract file |
+| `src/lib/domain.test.ts` | 700 | Vitest suite over the pure seams (87 tests) |
 | `src/lib/auth.ts` | 79 | scrypt + sessions |
 | `src/lib/api-client.ts` | 31 | Typed fetch that never throws |
-| `src/app/globals.css` | 180 | Theme tokens (both modes) + deco discs + global styles |
+| `src/app/globals.css` | 185 | Theme tokens (shadcn-neutral grayscale + explicit blues, both modes) + deco discs + global styles |
 | `prisma/schema.prisma` | 117 | The six models (Group carries its own `color`) |
-| `scripts/seed.ts` | 285 | Idempotent demo dataset (demo user `sepnetflix2023`, per-group colors) |
+| `scripts/seed.ts` | 295 | Idempotent demo dataset (demo user `sepnetflix2023`, per-group colors, team roles/presence) |
 
 ---
 
