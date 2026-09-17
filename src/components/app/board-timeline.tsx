@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { addDays, isSameDay, subDays, subMonths, addMonths } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { timelineRange, statusMeta } from "@/lib/domain";
+import { timelineRange } from "@/lib/domain";
 import type { TaskDTO, TimelineMode } from "@/lib/domain";
 
 const MODES: { value: TimelineMode; label: string }[] = [
@@ -15,13 +15,18 @@ const MODES: { value: TimelineMode; label: string }[] = [
 
 interface BoardTimelineProps {
   tasks: TaskDTO[];
+  /** Board color — the deviation bars follow the reference's captured bar spec (board-color). */
+  boardColor: string;
   onAddTask: () => void;
 }
 
 /**
- * Gantt-style timeline — day columns with status-colored bars pinned to each
- * task's due date, zoomable Day/Week/Month like the reference app. Tasks
- * without a due date are listed below the grid so nothing is silently lost.
+ * Gantt-style timeline — day columns with board-colored due-date bars
+ * (deliberate deviation: the reference never renders bars — its bar
+ * component requires a literal `data.startDate`; ours follow its captured
+ * bar spec: 28px rounded, board-color, 0.9 opacity, 40px/day). Zoomable
+ * Day/Week/Month like the reference app. Tasks without a due date are
+ * listed below the grid so nothing is silently lost.
  *
  * Reference chrome (probed 2026-09-17): the toolbar's right cluster is
  * `flex items-center gap-1` with a NATIVE <select> zoom
@@ -32,7 +37,7 @@ interface BoardTimelineProps {
  * viewport-independent). With no scheduled tasks the day header row still
  * renders, followed by a `p-8 text-center text-gray-500` message.
  */
-export function BoardTimeline({ tasks, onAddTask }: BoardTimelineProps) {
+export function BoardTimeline({ tasks, boardColor, onAddTask }: BoardTimelineProps) {
   const [mode, setMode] = useState<TimelineMode>("week");
   const [cursor, setCursor] = useState(() => new Date());
 
@@ -94,7 +99,7 @@ export function BoardTimeline({ tasks, onAddTask }: BoardTimelineProps) {
       </div>
 
       <div className="overflow-x-auto p-0">
-        <div className="min-w-fit">
+          <div className="min-w-fit">
           {/* Day header row (reference): gray-50 strip, 200px Task column,
               day cells with stacked weekday/number, border-r on every column. */}
           <div className="sticky top-[53px] z-[5] flex border-b bg-gray-50">
@@ -114,53 +119,55 @@ export function BoardTimeline({ tasks, onAddTask }: BoardTimelineProps) {
             ))}
           </div>
 
-          {/* Task rows: one bar per task, pinned to its due-date column */}
+          {/* Task rows (reference anatomy, probed 2026-09-18): a `flex
+              border-b` row with a FIXED 32px inline height; the label is a
+              plain `w-[200px] flex-shrink-0 p-2 border-r text-xs truncate`
+              div (static — no sticky, no status dot, no completed dimming,
+              near-black text, title attribute); the body is ONE
+              `flex-grow relative h-full` container with NO per-day cells —
+              the day columns exist only in the header row. Our due-date
+              bars (deliberate deviation) render absolutely inside that
+              single container at dayIndex * columnWidth. */}
           {scheduled.length > 0 ? (
-            <ul className="divide-y">
+            <div>
               {scheduled.map((task) => {
                 const due = task.dueDate ? new Date(task.dueDate) : null;
-                const meta = statusMeta(task.status);
                 const dayIndex = due
                   ? range.days.findIndex((day) => isSameDay(day, due))
                   : -1;
+                const columnPx =
+                  mode === "day" ? 320 : mode === "month" ? 171.43 : 40;
                 return (
-                  <li key={task.id} className="flex items-stretch hover:bg-secondary/20">
-                    <div className="sticky left-0 z-[5] flex w-[200px] shrink-0 items-center gap-2 border-r bg-card px-2 py-2">
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: meta.bg }}
-                        aria-hidden="true"
-                      />
-                      <span
-                        className={`truncate text-sm ${task.completed ? "text-muted-foreground" : ""}`}
-                        title={task.title}
-                      >
-                        {task.title}
-                      </span>
+                  <div key={task.id} className="flex border-b" style={{ height: 32 }}>
+                    <div
+                      className="w-[200px] flex-shrink-0 truncate border-r p-2 text-xs"
+                      title={task.title}
+                    >
+                      {task.title}
                     </div>
-                    <div className="relative flex">
-                      {range.days.map((day, i) => (
-                        <div
-                          key={day.toISOString()}
-                          className={`${columnWidth} border-r border-border/40`}
-                          aria-hidden={i === dayIndex ? undefined : true}
-                        >
-                          {i === dayIndex && (
-                            <span
-                              className="mx-1 my-1.5 block truncate rounded-md px-2 py-1 text-[11px] font-medium"
-                              style={{ backgroundColor: meta.bg, color: meta.text }}
-                              title={task.title}
-                            >
-                              {task.title}
-                            </span>
-                          )}
-                        </div>
-                      ))}
+                    <div className="relative h-full flex-grow">
+                      {/* Deviation bar (the reference never renders bars — its
+                          bar component reads a literal `data.startDate` no
+                          column model produces). Ours keep the reference's
+                          captured bar spec: 28px rounded, board-color, 0.9
+                          opacity, 40px/day. */}
+                      {dayIndex >= 0 && (
+                        <span
+                          className="absolute top-1/2 block h-7 -translate-y-1/2 rounded-md opacity-90"
+                          style={{
+                            left: dayIndex * columnPx + 4,
+                            width: columnPx - 8,
+                            backgroundColor: boardColor,
+                          }}
+                          title={`${task.title} — due ${due ? due.toLocaleDateString() : ""}`}
+                          aria-label={`${task.title} due ${due ? due.toLocaleDateString() : ""}`}
+                        />
+                      )}
                     </div>
-                  </li>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           ) : (
             /* Reference empty state: the header row above still renders,
                followed by this centered gray note. */
