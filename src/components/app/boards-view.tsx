@@ -283,7 +283,7 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
                     </span>
                   </div>
 
-                  <h3 className="mb-2 text-lg font-semibold text-gray-800 transition-colors group-hover:text-primary">
+                  <h3 className="mb-2 text-lg font-semibold text-gray-800 transition-colors group-hover:text-[#0073EA]">
                     {board.title}
                   </h3>
 
@@ -359,7 +359,7 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
                           <Folder className="h-4 w-4" style={{ color: board.color }} />
                         </span>
                         <span className="min-w-0 flex-grow">
-                          <span className="block truncate text-sm font-semibold text-gray-800 transition-colors group-hover:text-primary">
+                          <span className="block truncate text-sm font-semibold text-gray-800 transition-colors group-hover:text-[#0073EA]">
                             {board.title}
                           </span>
                           <span className="mt-0.5 block truncate text-xs text-gray-500">

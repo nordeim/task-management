@@ -44,26 +44,30 @@
 
 :root {
   --radius: 0.5rem;
-  /* Tuesday.com palette — matches the reference app's light, airy surfaces. */
+  /* Tuesday.com palette — matches the reference app's light, airy surfaces.
+     Grayscale tokens mirror the reference's shadcn defaults (probed
+     2026-09-17): --primary 0 0% 9%, --foreground 0 0% 3.9%, --accent
+     0 0% 96.1% — every blue in the app is hardcoded #0073EA exactly like
+     the reference, which keeps shadcn's neutral tokens. */
   --background: #f5f6f8;
-  --foreground: #323338;
+  --foreground: hsl(0 0% 3.9%);
   --card: #ffffff;
-  --card-foreground: #323338;
+  --card-foreground: hsl(0 0% 3.9%);
   --popover: #ffffff;
-  --popover-foreground: #323338;
-  --primary: #0073ea;
-  --primary-foreground: #ffffff;
-  --secondary: #f0f1f2;
-  --secondary-foreground: #323338;
+  --popover-foreground: hsl(0 0% 3.9%);
+  --primary: hsl(0 0% 9%);
+  --primary-foreground: hsl(0 0% 98%);
+  --secondary: hsl(0 0% 96.1%);
+  --secondary-foreground: hsl(0 0% 9%);
   --muted: #f0f1f2;
-  --muted-foreground: #6b7385;
-  --accent: #e6f2ff;
-  --accent-foreground: #0073ea;
+  --muted-foreground: #676879;
+  --accent: hsl(0 0% 96.1%);
+  --accent-foreground: hsl(0 0% 9%);
   --destructive: #e2445c;
   --destructive-foreground: #ffffff;
-  --border: #e6e9ef;
-  --input: #d0d4e1;
-  --ring: #0073ea;
+  --border: hsl(0 0% 89.8%);
+  --input: hsl(0 0% 89.8%);
+  --ring: hsl(0 0% 3.9%);
   /* Reference chrome tokens (probed from the live app 2026-09-16). */
   --table-header-bg: #f5f6f8;
   --table-track-bg: #e1e5f3;
@@ -90,19 +94,19 @@
   --card-foreground: #e8e9eb;
   --popover: #1c1d1f;
   --popover-foreground: #e8e9eb;
-  --primary: #0073ea;
-  --primary-foreground: #ffffff;
+  --primary: hsl(0 0% 98%);
+  --primary-foreground: hsl(0 0% 9%);
   --secondary: #2a2b2e;
   --secondary-foreground: #e8e9eb;
   --muted: #2a2b2e;
   --muted-foreground: #9b9da3;
-  --accent: #0e2a47;
-  --accent-foreground: #79aef0;
+  --accent: #2a2b2e;
+  --accent-foreground: #e8e9eb;
   --destructive: #e2445c;
   --destructive-foreground: #ffffff;
   --border: #2f3033;
   --input: #3a3b3f;
-  --ring: #0073ea;
+  --ring: hsl(0 0% 3.9%);
   --chart-1: #0073ea;
   --chart-2: #00ca72;
   --chart-3: #ff642e;

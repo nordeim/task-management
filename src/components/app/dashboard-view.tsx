@@ -319,7 +319,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
             <button
               type="button"
               onClick={() => navigate("boards")}
-              className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+              className="flex items-center gap-1 text-sm font-medium text-[#0073EA] hover:underline"
             >
               View All <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </button>

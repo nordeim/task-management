@@ -56,7 +56,7 @@ export function StatusCell({
                     />
                     {status.label}
                   </span>
-                  {selected && <Check className="h-4 w-4 text-primary" />}
+                  {selected && <Check className="h-4 w-4 text-[#0073EA]" />}
                 </button>
               </li>
             );
