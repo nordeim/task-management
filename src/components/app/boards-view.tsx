@@ -107,135 +107,160 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-7xl p-6">
-        <Card>
-          <CardContent className="py-10 text-center">
-            <p className="mb-2 font-medium">Could not load your boards</p>
-            <p className="mb-4 text-sm text-muted-foreground">{error}</p>
-            <Button onClick={() => load().then(applyResult)}>Try again</Button>
-          </CardContent>
-        </Card>
+      <div className="p-4 md:p-6">
+        <div className="mx-auto max-w-7xl">
+          <Card>
+            <CardContent className="py-10 text-center">
+              <p className="mb-2 font-medium">Could not load your boards</p>
+              <p className="mb-4 text-sm text-muted-foreground">{error}</p>
+              <Button onClick={() => load().then(applyResult)}>Try again</Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">My Boards</h1>
-          <p className="mt-1 text-muted-foreground">Manage your projects and workflows</p>
-        </div>
-        <Button size="lg" className="font-semibold" onClick={onCreateBoard}>
-          <Plus className="mr-1 h-4 w-4" /> Create Board
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-52 flex-1 sm:max-w-xs">
-          <Input
-            type="search"
-            aria-label="Search boards"
-            placeholder="Search boards..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-9 pl-9"
-          />
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        </div>
-        <div className="flex items-center rounded-lg border bg-card p-0.5" role="group" aria-label="Layout">
-          <button
-            type="button"
-            aria-pressed={layout === "grid"}
-            aria-label="Grid layout"
-            onClick={() => setLayout("grid")}
-            className={`rounded-md p-1.5 ${layout === "grid" ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+    // Reference shell (probed 2026-09-17): p-4 md:p-6 page padding OUTSIDE
+    // the max-w-7xl container.
+    <div className="p-4 md:p-6">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-6 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-[#323338] md:text-3xl">My Boards</h1>
+            <p className="mt-1 text-sm text-[#676879]">Manage your projects and workflows</p>
+          </div>
+          <Button
+            className="h-10 rounded-lg bg-gradient-to-r from-[#0073EA] to-[#0056B3] px-5 py-2 text-sm font-medium shadow-md transition-all hover:from-[#0056B3] hover:to-[#0073EA] hover:shadow-lg"
+            onClick={onCreateBoard}
           >
-            <Grid3x3 className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-pressed={layout === "list"}
-            aria-label="List layout"
-            onClick={() => setLayout("list")}
-            className={`rounded-md p-1.5 ${layout === "list" ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            <List className="h-4 w-4" />
-          </button>
+            <Plus className="mr-2 h-4 w-4" /> Create Board
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className={filter === "favorites" ? "border-primary text-primary" : ""}
-          onClick={() => setFilter((f) => (f === "favorites" ? "all" : "favorites"))}
-        >
-          <Star className={`mr-1 h-4 w-4 ${filter === "favorites" ? "fill-primary" : ""}`} />
-          Favorites
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => navigate("analytics")}>
-          <ChartNoAxesColumnIncreasing className="mr-1 h-4 w-4" /> Analytics
-        </Button>
-      </div>
 
-      {!visible ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-44 w-full rounded-xl" />
-          ))}
+        {/* Toolbar (reference): search left, toggles + actions right. */}
+        <div className="mb-6 flex flex-col gap-3 md:flex-row">
+          <div className="relative max-w-md flex-1">
+            <Input
+              type="search"
+              aria-label="Search boards"
+              placeholder="Search boards..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-10 rounded-lg border-[#E1E5F3] bg-white pl-9 text-sm focus:ring-2 focus:ring-[#0073EA]/20"
+            />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#676879]" />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              aria-pressed={layout === "grid"}
+              aria-label="Grid layout"
+              onClick={() => setLayout("grid")}
+              className={
+                layout === "grid"
+                  ? "h-10 rounded-lg bg-[#0073EA] px-3 py-2 text-white shadow hover:bg-[#0056B3]"
+                  : "h-10 rounded-lg border-[#E1E5F3] bg-background px-3 py-2 text-[#323338] shadow-sm hover:bg-accent hover:text-accent-foreground"
+              }
+            >
+              <Grid3x3 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={layout === "list" ? "default" : "outline"}
+              aria-pressed={layout === "list"}
+              aria-label="List layout"
+              onClick={() => setLayout("list")}
+              className={
+                layout === "list"
+                  ? "h-10 rounded-lg bg-[#0073EA] px-3 py-2 text-white shadow hover:bg-[#0056B3]"
+                  : "h-10 rounded-lg border-[#E1E5F3] bg-background px-3 py-2 text-[#323338] shadow-sm hover:bg-accent hover:text-accent-foreground"
+              }
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              className="h-10 rounded-lg border-[#E1E5F3] bg-background px-3 py-2 text-sm text-[#323338] shadow-sm hover:bg-accent hover:text-accent-foreground"
+              onClick={() => navigate("analytics")}
+            >
+              <ChartNoAxesColumnIncreasing className="mr-1.5 h-4 w-4" /> Analytics
+            </Button>
+            <Button
+              variant="outline"
+              className={`h-10 rounded-lg border-[#E1E5F3] bg-background px-3 py-2 text-sm shadow-sm hover:bg-accent hover:text-accent-foreground ${
+                filter === "favorites" ? "text-[#0073EA]" : "text-[#323338]"
+              }`}
+              onClick={() => setFilter((f) => (f === "favorites" ? "all" : "favorites"))}
+            >
+              <Star className={`mr-1.5 h-4 w-4 ${filter === "favorites" ? "fill-[#0073EA]" : ""}`} />
+              Favorites
+            </Button>
+          </div>
         </div>
-      ) : visible.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center py-16 text-center">
-            <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-secondary text-muted-foreground">
-              <Folder className="h-7 w-7" />
-            </span>
-            {boards && boards.length > 0 ? (
-              <>
-                <p className="font-semibold">No boards match your filters</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Try a different search or clear the favorites filter.
-                </p>
-                <Button
-                  variant="outline"
-                  className="mt-5"
-                  onClick={() => {
-                    setSearch("");
-                    setFilter("all");
-                  }}
-                >
-                  Clear filters
-                </Button>
-              </>
-            ) : (
-              <>
-                <p className="font-semibold">No boards yet</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Create your first board to start organizing your work
-                </p>
-                <Button size="lg" className="mt-5 font-semibold" onClick={onCreateBoard}>
-                  <Plus className="mr-1 h-4 w-4" /> Create Your First Board
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div
-          className={
-            layout === "grid"
-              ? "grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
-              : "flex flex-col gap-3"
-          }
-        >
-          {visible.map((board) => {
-            return (
-              <Card
+
+        {!visible ? (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-48 w-full rounded-xl" />
+            ))}
+          </div>
+        ) : visible.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center py-16 text-center">
+              <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-secondary text-muted-foreground">
+                <Folder className="h-7 w-7" />
+              </span>
+              {boards && boards.length > 0 ? (
+                <>
+                  <p className="font-semibold">No boards match your filters</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Try a different search or clear the favorites filter.
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="mt-5"
+                    onClick={() => {
+                      setSearch("");
+                      setFilter("all");
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold">No boards yet</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Create your first board to start organizing your work
+                  </p>
+                  <Button size="lg" className="mt-5 font-semibold" onClick={onCreateBoard}>
+                    <Plus className="mr-1 h-4 w-4" /> Create Your First Board
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        ) : layout === "grid" ? (
+          /* Reference grid cards (probed 2026-09-17): color bar on top,
+             p-5 body, timestamp row mt-auto pt-4 border-t, and a p-2
+             bg-gray-50/50 footer zone with a full-width centered Options. */
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {visible.map((board) => (
+              <div
                 key={board.id}
-                className="group cursor-pointer transition-shadow hover:shadow-lg"
-                onClick={() => navigate("board", board.id)}
+                className="group flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white text-card-foreground shadow transition-all duration-300 hover:shadow-lg"
               >
-                <CardContent className="p-5">
-                  {/* Reference card: tinted folder tile top-left, visibility badge top-right. */}
+                <div className="h-2 w-full" style={{ backgroundColor: board.color }} aria-hidden="true" />
+                <div
+                  role="link"
+                  tabIndex={0}
+                  aria-label={`Open ${board.title}`}
+                  onClick={() => navigate("board", board.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") navigate("board", board.id);
+                  }}
+                  className="flex-grow block cursor-pointer p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0073EA]"
+                >
                   <div className="mb-4 flex items-start justify-between gap-2">
                     <span
                       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
@@ -260,83 +285,172 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
                     </span>
                   </div>
 
-                  <h3 className="mb-2 text-lg font-semibold leading-tight transition-colors group-hover:text-primary">
+                  <h3 className="mb-2 text-lg font-semibold text-gray-800 transition-colors group-hover:text-primary">
                     {board.title}
                   </h3>
 
-                  {board.description ? (
-                    <p className="mb-5 line-clamp-2 text-sm text-muted-foreground">
-                      {board.description}
-                    </p>
-                  ) : (
-                    <p className="mb-5 line-clamp-2 text-sm text-muted-foreground/70">No description</p>
-                  )}
+                  <p className="mb-5 line-clamp-2 flex-grow text-sm text-gray-600">
+                    {board.description || "No description"}
+                  </p>
 
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="mt-auto flex items-center justify-between border-t border-gray-100 pt-4 text-xs text-gray-500">
                     <span className="flex items-center gap-1.5">
                       {board.isFavorite && (
                         <Star className="h-3 w-3 fill-[#ca8a04] text-[#ca8a04]" aria-label="Favorite" />
                       )}
                       {relativeBoardTime(new Date(board.updatedAt))}
                     </span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label={`Options for ${board.title}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenuItem onClick={() => setEditTarget(board)}>
-                          <Pencil className="mr-2 h-4 w-4" /> Edit Board
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => setDeleteTarget(board)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete Board
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                </div>
+                <div className="border-t border-gray-100 bg-gray-50/50 p-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="h-8 w-full justify-center rounded-md px-3 text-xs font-medium text-gray-600 hover:bg-gray-200/70 hover:text-gray-800"
+                      >
+                        <MoreHorizontal className="h-4 w-4" /> Options
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setEditTarget(board)}>
+                        <Pencil className="mr-2 h-4 w-4" /> Edit Board
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setDeleteTarget(board)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete Board
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* Reference list cards (probed 2026-09-17): rounded-lg row with a
+             w-1.5 color stripe, p-3 body, folder tile, truncated title/desc,
+             badge + timestamp + kebab on the right. */
+          <div className="space-y-3">
+            {visible.map((board) => (
+              <div
+                key={board.id}
+                className="group overflow-hidden rounded-lg border border-gray-200 bg-white text-card-foreground shadow transition-all duration-200 hover:shadow-md"
+              >
+                <div className="flex items-center">
+                  <div className="h-16 w-1.5 shrink-0" style={{ backgroundColor: board.color }} aria-hidden="true" />
+                  <div className="flex-1 p-3">
+                    <div className="flex items-center justify-between">
+                      <div
+                        role="link"
+                        tabIndex={0}
+                        aria-label={`Open ${board.title}`}
+                        onClick={() => navigate("board", board.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") navigate("board", board.id);
+                        }}
+                        className="flex min-w-0 flex-grow cursor-pointer items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0073EA] focus-visible:rounded-md"
+                      >
+                        <span
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
+                          style={{ backgroundColor: `${board.color}20` }}
+                          aria-hidden="true"
+                        >
+                          <Folder className="h-4 w-4" style={{ color: board.color }} />
+                        </span>
+                        <span className="min-w-0 flex-grow">
+                          <span className="block truncate text-sm font-semibold text-gray-800 transition-colors group-hover:text-primary">
+                            {board.title}
+                          </span>
+                          <span className="mt-0.5 block truncate text-xs text-gray-500">
+                            {board.description || "No description"}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="ml-3 flex shrink-0 items-center gap-2">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            board.visibility === "private"
+                              ? "bg-rose-100 text-rose-700"
+                              : "bg-emerald-100 text-emerald-700"
+                          }`}
+                        >
+                          {board.visibility === "private" ? (
+                            <Lock className="h-2.5 w-2.5" aria-hidden="true" />
+                          ) : (
+                            <Globe className="h-2.5 w-2.5" aria-hidden="true" />
+                          )}
+                          {visibilityLabel(board.visibility, true)}
+                        </span>
+                        <div className="hidden text-right sm:block">
+                          <p className="text-xs text-gray-400">
+                            {board.isFavorite && (
+                              <Star className="mr-1 inline h-3 w-3 fill-[#ca8a04] text-[#ca8a04]" aria-label="Favorite" />
+                            )}
+                            {relativeBoardTime(new Date(board.updatedAt))}
+                          </p>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label={`Options for ${board.title}`}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-accent-foreground"
+                            >
+                              <MoreHorizontal className="h-3.5 w-3.5" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setEditTarget(board)}>
+                              <Pencil className="mr-2 h-4 w-4" /> Edit Board
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setDeleteTarget(board)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete Board
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-      <EditBoardDialog
-        board={editTarget}
-        onOpenChange={(open) => !open && setEditTarget(null)}
-        onSaved={() => load().then(applyResult)}
-      />
+        <EditBoardDialog
+          board={editTarget}
+          onOpenChange={(open) => !open && setEditTarget(null)}
+          onSaved={() => load().then(applyResult)}
+        />
 
-      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete &quot;{deleteTarget?.title}&quot;?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently removes the board, its groups, and all tasks inside it. This action
-              cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={() => void confirmDelete()}
-            >
-              Delete board
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete &quot;{deleteTarget?.title}&quot;?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This permanently removes the board, its groups, and all tasks inside it. This action
+                cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-white hover:bg-destructive/90"
+                onClick={() => void confirmDelete()}
+              >
+                Delete board
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 }

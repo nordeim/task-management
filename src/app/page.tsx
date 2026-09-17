@@ -29,11 +29,8 @@ function AuthedShell() {
         {view.name === "board" && view.boardId && <BoardView key={view.boardId} boardId={view.boardId} />}
         {view.name === "analytics" && <AnalyticsView />}
       </main>
-      <footer className="mt-auto border-t bg-card py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-        <p className="text-center text-xs text-muted-foreground">
-          Tuesday.com — boards, tasks, and teamwork in one place.
-        </p>
-      </footer>
+      {/* The reference has no app footer (verified: document.querySelectorAll
+          ('footer').length === 0) — nothing renders below the main region. */}
       <CreateBoardDialog
         open={createOpen}
         onOpenChange={setCreateOpen}

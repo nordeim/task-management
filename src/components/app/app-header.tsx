@@ -91,7 +91,7 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-card">
+    <header className="sticky top-0 z-50 border-b bg-card shadow-sm">
       <div className="mx-auto flex h-16 max-w-[1400px] items-center justify-between gap-4 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-6 lg:gap-10">
           {/* Reference logo: gradient tile with a white briefcase. */}
@@ -121,11 +121,7 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
                   type="button"
                   onClick={() => navigate(item.view)}
                   aria-current={active ? "page" : undefined}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                    active
-                      ? "bg-[var(--nav-active-bg)] text-primary"
-                      : "text-foreground hover:bg-[var(--nav-hover-bg)]"
-                  }`}
+                  className="rounded-md px-3 py-2 text-sm font-medium text-[#323338] transition-colors hover:bg-[#F5F6F8] hover:text-[#0073EA]"
                 >
                   {item.label}
                 </button>
@@ -165,11 +161,7 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
                       type="button"
                       onClick={() => navigate(item.view)}
                       aria-current={active ? "page" : undefined}
-                      className={`rounded-md px-3 py-2 text-left text-sm font-medium transition-colors ${
-                        active
-                          ? "bg-[var(--nav-active-bg)] text-primary"
-                          : "text-foreground hover:bg-[var(--nav-hover-bg)]"
-                      }`}
+                      className="rounded-md px-3 py-2 text-left text-sm font-medium text-[#323338] transition-colors hover:bg-[#F5F6F8] hover:text-[#0073EA]"
                     >
                       {item.label}
                     </button>

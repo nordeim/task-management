@@ -65,8 +65,6 @@
   --input: #d0d4e1;
   --ring: #0073ea;
   /* Reference chrome tokens (probed from the live app 2026-09-16). */
-  --nav-active-bg: #e1e5f3;
-  --nav-hover-bg: #f5f6f8;
   --table-header-bg: #f5f6f8;
   --table-track-bg: #e1e5f3;
   --group-progress-fill: #00c875;
