@@ -1,19 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { Check } from "lucide-react";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import { TASK_PRIORITIES, priorityBadgeStyle } from "@/lib/domain";
 import type { TaskPriority } from "@/lib/domain";
 
 /**
- * The reference (2026-09-17 probe) renders priority as a tinted text badge —
- * background at 12.5% alpha over the priority color, label as text — inside a
- * borderless combobox trigger. The recipe lives in `priorityBadgeStyle`.
+ * The reference's PriorityCell (decompiled `xZ` — the live boards use the
+ * dropdown-type renderer): ALWAYS a shadcn Select whose trigger is a bare
+ * `h-full w-full p-1 border-none bg-transparent text-sm focus:ring-0
+ * shadow-none` wrapping the tinted badge; the menu lists priorities as
+ * color-dot + label items with the stock near-black check. The
+ * priority-type variant (`wZ`) adds a 1px colored badge border, but no
+ * current reference board has a priority-type column — transparent border
+ * matches every live board.
  */
 export function PriorityCell({
   value,
@@ -22,66 +26,35 @@ export function PriorityCell({
   value: TaskPriority;
   onChange: (next: TaskPriority) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const meta = TASK_PRIORITIES.find((p) => p.value === value) ?? TASK_PRIORITIES[0];
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={`Priority: ${meta.label}, change priority`}
-          className="flex h-7 w-full max-w-[120px] items-center justify-between gap-1 rounded-md px-1 text-sm transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    <Select value={meta.value} onValueChange={(v) => onChange(v as TaskPriority)}>
+      <SelectTrigger
+        aria-label={`Priority: ${meta.label}, change priority`}
+        className="h-full w-full border-none bg-transparent p-1 text-sm shadow-none focus:ring-0"
+      >
+        <span
+          className="inline-flex items-center rounded-md border border-transparent px-2.5 py-0.5 text-xs font-normal shadow"
+          style={priorityBadgeStyle(value)}
         >
-          <span
-            className="inline-flex items-center rounded-md border border-transparent px-2.5 py-0.5 text-xs font-normal shadow"
-            style={priorityBadgeStyle(value)}
-          >
-            {meta.label}
-          </span>
-          <svg
-            className="h-3 w-3 shrink-0 text-muted-foreground opacity-70"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={3}
-            aria-hidden="true"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-40 p-1.5">
-        <ul role="listbox" aria-label="Priority options" className="space-y-0.5">
-          {TASK_PRIORITIES.map((priority) => {
-            const selected = priority.value === value;
-            return (
-              <li key={priority.value}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={selected}
-                  onClick={() => {
-                    onChange(priority.value);
-                    setOpen(false);
-                  }}
-                  className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
-                >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="inline-flex min-w-14 items-center justify-center rounded-md px-2 py-0.5 text-xs font-normal"
-                      style={priorityBadgeStyle(priority.value)}
-                    >
-                      {priority.label}
-                    </span>
-                  </span>
-                  {selected && <Check className="h-4 w-4 text-[#0073EA]" />}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </PopoverContent>
-    </Popover>
+          {meta.label}
+        </span>
+      </SelectTrigger>
+      <SelectContent>
+        {TASK_PRIORITIES.map((p) => (
+          <SelectItem key={p.value} value={p.value}>
+            <span className="flex items-center gap-2">
+              <span
+                className="h-3 w-3 rounded-full"
+                style={{ backgroundColor: p.color }}
+                aria-hidden="true"
+              />
+              {p.label}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

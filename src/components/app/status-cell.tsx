@@ -1,15 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { Check } from "lucide-react";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { TASK_STATUSES } from "@/lib/domain";
 import type { TaskStatus } from "@/lib/domain";
 
+/**
+ * The reference's StatusCell (decompiled `fZ`): a Badge pill at rest that
+ * SWAPS to an open shadcn Select when clicked — the open state renders a
+ * bare trigger (`w-full border-none p-0 h-auto focus:ring-0`) whose menu
+ * lists the four statuses as color-dot + label items with the stock
+ * near-black check. The menu's width follows the trigger/longest label
+ * (`min-w-[8rem]`), not a fixed popover width.
+ */
 export function StatusCell({
   value,
   onChange,
@@ -20,49 +29,47 @@ export function StatusCell({
   const [open, setOpen] = useState(false);
   const meta = TASK_STATUSES.find((s) => s.value === value) ?? TASK_STATUSES[0];
 
+  if (open) {
+    return (
+      <Select
+        open={open}
+        onOpenChange={(next) => !next && setOpen(false)}
+        value={meta.value}
+        onValueChange={(v) => {
+          onChange(v as TaskStatus);
+          setOpen(false);
+        }}
+      >
+        <SelectTrigger className="h-auto w-full border-none p-0 focus:ring-0">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {TASK_STATUSES.map((s) => (
+            <SelectItem key={s.value} value={s.value}>
+              <span className="flex items-center gap-2">
+                <span
+                  className="h-3 w-3 rounded-full"
+                  style={{ backgroundColor: s.bg }}
+                  aria-hidden="true"
+                />
+                {s.label}
+              </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={`Status: ${meta.label}, change status`}
-          className="flex items-center rounded-md border border-transparent px-3 py-1 text-xs font-medium text-white shadow transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          style={{ backgroundColor: meta.bg }}
-        >
-          <span className="truncate">{meta.label}</span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-44 p-1.5">
-        <ul role="listbox" aria-label="Status options" className="space-y-0.5">
-          {TASK_STATUSES.map((status) => {
-            const selected = status.value === value;
-            return (
-              <li key={status.value}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={selected}
-                  onClick={() => {
-                    onChange(status.value);
-                    setOpen(false);
-                  }}
-                  className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary"
-                >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: status.bg }}
-                      aria-hidden="true"
-                    />
-                    {status.label}
-                  </span>
-                  {selected && <Check className="h-4 w-4 text-[#0073EA]" />}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </PopoverContent>
-    </Popover>
+    <button
+      type="button"
+      aria-label={`Status: ${meta.label}, change status`}
+      onClick={() => setOpen(true)}
+      className="flex items-center rounded-md border border-transparent px-3 py-1 text-xs font-medium text-white shadow transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      style={{ backgroundColor: meta.bg }}
+    >
+      <span className="truncate">{meta.label}</span>
+    </button>
   );
 }
