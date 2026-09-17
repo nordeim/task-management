@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Activity,
   ArrowRight,
@@ -190,40 +191,48 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
     // max-w-7xl container, on the page background itself.
     <div className="min-h-screen bg-[#F5F6F8] p-4 md:p-8">
       <div className="mx-auto max-w-7xl space-y-8">
-      {/* Hero — white gradient card with soft blue deco discs, a small blue
-          gradient icon tile, and h-10 buttons. */}
-      <section className="relative overflow-hidden rounded-2xl border border-white/60 bg-gradient-to-br from-white via-white to-blue-50/30 p-6 shadow-sm md:p-8">
-        <div aria-hidden="true" className="absolute right-0 top-0 h-24 w-24 -translate-y-12 translate-x-12 rounded-full bg-gradient-to-br from-blue-500/10 to-transparent" />
-        <div aria-hidden="true" className="absolute bottom-0 left-0 h-20 w-20 translate-y-10 -translate-x-10 rounded-full bg-gradient-to-tr from-blue-500/5 to-transparent" />
-        <div className="relative z-10 flex items-start gap-4">
-          <div
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg"
-            aria-hidden="true"
-          >
-            <Sparkles className="h-5 w-5" />
+      {/* Hero — white gradient card (probed 2026-09-17): NO deco circles;
+          icon row `flex items-center gap-3 mb-3` (tile beside title, centered)
+          and a SEPARATE card-level buttons row `flex flex-wrap gap-3 mt-6`
+          wrapped in real anchors like the reference. */}
+      <section className="rounded-2xl border border-white/60 bg-gradient-to-br from-white via-white to-blue-50/30 p-6 shadow-sm md:p-8">
+        <div className="relative z-10">
+          <div className="mb-3 flex items-center gap-3">
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg"
+              aria-hidden="true"
+            >
+              <Sparkles className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold leading-tight text-[#323338] md:text-3xl">
+                {greeting()}, {firstName}!
+              </h1>
+              <p className="mt-1 text-base text-[#676879]">
+                Ready to make today productive?
+                {stats && stats.pendingTasks > 0
+                  ? ` You have ${stats.pendingTasks} task${stats.pendingTasks === 1 ? "" : "s"} waiting.`
+                  : ""}
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold leading-tight text-[#323338] md:text-3xl">
-              {greeting()}, {firstName}!
-            </h1>
-            <p className="mt-1 text-base text-[#676879]">
-              Ready to make today productive?
-              {stats && stats.pendingTasks > 0
-                ? ` You have ${stats.pendingTasks} task${stats.pendingTasks === 1 ? "" : "s"} waiting.`
-                : ""}
-            </p>
-            <div className="mt-5 flex flex-wrap gap-3">
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link href="/Boards">
               <Button
-                className="h-10 rounded-lg bg-[#0073EA] px-4 font-semibold hover:bg-[#0056B3]"
-                onClick={() => navigate("boards")}
+                className="h-10 rounded-xl bg-[#0073EA] px-5 py-2 font-medium shadow-lg transition-all duration-200 hover:bg-[#0056B3] hover:shadow-xl"
               >
                 <Folder className="mr-2 h-4 w-4" aria-hidden="true" /> View All Boards
                 <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
               </Button>
-              <Button variant="outline" className="h-10 rounded-lg px-4 font-semibold" onClick={() => navigate("analytics")}>
+            </Link>
+            <Link href="/Analytics">
+              <Button
+                variant="outline"
+                className="h-10 rounded-xl border-2 border-[#E1E5F3] bg-background px-5 py-2 font-medium shadow-sm transition-all duration-200 hover:border-[#0073EA] hover:bg-[#0073EA]/5"
+              >
                 <ChartColumn className="mr-2 h-4 w-4" aria-hidden="true" /> View Analytics
               </Button>
-            </div>
+            </Link>
           </div>
         </div>
       </section>
