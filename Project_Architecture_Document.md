@@ -1,12 +1,81 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.8
+# Tuesday.com — Master Project Architecture Document (PAD) v1.9
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
 **Companion Documents:** `README.md` (onboarding), `AGENTS.md` (agent gotchas), `CLAUDE.md` (workflow contract)
-**Last Updated:** 2026-09-17
+**Last Updated:** 2026-09-18
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.9 (Parity Deep-Pass #7: Board Modals, Card Anatomy, Analytics Ordering, 2026-09-18)
+
+- `[SYN]` Ninth parity pass (session 11,
+  `docs/remediation-plan-session11.md`): 12 gaps closed after a fresh
+  drift sweep that first verified **zero reference bundle drift**
+  (`/assets/index-BuEJAhK4.js` byte-identical to the session-9
+  decompilation) and re-ran the controlled experiment (throwaway board +
+  10 seeded tasks via the base44 entities API; every candidate verified
+  against live DOM, pixel reads, and the bundle; artifacts deleted at
+  delivery). **Three board-header modals discovered and built** — the
+  header's Analytics button does NOT navigate to /Analytics: it opens the
+  reference's **Board Analytics modal** (`Ote` — new
+  `board-analytics-dialog.tsx`, `max-w-6xl max-h-[90vh]`): three gradient
+  stat cards (Total Tasks blue, Completion Rate green + inline `Progress`,
+  Overdue red = dueDate < now && status ≠ done), Status Distribution in
+  VOCABULARY order (zero counts included — the modal iterates the column's
+  choices, unlike the site page), Team Workload (first-encounter top-5,
+  solid-blue initial avatars, hidden when no owners), Recent Activity
+  (top-5, "MMM d, HH:mm" 24-hour stamps, hidden when no tasks) — computed
+  over the board's **UNfiltered** task set. **Integrate** opens the
+  **Integrations Center** (new `integrations-dialog.tsx`, `max-w-4xl`,
+  sticky header, blue banner, 8 brand-tiled cards — Slack #4A154B, Drive
+  #4285F4, GitHub #181717, Figma #F24E1E, Zoom #2D8CFF, Jira #0052CC,
+  Shopify #7AB55C, HubSpot #FF7A59 — shadcn Switch `h-5 w-9` green-500,
+  Configure buttons inert like the reference). **Automate** opens the
+  **Automations Center** (new `automations-dialog.tsx`, purple banner,
+  "Create Custom Automation" primary button + 5 recipe cards with the
+  same switch/tile anatomy). All three dialogs are conditionally mounted
+  so their local-state switches RESET on close — verified against the
+  reference's reset-on-reopen behavior.
+- `[SYN]` **Systemic Card anatomy re-aligned to the reference's OLD
+  shadcn style** (`ui/card.tsx`): CardHeader `flex flex-col space-y-1.5
+  p-6`, CardContent `p-6 pt-0`, CardFooter `flex items-center p-6 pt-0` —
+  measured live, the vendored new-style card put a 24px gap between
+  header and content where the reference has 0px (dashboard side cards,
+  analytics cards). `ui/label.tsx` aligned to the old inline-block style
+  (all consumers are plain text labels). Dashboard Recent Boards:
+  "View All" is a `/Boards` Link wrapping a ghost Button (`h-9 px-4 py-2
+  text-[#0073EA] hover:bg-[#0073EA]/10` + ArrowRight), visibility badges
+  became shadcn Badges with GRADIENT fills (orange→red private /
+  green→emerald public), board rows became real `/Board?id=` anchors with
+  hover borders and a chevron that turns blue. Recent Activity: top-5
+  (`take: 5`) in a `space-y-3` wrapper. Login: the Google button + OR
+  divider + form now nest inside ONE `w-full` column wrapper (OR→Email
+  gap 28px, verified pixel-exact) and the Google button is a 54px plain
+  button (`h-auto` overriding shadcn `h-9`). Timeline task rows: the
+  reference's anatomy — 32px `flex border-b` rows, static `w-[200px] p-2
+  border-r text-xs truncate` labels (no dots, no sticky), ONE
+  `flex-grow relative h-full` body per row (no per-day cells or column
+  borders in rows). Toolbar Sort trigger icon: `arrow-up-narrow-wide`.
+- `[GAT]` Unit suite 106→120 (TDD, red-first — 14 failing tests before
+  implementation): five new pure seams — `distributionEntries`
+  (first-encounter counts, zero-omission), `teamWorkload` (cap 5),
+  `recentActivityItems` (top-N updatedAt-desc), `boardStats`
+  (total/done/rate/overdue), `formatBoardActivityTime` (24-hour).
+  Analytics API now loads tasks `updatedAt desc` and builds status +
+  priority distributions in FIRST-ENCOUNTER order with zero-count rows
+  omitted; board-performance rows follow board-array order (no rate
+  sort) — all three decompiled from the reference and verified live
+  (board-filtered view renders only encountered statuses).
+- `[DEV]` Deviations updated (§10): the reference's custom modals do not
+  close on Escape (ours do — Radix Dialog, strictly better a11y, no
+  visual change); the reference's switch toggles/Configure/Customize
+  are non-persisting mock UI (ours mirror: local state, inert buttons);
+  the reference's Priority Distribution section in the BOARD modal is
+  dead code (reads a `type:"priority"` column no current board has) —
+  not replicated; boards-page Analytics remains our real /Analytics
+  route (the reference's is a dead external `https://analytics/` link).
 
 #### Revision Block — v1.8 (Parity Deep-Pass #6: Interactive Surfaces, 2026-09-17)
 
@@ -1179,7 +1248,7 @@ bun run dev                # http://localhost:3000
 | Medium | No E2E suite (unit suite exists) | golden-path regressions rely on manual verification | Open — Playwright is the next spec (§7.2) |
 | Medium | No login rate limiting | brute-force surface on public deployments | Open — add per-email+IP limiter before internet exposure |
 | ~~Low~~ | ~~Browser back button doesn't traverse views~~ | ~~view state lives in React context~~ | **Closed in v1.5** — real URL routes; back/forward and deep links work |
-| Low | Google OAuth / password reset / Integrate / Automate are unconfigured states | features absent, honestly surfaced | By design until credentials exist |
+| Low | Google OAuth / password reset are unconfigured states | features absent, honestly surfaced (Integrate/Automate are now full parity modals — v1.9) | By design until credentials exist |
 | Low | Members list = all users | no real multi-tenant membership model | Open — introduce BoardMember when collaboration is real |
 | Low | Search is client-side title matching only (header + board toolbar) | no deep/full-text search | Open |
 | Low | Timeline bars are single-day (due date only) | the data model has no task start dates | Open — add `startDate` to Task for span bars |
@@ -1198,6 +1267,8 @@ bun run dev                # http://localhost:3000
 | Info | Reference user-menu items are dead `/Board` links; Sign out clears cookies then dead-ends | reference-side dead UI | Deliberate deviation — toasts for Profile/Settings, working Sign out |
 | Info | Reference never updates document.title on SPA navigation | stale titles on the reference | Deliberate deviation — Next.js metadata keeps titles correct |
 | Info | Reference `/Board` without id hangs on "Loading board…" forever | reference-side defect | Deliberate deviation — we render the Board-not-found card |
+| Info | Reference custom modals (Board Analytics / Integrations / Automations) do not close on Escape | reference-side a11y gap | Deliberate deviation — our Radix dialogs close on Escape (visually identical) |
+| Info | Reference integration/automation switches and Configure/Customize buttons are non-persisting mock UI (verified: toggles reset on reload, no click response) | reference-side dead controls | Parity — ours mirror the mock behavior (local state, reset-on-close, inert buttons) |
 
 ---
 
@@ -1210,13 +1281,13 @@ bun run dev                # http://localhost:3000
 | `src/app/[...path]/page.tsx` | 30 | Styled 404 catch-all with server-rendered titlecased titles |
 | `src/components/app/app-shell.tsx` | 112 | Shell: flex column, nav + main scroll container, AuthContext + AppProvider |
 | `src/components/app/routes/*.tsx` | 20 ea | Route wrappers (dashboard/boards/board/analytics/login) |
-| `src/components/app/board-view.tsx` | 1334 | Board detail: sticky chrome (gray wrapper + white bar + has-scrolled strip), one-row header, team row + popover, toolbar card (card-styled Person/Filter/Sort/Hide/Group-by menus), 5 views, Edit Task modal wiring, all mutations |
+| `src/components/app/board-view.tsx` | 1375 | Board detail: sticky chrome (gray wrapper + white bar + has-scrolled strip), one-row header, team row + popover, toolbar card (card-styled Person/Filter/Sort/Hide/Group-by menus), 5 views, Edit Task + Board Analytics/Integrations/Automations modal wiring, all mutations |
 | `src/components/app/boards-view.tsx` | 452 | Boards grid/list cards (color bar / stripe, Options footer), search, inert reference Filter button, edit/delete flows |
-| `src/components/app/dashboard-view.tsx` | 507 | Home: reference KPI perspective cards, hero, RB gradient card, quick actions, recent-TASKS activity |
-| `src/components/app/analytics-view.tsx` | 385 | Filters, stat cards, #171717 translateX completion fill, distributions, gray-50 performance rows |
+| `src/components/app/dashboard-view.tsx` | 529 | Home: reference KPI perspective cards, hero, RB gradient card with anchor rows + gradient badges + View All ghost button, quick actions, top-5 recent-TASKS activity (space-y-3) |
+| `src/components/app/analytics-view.tsx` | 385 | Filters, stat cards, #171717 translateX completion fill, first-encounter distributions (zero-omission), board-order performance rows |
 | `src/components/app/board-table.tsx` | 898 | Main Table: ONE card + per-group scroll containers, sticky rails, per-status header dots, Trash2 row actions, capped footer aggregates, empty-group flow |
 | `src/components/app/board-kanban.tsx` | 400 | @dnd-kit columns grouped by Status or People (drag assigns owner); reference w-80 shadow columns, gradient avatars, LE-palette people columns, click-to-edit cards |
-| `src/components/app/board-timeline.tsx` | 203 | Gantt timeline: title-left/nav-right header, 40px day columns, no today highlight |
+| `src/components/app/board-timeline.tsx` | 207 | Gantt timeline: title-left/nav-right header, 40px day columns, no today highlight; 32px reference-anatomy rows (static 200px labels, single unbordered body container, absolute due-date bars) |
 | `src/components/app/board-calendar.tsx` | 147 | Sun-first month grid, p-4 header, white bordered due-date chips, ring-inset today |
 | `src/components/app/app-header.tsx` | 430 | Nav (exact-match active state), gradient logo + wordmark, search, honest notifications/help/settings, gradient avatar + "My Account" menu, inline mobile panel |
 | `src/components/app/login-view.tsx` | 238 | Login/signup: slate-900 h-12 sign-in, slate-50/50 inputs, split footer links |
@@ -1225,12 +1296,15 @@ bun run dev                # http://localhost:3000
 | `src/components/app/create-board-dialog.tsx` | 191 | Board creation (fresh-mount form pattern) |
 | `src/components/app/create-task-dialog.tsx` | 173 | Task creation: sm:max-w-lg h-12 inputs, group Select with color dots |
 | `src/components/app/edit-task-dialog.tsx` | 267 | Edit Task modal (reference `pA`): title + column-field grid + Delete/Save footer; opened from kanban cards, Ellipsis, calendar chips |
+| `src/components/app/board-analytics-dialog.tsx` | 207 | Board Analytics modal (reference `Ote`): gradient stat cards + vocabulary-order status rows + team workload + 24-hour activity feed, over the board's unfiltered tasks |
+| `src/components/app/integrations-dialog.tsx` | 201 | Integrations Center modal: blue banner + 8 brand-tiled cards with local-state Switches (reset on close) |
+| `src/components/app/automations-dialog.tsx` | 189 | Automations Center modal: purple banner + Create Custom Automation + 5 recipe cards with local-state Switches (reset on close) |
 | `src/components/app/create-group-dialog.tsx` | 158 | Add New Group: title + 7 `GROUP_COLOR_OPTIONS` swatches (fresh-mount form pattern) |
 | `src/components/app/edit-board-dialog.tsx` | 195 | Board editing: title/description/colors/visibility (fresh-mount form pattern) |
 | `src/components/app/owner-cell.tsx` | 110 | Free-text "Enter name…" inline owner editor (resolves to members); solid-blue first-letter avatar |
 | `src/components/app/date-cell.tsx` | 108 | Native date input, noon storage, plain set-state text, overdue red chip |
-| `src/lib/domain.ts` | 740 | Vocabulary (incl. `ROUTE_PATHS`, `isNavActive`, `calendarCells`, summary/palette/avatar seams), DTOs, ActionResult, pure helpers — the contract file |
-| `src/lib/domain.test.ts` | 900 | Vitest suite over the pure seams (106 tests) |
+| `src/lib/domain.ts` | 848 | Vocabulary (incl. `ROUTE_PATHS`, `isNavActive`, `calendarCells`, summary/palette/avatar seams, `distributionEntries`, `teamWorkload`, `recentActivityItems`, `boardStats`, `formatBoardActivityTime`), DTOs, ActionResult, pure helpers — the contract file |
+| `src/lib/domain.test.ts` | 1076 | Vitest suite over the pure seams (120 tests) |
 | `src/lib/auth.ts` | 79 | scrypt + sessions |
 | `src/lib/api-client.ts` | 31 | Typed fetch that never throws |
 | `src/app/globals.css` | 185 | Theme tokens (shadcn-neutral grayscale + explicit blues, both modes) + deco discs + global styles |
