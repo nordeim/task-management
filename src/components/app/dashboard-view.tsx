@@ -312,28 +312,36 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-4">
         {/* Recent boards — gradient card spanning 3 of 4 columns. */}
         <Card className="border-0 bg-gradient-to-br from-white via-white to-indigo-50/30 shadow-lg backdrop-blur-sm xl:col-span-3">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span
-                className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg"
-                aria-hidden="true"
-              >
-                <Folder className="h-6 w-6" />
-              </span>
-              <div>
-                <CardTitle className="text-xl font-bold tracking-tight text-[#323338]">Recent Boards</CardTitle>
-                <CardDescription className="text-sm text-[#676879]">Your latest project boards</CardDescription>
+          <CardHeader className="flex flex-col p-6 pb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg"
+                  aria-hidden="true"
+                >
+                  <Folder className="h-6 w-6" />
+                </span>
+                <div>
+                  <CardTitle className="text-xl font-bold tracking-tight text-[#323338]">Recent Boards</CardTitle>
+                  <CardDescription className="text-sm text-[#676879]">Your latest project boards</CardDescription>
+                </div>
               </div>
+              {/* Reference: a real /Boards anchor wrapping a shadcn button
+                  (h-9 px-4 py-2, hover:bg-[#0073EA]/10) with an ArrowRight
+                  w-4 h-4 ml-2 — not a bare underlined text button. */}
+              <Link href="/Boards">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-9 rounded-xl px-4 py-2 font-medium text-[#0073EA] hover:bg-[#0073EA]/10"
+                >
+                  View All
+                  <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                </Button>
+              </Link>
             </div>
-            <button
-              type="button"
-              onClick={() => navigate("boards")}
-              className="flex items-center gap-1 text-sm font-medium text-[#0073EA] hover:underline"
-            >
-              View All <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             {!data ? (
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -354,14 +362,15 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                 </Button>
               </div>
             ) : (
-              <ul className="space-y-2">
+              <div className="space-y-2">
                 {data.recentBoards.map((board) => {
                   return (
-                    <li key={board.id}>
-                      <button
-                        type="button"
-                        onClick={() => navigate("board", board.id)}
-                        className="group flex w-full items-center gap-4 rounded-xl p-4 text-left transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-purple-50/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    <div key={board.id} className="group">
+                      {/* Reference: a real /Board?id= anchor (not a button) with a
+                          transparent border that tints blue on hover. */}
+                      <Link
+                        href={`/Board?id=${board.id}`}
+                        className="flex items-center gap-4 rounded-xl border border-transparent p-4 transition-all duration-200 hover:border-blue-100 hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-purple-50/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         {/* Reference card: full-color folder tile + title + "Updated …" + visibility badge. */}
                         <span
@@ -382,29 +391,33 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                           </span>
                         </span>
                         {/* Reference: the visibility badge sits in the right
-                            zone with the chevron, not inline after the title. */}
+                            zone with the chevron; a shadcn Badge with GRADIENT
+                            fills (orange→red private, green→emerald shared). */}
                         <span className="flex shrink-0 items-center gap-3">
                           <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm transition-colors hover:bg-secondary/80 ${
                               board.visibility === "private"
-                                ? "bg-rose-100 text-rose-700"
-                                : "bg-emerald-100 text-emerald-700"
+                                ? "bg-gradient-to-r from-orange-100 to-red-100 text-orange-700"
+                                : "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700"
                             }`}
                           >
                             {board.visibility === "private" ? (
-                              <Lock className="h-3 w-3" aria-hidden="true" />
+                              <Lock className="mr-1 h-3 w-3" aria-hidden="true" />
                             ) : (
-                              <Globe className="h-3 w-3" aria-hidden="true" />
+                              <Globe className="mr-1 h-3 w-3" aria-hidden="true" />
                             )}
                             {visibilityLabel(board.visibility, true)}
                           </span>
-                          <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                          <ArrowRight
+                            className="h-4 w-4 text-gray-400 transition-colors group-hover:text-[#0073EA]"
+                            aria-hidden="true"
+                          />
                         </span>
-                      </button>
-                    </li>
+                      </Link>
+                    </div>
                   );
                 })}
-              </ul>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -484,9 +497,9 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                   <p className="text-xs">Tasks you update will show up here</p>
                 </div>
               ) : (
-                <ul>
+                <div className="space-y-3">
                   {data.recentTasks.map((task) => (
-                    <li
+                    <div
                       key={task.id}
                       className="flex cursor-pointer items-center gap-3 rounded-lg p-3 transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-green-50/50"
                     >
@@ -502,9 +515,9 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                           {formatRecentTaskTime(new Date(task.updatedAt))}
                         </span>
                       </span>
-                    </li>
+                    </div>
                   ))}
-                </ul>
+                </div>
               )}
             </CardContent>
           </Card>

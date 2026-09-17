@@ -52,7 +52,9 @@ export async function GET() {
   const recentTasks = await db.task.findMany({
     where: { group: { board: { ownerId: user.id } } },
     orderBy: { updatedAt: "desc" },
-    take: 6,
+    // Reference renders its dashboard feed via slice(0,5) — top FIVE
+    // recently-updated tasks (bundle probe, session 11).
+    take: 5,
     select: { id: true, title: true, updatedAt: true },
   });
 
