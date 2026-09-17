@@ -12,7 +12,7 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { format } from "date-fns";
-import { CalendarDays, MoreHorizontal, Plus, User as UserIcon } from "lucide-react";
+import { CalendarDays, MoreHorizontal, Plus } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { TASK_STATUSES, groupTasksByPerson, groupTasksByStatus, priorityBadgeStyle, priorityMeta, statusMeta } from "@/lib/domain";
+import { KANBAN_CARD_BORDER, TASK_STATUSES, groupTasksByPerson, groupTasksByStatus, statusMeta } from "@/lib/domain";
 import type { TaskDTO, TaskStatus, UserDTO } from "@/lib/domain";
 
 export type KanbanGroupMode = "status" | "person";
@@ -61,46 +61,50 @@ function KanbanCard({ task }: { task: TaskDTO }) {
       {...attributes}
       role="button"
       aria-label={`Task card: ${task.title}`}
-      className={`mb-4 cursor-grab touch-none rounded-2xl border-l-4 bg-white p-4 shadow-lg transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      className={`group mb-4 cursor-grab touch-none rounded-2xl border-l-4 bg-white p-4 shadow-lg transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         isDragging ? "opacity-40" : ""
       }`}
-      style={{ borderLeftColor: statusMeta(task.status).bg }}
+      style={{ borderLeftColor: KANBAN_CARD_BORDER }}
     >
-      <p className={`text-lg font-bold leading-tight text-gray-800 ${task.completed ? "text-muted-foreground line-through" : ""}`}>
-        {task.title}
-      </p>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {task.owner ? (
-            <span
-              className="flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-semibold text-white"
-              style={{ backgroundColor: task.owner.avatarColor }}
-              title={task.owner.name}
-            >
-              {initialsOf(task.owner.name)}
-            </span>
-          ) : (
-            <UserIcon className="h-3.5 w-3.5 text-muted-foreground/50" aria-label="Unassigned" />
-          )}
+      {/* Card head — title + hover-revealed kebab (reference: h-8 w-8 round). */}
+      <div className="mb-3 flex items-start justify-between">
+        <h4 className="pr-2 text-lg font-bold leading-tight text-gray-800">{task.title}</h4>
+        <button
+          type="button"
+          aria-label={`Actions for ${task.title}`}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-gray-600 focus-visible:opacity-100 group-hover:opacity-100"
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+      </div>
+      {/* Card footer — reference: due-date chip left, owner avatar right. */}
+      <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-500">
+        <div className="flex items-center gap-3">
           {dueDate && (
             <span
-              className={`flex items-center gap-1 text-[11px] ${
-                overdue ? "font-medium text-destructive" : "text-muted-foreground"
+              className={`flex items-center gap-1.5 rounded-full px-2 py-1 ${
+                overdue ? "bg-red-50" : "bg-blue-50"
               }`}
             >
-              <CalendarDays className="h-3 w-3" aria-hidden="true" />
-              {format(dueDate, "MMM d")}
+              <CalendarDays
+                className={`h-3.5 w-3.5 ${overdue ? "text-red-500" : "text-blue-500"}`}
+                aria-hidden="true"
+              />
+              <span className={`font-medium ${overdue ? "text-red-700" : "text-blue-700"}`}>
+                {format(dueDate, "MMM d")}
+              </span>
             </span>
           )}
         </div>
-        {/* Priority rendered as the reference's tinted text badge. */}
-        <span
-          className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
-          style={priorityBadgeStyle(task.priority)}
-          aria-label={`Priority ${priorityMeta(task.priority).label}`}
-        >
-          {priorityMeta(task.priority).label}
-        </span>
+        {task.owner ? (
+          <span
+            className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white shadow-md"
+            style={{ backgroundColor: task.owner.avatarColor }}
+            title={task.owner.name}
+          >
+            {initialsOf(task.owner.name)}
+          </span>
+        ) : null}
       </div>
     </div>
   );
@@ -293,7 +297,7 @@ export function BoardKanban({ tasks, members, onStatusChange, onOwnerChange, onA
           </div>
           <DragOverlay>
             {activeTask ? (
-              <div className="w-64 rotate-2 rounded-2xl border-l-4 bg-white p-4 shadow-xl" style={{ borderLeftColor: statusMeta(activeTask.status).bg }}>
+              <div className="w-64 rotate-2 rounded-2xl border-l-4 bg-white p-4 shadow-xl" style={{ borderLeftColor: KANBAN_CARD_BORDER }}>
                 <p className="text-lg font-bold leading-tight text-gray-800">{activeTask.title}</p>
               </div>
             ) : null}
