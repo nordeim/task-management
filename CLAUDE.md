@@ -1,7 +1,7 @@
 ---
 IMPORTANT: File is read fresh for every conversation. Be brief and practical.
 project_type: nextjs-single-app
-version: 1.1.0
+version: 1.2.0
 last_updated: 2026-09-17
 ---
 
@@ -136,8 +136,10 @@ public demo credentials).
   board-color hexes), the priority badge recipe (`priorityBadgeStyle`),
   visibility labels (`visibilityLabel`/`VISIBILITY_OPTIONS`), the view-dropdown
   trigger labels (`VIEW_TRIGGER_LABELS`), the kanban card border token
-  (`KANBAN_CARD_BORDER`), and the Add New Group swatches
-  (`GROUP_COLOR_OPTIONS`).
+  (`KANBAN_CARD_BORDER`), the Add New Group swatches
+  (`GROUP_COLOR_OPTIONS`), the route surface (`ROUTE_PATHS`), the 404
+  titlecase helper (`notFoundTitle`), and the dashboard activity time format
+  (`formatRecentTaskTime`).
 - **TDD is the rule for new logic**: write the failing test first (red),
   implement the pure function in `src/lib/domain.ts` (green), then wire it
   into components/routes. Bug fixes require a regression test that fails
@@ -145,7 +147,9 @@ public demo credentials).
 - **Behavioral smoke (manual/agent-browser)**: sign in, create board + task,
   edit a board via the Options menu, filter/hide/sort in the table, edit a
   status pill, drag a kanban card, reload, confirm persistence against the
-  database — not just the UI.
+  database — not just the UI. Deep-link round-trips: `/Boards`,
+  `/Board?id=<real>`, `/Analytics`, unknown path → styled 404, back/forward
+  navigation, logged-out `/Boards` → `/login?from_url` → sign-in returns.
 - **E2E (Playwright) is the tracked next step** (PAD §10): golden path
   login → board → mutation → reload → persisted. A red test is a regression
   or a wrong test — never skip to pass.
@@ -200,17 +204,24 @@ sandbox-only directories — keep it intact.
 ### Architecture
 
 ```
-src/app/page.tsx      auth gate → AuthedShell (client-side view switch)
-src/app/api/**        JSON route handlers, ActionResult envelopes
-src/components/app/** product UI (header, views, cells, dialogs — incl. edit-board + create-group)
-src/components/ui/**  shadcn primitives (vendored)
-src/lib/domain.ts     vocabulary + DTOs + ActionResult + pure helpers (single source)
-src/lib/domain.test.ts Vitest unit suite over the pure seams
-src/lib/auth.ts       scrypt + cookie sessions
-src/lib/api-client.ts typed fetch (never throws)
-prisma/schema.prisma  User · Session · Board · Group · Task · Activity
-scripts/seed.ts       idempotent demo dataset
+src/app/(app)/**       authed route group: / · /boards · /board · /analytics (AppShell layout)
+src/app/login/         /login — bare, renders even when authed
+src/app/[...path]/     styled 404 catch-all (server-rendered titles)
+src/app/api/**         JSON route handlers, ActionResult envelopes
+src/components/app/**  product UI (shell, header, views, cells, dialogs — incl. edit-board + create-group)
+src/components/app/routes/** route wrappers (dashboard/boards/board/analytics/login)
+src/components/ui/**   shadcn primitives (vendored)
+src/lib/domain.ts      vocabulary + DTOs + ActionResult + pure helpers (single source)
+src/lib/domain.test.ts Vitest unit suite over the pure seams (69 tests)
+src/lib/auth.ts        scrypt + cookie sessions
+src/lib/api-client.ts  typed fetch (never throws)
+prisma/schema.prisma   User · Session · Board · Group · Task · Activity
+scripts/seed.ts        idempotent demo dataset
 ```
+
+Real URL routes mirror the reference (`/Dashboard` etc. rewrite in, case-insensitive);
+logged-out visits to protected routes redirect to `/login?from_url=…` and return after
+sign-in; board sub-views are client state (URL unchanged, like the reference).
 
 ### API Design
 

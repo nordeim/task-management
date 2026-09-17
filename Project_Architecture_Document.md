@@ -1,4 +1,4 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.4
+# Tuesday.com — Master Project Architecture Document (PAD) v1.5
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
@@ -7,6 +7,63 @@
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.5 (Parity Deep-Pass #3: Routing & Chrome, 2026-09-17)
+
+- `[SYN]` Fifth parity pass (session 6, `docs/remediation-plan-session6.md`):
+  30 numbered gaps closed. **Real URL routes** now mirror the reference —
+  `/` (+`/Dashboard` rewrite) dashboard, `/Boards` boards list,
+  `/Board?id=<entityId>` board detail (sub-views stay client state — URL
+  never changes, like the reference), `/Analytics`, `/login` (renders the
+  form even when authed), and a server-rendered `[...path]` catch-all with
+  the styled slate 404 (per-route titles `… | Task Management`, titlecased
+  from the last path segment). Authed surfaces live in an `(app)` route
+  group whose `AppShell` layout boots `/api/auth/me` and redirects logged-out
+  users to `/login?from_url=<original>` (open-redirect-guarded, returns after
+  sign-in); login/404 render bare outside the shell. `next.config.ts`
+  rewrites make paths case-insensitive. Shell re-architected to the reference
+  shape: `flex min-h-screen flex-col` with `main.flex-1.overflow-y-auto` and
+  nav classes `bg-white border-b border-[#E1E5F3]` + `max-w-full` gutters.
+  **Board chrome**: gray sticky wrapper (`top-0 z-20 pb-4`) around the
+  full-width white bar (`top-16 z-40`); one-row header (back-arrow anchor +
+  tile + title-over-subrow; `h-8` Analytics/Integrate/Automate with colored
+  hover borders; avatar row); constant-`Table2` trigger `h-6 px-2 text-xs
+  #676879`; favorite pill (favored `#ca8a04` fill-current); meta
+  `text-[#A0A0A0]`; toolbar one left-packed row (New Task `h-10 #0073EA`,
+  search `w-64 bg-[#F5F6F8]`, outline controls `h-10 px-4`); content zone
+  `px-6 py-6`. The blue `h-1` header strip is a **binary has-scrolled
+  marker** (scaleX(0) at rest → full width at `window.scrollY ≥ 32`, probed
+  live; the page scrolls on the BODY — main's `overflow-y-auto` is inert on
+  `min-h-screen` pages, matching the reference exactly).
+- `[SYN]` View surfaces: kanban Group-by Select gains the `List` icon +
+  `border-2 border-gray-200 rounded-xl` trigger; calendar today cell adds
+  `ring-2 ring-[#0073EA] ring-inset`; analytics completion fill is near-black
+  `#171717` on `bg-green-300`, revealed by `translateX(-{100−value}%)`
+  (invisible at 0%). Boards page: Favorites filter replaced by the
+  reference's inert **Filter** button (`h-10 px-3 border-[#E1E5F3]`, funnel
+  icon `mr-1.5`); card timestamps drop the favorite star and add the
+  `Calendar` icon `w-3.5 h-3.5`. Dashboard: reference KPI cards
+  (`group perspective-1000` gradient buttons, deco discs, 6 hover particles
+  at fixed positions, shine sweep, hover ring, white/20 backdrop-blur icon
+  tiles, LEFT-aligned text), hero `Sparkles` tile + `p-6 md:p-8`, gradient
+  side cards (`to-{indigo|purple|green}-50/30`) with `flex` headers and
+  w-12 gradient tiles, quick-action gradient rows (blue→cyan / green→emerald
+  / amber→orange / purple→pink), visibility badge in the right zone;
+  **Recent Activity now lists recently-updated tasks** (clock tile, title,
+  `Sep 17, 1:36 AM` via `formatRecentTaskTime`) — `/api/dashboard` returns
+  `recentTasks` (top 6 by `updatedAt`). Login: `bg-slate-900` h-12
+  `rounded-xl` text-only sign-in, `h-11 sm:h-12` `bg-slate-50/50` inputs,
+  split footer links (slate-500/700, no blue), no tagline line.
+- `[GAT]` Unit suite 61→69 tests: `ROUTE_PATHS`, `notFoundTitle`, and
+  `formatRecentTaskTime` seams (TDD: red first). `DashboardDTO.activity`
+  (event log) replaced by `DashboardDTO.recentTasks`; `ACTIVITY_TYPES`
+  removed from the client contract (the Activity table still records events
+  server-side).
+- `[DEV]` Deviations updated (§10): the boards-page Filter button now MATCHES
+  the reference (inert) instead of our functional Favorites filter;
+  favorites remain toggleable from the board header (the reference surface
+  where stars do work); browser back/forward now works (real routes) — that
+  §10 row is closed.
 
 #### Revision Block — v1.4 (Parity Deep-Pass #2, 2026-09-17)
 
@@ -195,26 +252,38 @@ being cloned is `https://tuesdaycom-a6700714.base44.app/`.
 
 ### 1.3 Architecture Decision Records (ADRs)
 
-**ADR-001: Single user-visible route with client-side view switching**
+**ADR-001 (r2): Real URL routes mirroring the reference — supersedes the v1.0
+single-route decision**
 
 - **Context:** The product has four top-level surfaces (dashboard, boards
-  list, board detail, analytics) plus a login gate. The deployment target
-  exposes exactly one route (`/`), and every surface must sit behind the
-  session check.
-- **Decision:** One route — `src/app/page.tsx` boots `/api/auth/me`, then
-  renders `<AuthedShell>` which switches views from `AppProvider` context
-  state (`{ name, boardId }`). API route handlers are the only other HTTP
-  surface.
-- **Rationale:** No route can render outside the auth gate; view transitions
-  are instant (no round trip); the sandbox constraint becomes an enforced
-  architectural invariant instead of a limitation.
-- **Consequences:** Browser back button doesn't traverse app views; deep
-  links to a board don't exist. Acceptable for a v1 clone; if deep links
-  become a requirement, mirror `view` into `location.hash` inside the same
-  provider.
-- **Alternatives Rejected:** Multi-page App Router routes (breaks the
-  one-route deployment contract, duplicates the auth gate per page);
-  hash-router from a library (extra dependency for a four-value enum).
+  list, board detail, analytics) plus a login gate. v1.0 shipped one route
+  (`/`) with client-side view switching because the reference's real route
+  surface had not yet been probed. Session 6 mapped it: `/` and `/Dashboard`
+  (dashboard), `/Boards`, `/Board?id=<entityId>` (board detail — sub-views
+  are client state, the URL never changes), `/Analytics`, `/login` (renders
+  the form even when authed), unknown paths → styled 404 with a titlecased
+  document title; paths are case-insensitive.
+- **Decision:** Serve those exact routes. Authed surfaces live in an `(app)`
+  route group whose layout mounts `AppShell` (boots `/api/auth/me`,
+  redirects logged-out users to `/login?from_url=<original>` — open-redirect
+  guarded — and returns them after sign-in). Login and the 404 render bare,
+  outside the shell. `next.config.ts` rewrites map the capitalized spellings
+  (`/Dashboard`, `/Boards`, `/Board`, `/Analytics`) onto the lowercase
+  canonical routes. A server-rendered `[...path]` catch-all serves the styled
+  404 (200 status, matching the reference's SPA behavior).
+- **Rationale:** The reference IS the spec — deep links, back/forward, and
+  shareable board URLs are functional requirements of parity. Route-level
+  code splitting and per-route titles (`… | Task Management`) fall out for
+  free.
+- **Consequences:** Browser back/forward and deep links now work (the v1.0
+  §10 "back button" row is closed). `navigate()` pushes real paths; the
+  active view is DERIVED from the pathname (lowercased compare) rather than
+  stored, so URL and UI can never disagree. Board sub-view state resets on
+  remount via the existing `key={id}` mechanism.
+- **Alternatives Rejected:** Keeping the single route (fails parity — the
+  clone 404s where the reference serves real pages); dynamic
+  `[...slug]` catch-all for the app routes too (needless — four known
+  routes plus rewrites are simpler and generate static pages).
 
 **ADR-002: SQLite behind Prisma instead of PostgreSQL**
 
@@ -324,10 +393,10 @@ being cloned is `https://tuesdaycom-a6700714.base44.app/`.
 
 ```mermaid
 flowchart TB
-    subgraph Browser["Browser — single route /"]
-        Gate["page.tsx auth gate\n(GET /api/auth/me)"]
-        Shell["AuthedShell + AppProvider\n(view state: dashboard | boards | board | analytics)"]
-        Gate --> Shell
+    subgraph Browser["Browser — real URL routes"]
+        Routes["/ · /Boards · /Board?id= · /Analytics · /login · [...path] 404"]
+        Shell["(app) layout → AppShell + AppProvider\n(session boot; view DERIVED from pathname)"]
+        Routes --> Shell
     end
 
     subgraph NextServer["Next.js process — :3000 (Turbopack dev / standalone prod)"]
@@ -344,8 +413,8 @@ flowchart TB
     Libs --> SQLite
 ```
 
-- **Browser layer**: one document; all interactivity is client components.
-  No external CDN, no analytics beacons, no third-party scripts.
+- **Browser layer**: one document per route; all interactivity is client
+  components. No external CDN, no analytics beacons, no third-party scripts.
 - **Application layer**: a single Next.js process. Route handlers are
   server-only; `z-ai-web-dev-sdk` (present in the sandbox scaffold) is NOT
   used by this app — there are no AI features in v1.
@@ -380,8 +449,8 @@ Layer 3: Client Transport — src/lib/api-client.ts
          Rule: never throws; callers branch on result.ok.
 
 Layer 4: Application State — src/components/app/app-context.tsx
-         User + current view; navigation; sign-out.
-         Rule: view state lives here and nowhere else.
+         User + current view (DERIVED from the pathname); navigation; sign-out.
+         Rule: the URL is the view state — navigate() pushes real routes.
 
 Layer 5: Product UI — src/components/app/*
          Views (dashboard, boards, board, analytics) and cell/dialog components.
@@ -402,9 +471,15 @@ imports nothing from the app).
 ├── scripts/seed.ts               ← Idempotent demo dataset (upsert-by-email; skips if boards exist)
 ├── public/icon.svg               ← Blue "T" favicon
 ├── src/app/
-│   ├── page.tsx                  ← THE route: auth gate → AuthedShell view switch
-│   ├── layout.tsx                ← Inter font, metadata, Toaster
-│   ├── globals.css               ← Tuesday.com theme: :root/.dark hex tokens, @theme inline, scrollbars, deco circles, reduced-motion
+│   ├── (app)/                     ← authed route group (AppShell layout boots session, redirects logged-out → /login?from_url)
+│   │   ├── page.tsx               ← / dashboard
+│   │   ├── boards/page.tsx        ← /Boards boards list (title: Boards | Task Management)
+│   │   ├── board/page.tsx         ← /Board?id= detail (Suspense + useSearchParams)
+│   │   └── analytics/page.tsx     ← /Analytics
+│   ├── login/page.tsx             ← /login — bare (renders even when authed)
+│   ├── [...path]/page.tsx         ← styled 404 catch-all (server-rendered titlecased titles)
+│   ├── not-found.tsx · layout.tsx ← root 404 + Inter font, metadata, Toaster
+│   ├── globals.css                ← Tuesday.com theme: :root/.dark hex tokens, @theme inline, scrollbars, deco circles, reduced-motion
 │   └── api/
 │       ├── auth/login/route.ts        ← POST: Zod → scrypt verify → session cookie (uniform 401)
 │       ├── auth/signup/route.ts       ← POST: Zod → uniqueness → create user + session
@@ -416,7 +491,7 @@ imports nothing from the app).
 │       ├── groups/[id]/route.ts       ← PATCH: name/collapsed; DELETE (cascade) — ownership via join to board
 │       ├── tasks/route.ts             ← POST: create task in owned-board group
 │       ├── tasks/[id]/route.ts        ← PATCH: status↔completed coupling; DELETE — ownership via join
-│       ├── dashboard/route.ts         ← GET: KPI stats + recent boards + activity feed
+│       ├── dashboard/route.ts         ← GET: KPI stats + recent boards + recently-updated tasks
 │       ├── analytics/route.ts         ← GET: window-bounded stats + distributions + per-board performance
 │       └── users/route.ts             ← GET: assignable members
 ├── src/components/app/
@@ -687,22 +762,30 @@ Started `#c4c4c4`, Working on it `#ffcb00`, Done `#00c875`, Stuck `#e2445c`
 (an accepted contrast deviation — parity over WCAG on this one surface).
 Priorities render as tinted text badges (`priorityBadgeStyle`: 12.5% alpha
 background + solid color text): Low `#787d80`, Medium `#ffcb00`, High
-`#fdab3d`, Critical `#e2445c`. KPI cards are **gradient pairs** (probed from
-the reference):
-dashboard `to right bottom` — blue `#3b82f6→#2563eb`, green `#22c55e→#16a34a`,
-orange `#f59e0b→#f97316`, purple `#a855f7→#9333ea`; analytics `to right` with
-Overdue `#ef4444→#dc2626`; each card carries translucent deco discs (64px @
-white/10 top-right, 48px @ white/5 bottom-left). Quick actions:
-`#06b6d4`/`#22c55e`/`#f97316`/`#d946ef` with a purple gradient header tile.
-Board palette (6): `#0073ea`, `#00c875`, `#ffcb00`, `#e2445c`, `#a25ddb`,
-`#00d9ff`; group palette (7, `GROUP_COLOR_OPTIONS`): adds Gray `#676879` —
-each group's 4px table accent derives from its own swatch, not the board
-color. Kanban card left borders are the fixed neutral `#E1E5F3`
-(`KANBAN_CARD_BORDER`), not status-colored. The app nav has **no active-state
-highlight** (reference-accurate) and the shell has **no footer**. The header
-logo is a gradient tile (`#2563EB→#1D4ED8`) with a white
-briefcase icon; board cards tint the folder icon at 12.5% alpha of the board
-color.
+`#fdab3d`, Critical `#e2445c`. Dashboard KPI cards (v1.5) are the reference's
+`group perspective-1000` **gradient buttons**: `from-blue-500 to-blue-600`,
+`from-green-500 to-green-600`, `from-amber-500 to-orange-500`,
+`from-purple-500 to-purple-600` (hover shifts to -600/-700), with white/20
+backdrop-blur icon tiles, deco discs (64px @ white/10, 48px @ white/5), six
+hover particles at fixed left/top positions, a shine sweep, and a hover
+ring — text LEFT-aligned. Analytics keeps its inline-icon stat cards with
+the near-black `#171717` completion fill (`translateX(-{100−value}%)`) on
+the `bg-green-300` track. Quick actions are gradient rows: blue→cyan
+(`from-blue-500 to-cyan-500`), green→emerald, amber→orange, purple→pink
+with `w-10 bg-white/20 backdrop-blur-sm` icon tiles; side-card header
+tiles are `w-12` gradients (indigo→purple folder, purple→pink zap,
+green→teal activity). Board palette (6): `#0073ea`, `#00c875`, `#ffcb00`,
+`#e2445c`, `#a25ddb`, `#00d9ff`; group palette (7, `GROUP_COLOR_OPTIONS`):
+adds Gray `#676879` — each group's 4px table accent derives from its own
+swatch, not the board color. Kanban card left borders are the fixed neutral
+`#E1E5F3` (`KANBAN_CARD_BORDER`), not status-colored. The app nav has **no
+active-state highlight** (reference-accurate) and the shell has **no
+footer**. The header logo is a gradient tile (`#2563EB→#1D4ED8`) with a
+white briefcase icon; board cards tint the folder icon at 12.5% alpha of
+the board color. Board chrome tokens (v1.5): header meta `#A0A0A0`,
+sub-row controls `#676879` on `hover:#E1E5F3`, favored state `#ca8a04`,
+right buttons `#0a0a0a` on `1px #E1E5F3` h-32px, calendar today
+`ring-2 #0073EA inset`, header strip `#0073EA` (has-scrolled marker).
 
 ### 5.3 Component Primitives
 
@@ -779,8 +862,8 @@ transition to 0.01ms.
 |----------|-------|----------|-----------|
 | Lint gate | 1 suite | `eslint.config.mjs` | ESLint 9, `eslint-config-next` defaults, zero rule weakening |
 | Type gate | 1 run | `tsconfig.json` | `tsc --noEmit` — strict, no overrides; `skills/` + `docs/` excluded |
-| Unit tests | 61 tests | `src/lib/domain.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (Task Name/Created/Updated), `visibleColumns` (Show/Hide Columns), `groupSummary` (footer row), `relativeBoardTime`, `VISIBILITY_OPTIONS`, the reference palette hexes, `priorityBadgeStyle`, `visibilityLabel`, `VIEW_TRIGGER_LABELS` (short trigger labels), `KANBAN_CARD_BORDER` (fixed neutral), `GROUP_COLOR_OPTIONS` (7 swatches) |
-| Interactive verification | re-executed 2026-09-17 (session 4) | agent-browser session | login as sepnetflix2023; Edit Board round-trip persisted to SQLite (verified, then reverted); Filter popover row counts; Hide column removal incl. summary cell; Sort label cycling; owner picker "Enter name…" search; native date input spinbuttons; toolbar absent in Kanban/Calendar; gradient cards verified via computed styles; VLM side-by-side: board table "Match" |
+| Unit tests | 69 tests | `src/lib/domain.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (Task Name/Created/Updated), `visibleColumns` (Show/Hide Columns), `groupSummary` (footer row), `relativeBoardTime`, `VISIBILITY_OPTIONS`, the reference palette hexes, `priorityBadgeStyle`, `visibilityLabel`, `VIEW_TRIGGER_LABELS` (short trigger labels), `KANBAN_CARD_BORDER` (fixed neutral), `GROUP_COLOR_OPTIONS` (7 swatches), `ROUTE_PATHS` (route surface), `notFoundTitle` (404 titlecase), `formatRecentTaskTime` (activity timestamps) |
+| Interactive verification | re-executed 2026-09-17 (session 6) | agent-browser session | deep-link round-trips (/Boards, /Board?id, /Analytics, unknown→404, back/forward); logged-out → /login?from_url → return; computed-style probes of every session-6 gap (header pill sizes/colors, toolbar heights, kanban select, calendar ring, analytics fill, KPI/particles/QA gradients, login input/button classes); forced-tall scroll experiments on BOTH apps (accent threshold 32px); VLM side-by-side: board table MATCH, dashboard MATCH |
 
 ### 7.2 Test Patterns
 
@@ -911,16 +994,17 @@ bun run dev                # http://localhost:3000
 |----------|-------|--------|--------|
 | Medium | No E2E suite (unit suite exists) | golden-path regressions rely on manual verification | Open — Playwright is the next spec (§7.2) |
 | Medium | No login rate limiting | brute-force surface on public deployments | Open — add per-email+IP limiter before internet exposure |
-| Low | Browser back button doesn't traverse views | view state lives in React context | Open — mirror view into `location.hash` if needed |
+| ~~Low~~ | ~~Browser back button doesn't traverse views~~ | ~~view state lives in React context~~ | **Closed in v1.5** — real URL routes; back/forward and deep links work |
 | Low | Google OAuth / password reset / Integrate / Automate are unconfigured states | features absent, honestly surfaced | By design until credentials exist |
 | Low | Members list = all users | no real multi-tenant membership model | Open — introduce BoardMember when collaboration is real |
 | Low | Search is client-side title matching only (header + board toolbar) | no deep/full-text search | Open |
 | Low | Timeline bars are single-day (due date only) | the data model has no task start dates | Open — add `startDate` to Task for span bars |
 | Info | Reference analytics reports Medium priority for a Low task | reference-side inconsistency | Deliberate deviation — we count actual priorities |
-| Info | Reference boards-page Filter button is inert | reference-side dead control | Deliberate deviation — our Favorites filter is functional |
+| Info | Reference boards-page Filter button is inert | reference-side dead control | Parity as of v1.5 — our Filter button matches (inert); favorites toggle from the board header where the reference actually works |
 | Info | Reference popovers stay mounted after Escape | focus-management quirk | Deliberate deviation — standard Radix dismiss |
 | Info | Presence dots are decorative (aria-hidden) | reference renders green dots on every avatar | Parity — rendered as pure chrome, never presented as real presence data |
 | Info | Reference 'Unassigned' view renders an empty div | reference-side quirk | Deliberate deviation — we keep a helpful empty state |
+| Info | Reference blue header strip appears on scroll (threshold ~32px) | binary marker, not a progress bar | Parity as of v1.5 — scaleX(0)→full at window.scrollY ≥ 32 |
 
 ---
 
@@ -928,25 +1012,31 @@ bun run dev                # http://localhost:3000
 
 | File | ~Lines | Purpose |
 |------|--------|---------|
-| `src/app/page.tsx` | 92 | The route: auth gate + AuthedShell view switch (no footer — reference-accurate) |
-| `src/components/app/board-view.tsx` | 1184 | Board detail: sticky header + scroll progress, toolbar card, 5 views, all mutations, group-colored table sections |
-| `src/components/app/boards-view.tsx` | 456 | Boards grid/list cards (color bar / stripe, Options footer), search, favorites filter, edit/delete flows |
-| `src/components/app/dashboard-view.tsx` | 401 | Home: gradient KPIs, hero with live task count, reference board cards, quick actions, activity |
-| `src/components/app/analytics-view.tsx` | 382 | Filters, gradient stat cards (inline icon, green-300 completion track), distributions, gray-50 performance rows |
+| `src/app/(app)/layout.tsx` | 16 | (app) group layout — mounts AppShell (session boot + /login?from_url redirect) |
+| `src/app/(app)/page.tsx` | 10 | `/` dashboard route |
+| `src/app/[...path]/page.tsx` | 30 | Styled 404 catch-all with server-rendered titlecased titles |
+| `src/components/app/app-shell.tsx` | 112 | Shell: flex column, nav + main scroll container, AuthContext + AppProvider |
+| `src/components/app/routes/*.tsx` | 20 ea | Route wrappers (dashboard/boards/board/analytics/login) |
+| `src/components/app/board-view.tsx` | 1208 | Board detail: sticky chrome (gray wrapper + white bar + has-scrolled strip), one-row header, toolbar card, 5 views, all mutations |
+| `src/components/app/boards-view.tsx` | 452 | Boards grid/list cards (color bar / stripe, Options footer), search, inert reference Filter button, edit/delete flows |
+| `src/components/app/dashboard-view.tsx` | 507 | Home: reference KPI perspective cards, hero, RB gradient card, quick actions, recent-TASKS activity |
+| `src/components/app/analytics-view.tsx` | 385 | Filters, stat cards, #171717 translateX completion fill, distributions, gray-50 performance rows |
 | `src/components/app/board-table.tsx` | 855 | Main Table: ONE card + per-group scroll containers, sticky rails, settings menus, summary row, empty-group flow |
-| `src/components/app/board-kanban.tsx` | 310 | @dnd-kit columns grouped by Status or People (drag assigns owner); neutral-border cards |
+| `src/components/app/board-kanban.tsx` | 320 | @dnd-kit columns grouped by Status or People (drag assigns owner); neutral-border cards; List-icon Group-by select |
 | `src/components/app/board-timeline.tsx` | 203 | Gantt timeline: title-left/nav-right header, 40px day columns, no today highlight |
-| `src/components/app/board-calendar.tsx` | 147 | Sun-first month grid, p-4 header, white bordered due-date chips |
-| `src/components/app/app-header.tsx` | 332 | Nav (no active highlight — reference-accurate), gradient logo, "Search everything…", honest notifications/help/settings, user menu, mobile drawer |
-| `src/components/app/login-view.tsx` | 245 | Login/signup with circular slate logo, input icons, honest OAuth placeholder |
+| `src/components/app/board-calendar.tsx` | 147 | Sun-first month grid, p-4 header, white bordered due-date chips, ring-inset today |
+| `src/components/app/app-header.tsx` | 329 | Nav (no active highlight), gradient logo, "Search everything…", honest notifications/help/settings, user menu, mobile drawer |
+| `src/components/app/login-view.tsx` | 238 | Login/signup: slate-900 h-12 sign-in, slate-50/50 inputs, split footer links |
+| `src/components/app/not-found-view.tsx` | 39 | Styled slate 404 (404 / divider / quoted path / Go Home) |
+| `src/components/app/board-not-found.tsx` | 29 | In-app "Board not found" card for /Board with missing/unknown id |
 | `src/components/app/create-board-dialog.tsx` | 191 | Board creation (fresh-mount form pattern) |
 | `src/components/app/create-task-dialog.tsx` | 173 | Task creation: sm:max-w-lg h-12 inputs, group Select with color dots |
 | `src/components/app/create-group-dialog.tsx` | 158 | Add New Group: title + 7 `GROUP_COLOR_OPTIONS` swatches (fresh-mount form pattern) |
 | `src/components/app/edit-board-dialog.tsx` | 195 | Board editing: title/description/colors/visibility (fresh-mount form pattern) |
 | `src/components/app/owner-cell.tsx` | 155 | Searchable "Enter name…" assignment popover |
 | `src/components/app/date-cell.tsx` | 108 | Native date input, noon storage, plain set-state text, overdue red chip |
-| `src/lib/domain.ts` | 492 | Vocabulary (incl. `VIEW_TRIGGER_LABELS`, `KANBAN_CARD_BORDER`, `GROUP_COLOR_OPTIONS`), DTOs, ActionResult, pure helpers — the contract file |
-| `src/lib/domain.test.ts` | 525 | Vitest suite over the pure seams (61 tests) |
+| `src/lib/domain.ts` | 520 | Vocabulary (incl. `ROUTE_PATHS`, `VIEW_TRIGGER_LABELS`, `KANBAN_CARD_BORDER`, `GROUP_COLOR_OPTIONS`), DTOs, ActionResult, pure helpers — the contract file |
+| `src/lib/domain.test.ts` | 573 | Vitest suite over the pure seams (69 tests) |
 | `src/lib/auth.ts` | 79 | scrypt + sessions |
 | `src/lib/api-client.ts` | 31 | Typed fetch that never throws |
 | `src/app/globals.css` | 180 | Theme tokens (both modes) + deco discs + global styles |

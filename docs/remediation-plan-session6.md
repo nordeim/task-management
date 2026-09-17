@@ -187,14 +187,22 @@ already matches; kanban tile markup already matches).
 
 ## Validation checklist (all must pass before push)
 
-- [ ] `bun run lint` exit 0
-- [ ] `bun run typecheck` exit 0
-- [ ] `bun test` — all green (new tests included)
-- [ ] `bun run build` green
-- [ ] Deep-link round-trip: /Boards, /Board?id=<real>, /Analytics, /login
+- [x] `bun run lint` exit 0
+- [x] `bun run typecheck` exit 0
+- [x] `bun test` — all green (69/69, new seams included)
+- [x] `bun run build` green
+- [x] Deep-link round-trip: /Boards, /Board?id=<real>, /Analytics, /login
       render the right views; unknown path renders the styled 404; back /
       forward navigation works; titles correct on every route
-- [ ] Logged-out /Boards → /login?from_url → sign-in returns to /Boards
-- [ ] Live computed-style probes for gaps 5–28 match the specs above
-- [ ] ZZ activity rows gone
-- [ ] Docs updated; secret scan clean
+- [x] Logged-out /Boards → /login?from_url → sign-in returns to /Boards
+- [x] Live computed-style probes for gaps 5–28 match the specs above
+      (corrections found during execution: trigger text #676879 with
+      hover #E1E5F3 — not #171717/tinted bg; Analytics/Integrate/Automate
+      carry colored hover borders; the blue h-1 strip is a BINARY
+      has-scrolled marker — scaleX(0) at rest, full width at
+      window.scrollY ≥ 32 — NOT a static bar and NOT a scroll-progress
+      scale; page scrolls on the BODY, main's overflow is inert on
+      min-h-screen pages; hero icon is Sparkles)
+- [x] ZZ activity rows gone (3 rows deleted from the live DB, seed clean)
+- [x] Docs updated (README, AGENTS, CLAUDE v1.2.0, PAD v1.5); secret scan clean
+- [x] VLM side-by-side (ignore-data prompt): board table MATCH, dashboard MATCH

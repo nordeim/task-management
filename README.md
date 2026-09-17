@@ -35,7 +35,8 @@ SQLite for persistence — which makes the whole product cloneable with
 | 📅 Calendar view | Sun-first month grid with tasks pinned to their due dates, color-coded by status, overdue-safe date handling (noon storage) |
 | 📈 Timeline & Unassigned views | Gantt-style timeline with Day/Week/Month zoom (title left, ‹ Today › nav + zoom right), fixed 40px day columns with stacked weekday/number headers and **no** today highlight, plus status-colored bars on due dates and a filter for tasks with no owner |
 | 📊 Analytics dashboard | Gradient KPI cards (inline icon + text-lg label, text-3xl value, color-100 subtitle; completion rate with full-width green-300 track), status + priority horizontal-bar distributions (blue Activity / orange TrendingUp headers), and per-board performance rows (gray-50 row cards with progress bar + bordered % chip), filterable by board and time window (7/30/90 days) |
-| 🏠 Dashboard home | Time-of-day greeting with live task count, four gradient KPI stat cards with deco circles, recent boards with folder tiles and visibility badges, quick actions, and an activity feed |
+| 🏠 Dashboard home | Time-of-day greeting with live task count, four reference KPI cards (`group perspective-1000` gradient buttons with deco discs, hover particles, white/20 icon tiles, shine sweep + hover ring), recent boards with folder tiles and visibility badges in the right zone, gradient quick-action rows, and a **Recent Activity feed of recently-updated tasks** (clock tiles, absolute `Sep 17, 1:36 AM` times) |
+| 🧭 Real URL routes | Dashboard `/`, boards `/Boards`, board `/Board?id=`, analytics `/Analytics`, login `/login` — case-insensitive via rewrites, browser back/forward works, per-route document titles (`… | Task Management`), logged-out visits redirect to `/login?from_url=…` and return after sign-in, unknown paths render the styled slate 404 (server-rendered catch-all) |
 | ✏️ Board & group management | Create **and edit** boards (title, description, 6 colors, Private/Shared visibility) from the boards page Options menu; **Add New Group** dialog with 7 named color swatches; rename inline from the board header; boards page renders grid or list cards (top color bar / left color stripe, p-5 body, footer Options zone) |
 | 👤 Owner picker | Searchable "Enter name…" assignment popover that filters members by name or email |
 | 📅 Due dates | Native date input (matches the reference), stored at local noon so timezone edges never shift the rendered day; the set state renders as plain `Sep 22` text (no icon) and past dates turn into red-tinted chips |
@@ -62,8 +63,8 @@ SQLite for persistence — which makes the whole product cloneable with
 
 ```mermaid
 flowchart TB
-    subgraph Client["Browser (single / route)"]
-        UI["AuthedShell\nlogin → dashboard / boards / board / analytics"]
+    subgraph Client["Browser (real URL routes)"]
+        UI["AppShell: nav + main (scroll container)\n/ · /Boards · /Board?id= · /Analytics · /login · 404 catch-all"]
     end
     subgraph Server["Next.js process"]
         API["/api/* route handlers\nActionResult JSON envelopes"]
@@ -74,17 +75,28 @@ flowchart TB
     API --> LIB --> DB
 ```
 
-The app intentionally ships as a **single user-visible route** (`/`): the login
-gate and all views switch client-side, which keeps every surface behind the
-auth check and avoids route-level navigation entirely.
+The app serves **real URL routes** that mirror the reference exactly: `/` (and
+`/Dashboard`) for the dashboard, `/Boards` for the boards list, `/Board?id=`
+for a board (sub-views are client state — the URL never changes, like the
+reference), `/Analytics`, `/login`, and a server-rendered catch-all that
+renders the styled 404 for anything else. Capitalized spellings rewrite to
+the canonical lowercase routes, so `/boards` and `/Boards` both work. The
+authed surfaces live in an `(app)` route group whose layout boots the session
+and redirects logged-out users to `/login?from_url=<original>`; login and the
+404 render bare, outside the shell. The shell's `<main>` is the scroll
+container (`flex-1 overflow-y-auto`), matching the reference.
 
 ## File Hierarchy
 
 ```text
 📂 src/
 ├── 📂 app/
-│   ├── 📄 page.tsx                    ← auth gate + view router (the only route)
-│   ├── 📄 layout.tsx                  ← Inter font, metadata, Toaster
+│   ├── 📂 (app)/                      ← authed route group (AppShell layout)
+│   │   ├── 📄 page.tsx                ← / dashboard
+│   │   ├── 📂 boards/ · 📂 board/ · 📂 analytics/ ← real routes
+│   ├── 📂 login/page.tsx              ← /login (bare, renders even when authed)
+│   ├── 📂 [...path]/page.tsx          ← styled 404 catch-all (server-rendered titles)
+│   ├── 📄 not-found.tsx · 📄 layout.tsx ← 404 root + Inter font, metadata, Toaster
 │   ├── 📄 globals.css                 ← Tuesday.com theme tokens (Tailwind v4 @theme inline)
 │   └── 📂 api/                        ← JSON API route handlers
 │       ├── 📂 auth/{login,signup,logout,me}/route.ts
@@ -93,15 +105,17 @@ auth check and avoids route-level navigation entirely.
 │       ├── 📂 tasks/route.ts · 📂 tasks/[id]/route.ts
 │       ├── 📂 dashboard/route.ts · 📂 analytics/route.ts · 📂 users/route.ts
 ├── 📂 components/
-│   ├── 📂 app/                        ← product UI (18 components)
-│   │   ├── 📄 app-header.tsx · app-context.tsx · login-view.tsx
-│   │   ├── 📄 dashboard-view.tsx · boards-view.tsx · board-view.tsx
+│   ├── 📂 app/                        ← product UI (22 components + 5 route wrappers)
+│   │   ├── 📄 app-shell.tsx · app-context.tsx · app-header.tsx · login-view.tsx
+│   │   ├── 📄 dashboard-view.tsx · boards-view.tsx · board-view.tsx · board-not-found.tsx
 │   │   ├── 📄 board-table.tsx · board-kanban.tsx · board-calendar.tsx · board-timeline.tsx
 │   │   ├── 📄 status-cell.tsx · priority-cell.tsx · owner-cell.tsx · date-cell.tsx
-│   │   └── 📄 create-board-dialog.tsx · create-task-dialog.tsx · create-group-dialog.tsx · analytics-view.tsx
+│   │   ├── 📄 create-board-dialog.tsx · edit-board-dialog.tsx · create-task-dialog.tsx · create-group-dialog.tsx
+│   │   ├── 📄 analytics-view.tsx · not-found-view.tsx
+│   │   └── 📂 routes/                 ← dashboard/boards/board/analytics/login route components
 │   └── 📂 ui/                         ← shadcn primitives (vendored scaffold)
 ├── 📂 lib/
-│   ├── 📄 domain.ts                   ← statuses, priorities, colors, DTOs, ActionResult
+│   ├── 📄 domain.ts                   ← statuses, priorities, colors, DTOs, route paths, ActionResult
 │   ├── 📄 auth.ts                     ← scrypt hashing + cookie sessions
 │   ├── 📄 api-client.ts               ← typed fetch wrapper (never throws)
 │   └── 📄 db.ts                       ← Prisma client singleton
@@ -173,7 +187,7 @@ buttons.
 |-------|---------|-------|
 | Lint | `bun run lint` | ESLint 9 flat config, `eslint-config-next` defaults with **no rule weakening**; must exit 0 |
 | Types | `bun run typecheck` | `tsc --noEmit`; strict mode fully on; `skills/` and `docs/` excluded — the vendored skill library is outside every gate |
-| Unit tests | `bun run test` | Vitest, colocated `src/lib/*.test.ts` over the pure domain seams (status↔completed coupling, timeline window math, kanban grouping, distribution bars, saved-indicator format, task filter/sort pipeline, column visibility, group summary, relative time, reference palette, priority badge recipe, visibility labels, view-trigger labels, kanban card border token, group color options) |
+| Unit tests | `bun run test` | Vitest, colocated `src/lib/*.test.ts` (69 tests) over the pure domain seams (status↔completed coupling, timeline window math, kanban grouping, distribution bars, saved-indicator format, task filter/sort pipeline, column visibility, group summary, relative time, reference palette, priority badge recipe, visibility labels, view-trigger labels, kanban card border token, group color options, route paths, 404 titlecase helper, recent-task time format) |
 | Build | `bun run build` | Standalone production build |
 | Smoke (manual/agent-browser) | sign in as the demo user, edit a board, filter/hide/sort, drag a kanban card, reload | changes persist — verified against the database during development |
 
@@ -210,19 +224,25 @@ the solid color, which is also the text color): Low `#787d80`, Medium
 `priorityBadgeStyle`. Kanban card left borders are a FIXED neutral
 `#E1E5F3` (`KANBAN_CARD_BORDER`), not status-colored. The view-dropdown
 trigger shows short labels ("Main table", "Kanban", "Calendar", "Timeline")
-while its menu lists the long ones (`VIEW_TRIGGER_LABELS`). KPI stat cards are
-**gradient pairs** probed from the reference: dashboard `to right bottom`
-(blue `#3b82f6→#2563eb`, green `#22c55e→#16a34a`, orange `#f59e0b→#f97316`,
-purple `#a855f7→#9333ea`), analytics `to right` (same pairs, Overdue
-`#ef4444→#dc2626`), each carrying translucent white deco discs (64px @
-white/10, 48px @ white/5). Quick actions: `#06b6d4`/`#22c55e`/`#f97316`/
-`#d946ef`. Board palette (6): `#0073ea`, `#00c875`, `#ffcb00`, `#e2445c`,
-`#a25ddb`, `#00d9ff`; group palette (7, `GROUP_COLOR_OPTIONS`) adds Gray
-`#676879`. The header logo is a gradient tile (`#2563EB→#1D4ED8`) with a
-white briefcase icon. Typography is **Inter** (Latin) via `next/font`, falling
-back to the system stack. `prefers-reduced-motion` collapses all animations.
-Page containers: `max-w-7xl` on dashboard/boards/analytics (padding outside
-the container, like the reference), `max-w-full` on the board detail.
+while its menu lists the long ones (`VIEW_TRIGGER_LABELS`); the trigger
+itself is a constant-`Table2` icon pill (`h-6 px-2 text-xs text-[#676879]`
+with `hover:bg-[#E1E5F3]`). Dashboard KPI cards are the reference's
+`perspective-1000` gradient buttons — `from-{blue|green|amber|purple}-500
+to-…-600` with white/20 backdrop-blur icon tiles, deco discs, six hover
+particles, a shine sweep, and a hover ring; analytics keeps its inline-icon
+stat cards with the near-black `#171717` translateX completion fill on a
+green-300 track. Quick actions are gradient rows (blue→cyan, green→emerald,
+amber→orange, purple→pink). The board header is a full-width sticky white
+bar (`top-16 z-40`) inside a gray sticky wrapper (`top-0 z-20 pb-4`) with a
+blue `h-1` strip that flips from `scaleX(0)` to full width once the page
+scrolls past 32px. Board palette (6): `#0073ea`, `#00c875`, `#ffcb00`,
+`#e2445c`, `#a25ddb`, `#00d9ff`; group palette (7, `GROUP_COLOR_OPTIONS`)
+adds Gray `#676879`. The header logo is a gradient tile (`#2563EB→#1D4ED8`)
+with a white briefcase icon. Typography is **Inter** (Latin) via `next/font`,
+falling back to the system stack. `prefers-reduced-motion` collapses all
+animations. Page containers: `max-w-7xl` on dashboard/boards/analytics
+(padding outside the container, like the reference), `max-w-full` on the
+board detail.
 
 ## Deployment (pushing to GitHub)
 
