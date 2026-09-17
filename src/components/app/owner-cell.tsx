@@ -55,30 +55,32 @@ export function OwnerCell({
       }}
     >
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={owner ? `Owner: ${owner.name}, change owner` : "Assign owner"}
-          className="flex h-7 w-full max-w-[150px] items-center gap-1.5 rounded-md px-1.5 text-xs transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {owner ? (
-            <>
-              <Avatar className="h-6 w-6">
-                <AvatarFallback
-                  className="text-[10px] font-semibold text-white"
-                  style={{ backgroundColor: owner.avatarColor }}
-                >
-                  {initialsOf(owner.name)}
-                </AvatarFallback>
-              </Avatar>
-              <span className="truncate text-muted-foreground">{owner.name}</span>
-            </>
-          ) : (
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-              <User className="h-4 w-4" aria-hidden="true" />
-              Assign
+        {owner ? (
+          // Reference assigned state (probed 2026-09-17): hover-fade
+          // wrapper over a 24px solid-blue avatar + dark name label.
+          <button
+            type="button"
+            aria-label={`Owner: ${owner.name}, change owner`}
+            className="cursor-pointer transition-opacity hover:opacity-80"
+          >
+            <span className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0073EA]">
+                <span className="text-xs font-medium text-white">{initialsOf(owner.name)}</span>
+              </span>
+              <span className="truncate text-sm text-[#323338]">{owner.name}</span>
             </span>
-          )}
-        </button>
+          </button>
+        ) : (
+          // Reference empty state: the same affordance shape as "Set date".
+          <button
+            type="button"
+            aria-label="Assign owner"
+            className="flex cursor-pointer items-center gap-2 -mx-2 -my-1 px-2 py-1 text-[#676879] transition-colors hover:rounded hover:bg-[#E1E5F3]"
+          >
+            <User className="h-4 w-4" aria-hidden="true" />
+            Assign
+          </button>
+        )}
       </PopoverTrigger>
       <PopoverContent align="start" className="w-56 p-0">
         <div className="relative border-b">
@@ -138,7 +140,7 @@ export function OwnerCell({
                           <span className="block truncate text-xs text-muted-foreground">{member.email}</span>
                         </span>
                       </span>
-                      {selected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                      {selected && <Check className="h-4 w-4 shrink-0 text-[#0073EA]" />}
                     </button>
                   </li>
                 );

@@ -10,7 +10,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
-import { ChevronDown, ChevronRight, GripVertical, MoreHorizontal, Plus, Settings, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, GripVertical, Plus, Settings, Trash2, Users, Calendar as CalendarIcon } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -22,7 +22,7 @@ import { StatusCell } from "@/components/app/status-cell";
 import { PriorityCell } from "@/components/app/priority-cell";
 import { OwnerCell } from "@/components/app/owner-cell";
 import { DateCell } from "@/components/app/date-cell";
-import { groupSummary, visibleColumns, TASK_STATUSES } from "@/lib/domain";
+import { groupSummary, visibleColumns, TASK_STATUSES, summaryDateLabel, summaryOwnerLabel } from "@/lib/domain";
 import { toast } from "@/hooks/use-toast";
 import type { ColumnKey, GroupDTO, TaskDTO, TaskPriority, TaskStatus, UserDTO } from "@/lib/domain";
 
@@ -95,25 +95,26 @@ function rowMinWidth(columns: { key: ColumnKey }[]): number {
 
 type CellProps = { children?: React.ReactNode; className?: string; style?: React.CSSProperties };
 
-/** Gutter rails — sticky left with an opaque background like the reference. */
-function HandleRail({ children, bg = "white" }: { children?: React.ReactNode; bg?: string }) {
+/** Gutter rails — sticky left with an opaque background like the reference.
+ *  Backgrounds are CLASS-based so group-hover variants can co-exist. */
+function HandleRail({ children, bg = "bg-white", className = "" }: { children?: React.ReactNode; bg?: string; className?: string }) {
   return (
     <div
       aria-hidden={!children}
-      className={`flex shrink-0 items-center justify-center${children ? "" : " pointer-events-none"}`}
-      style={{ width: RAIL_HANDLE, position: "sticky", left: 0, zIndex: 1, backgroundColor: bg }}
+      className={`flex shrink-0 items-center justify-center ${bg} ${children ? "" : " pointer-events-none"} ${className}`}
+      style={{ width: RAIL_HANDLE, position: "sticky", left: 0, zIndex: 1 }}
     >
       {children}
     </div>
   );
 }
 
-function CheckRail({ children, bg = "white" }: { children?: React.ReactNode; bg?: string }) {
+function CheckRail({ children, bg = "bg-white", className = "" }: { children?: React.ReactNode; bg?: string; className?: string }) {
   return (
     <div
       aria-hidden={!children}
-      className={`flex shrink-0 items-center justify-center${children ? "" : " pointer-events-none"}`}
-      style={{ width: RAIL_CHECK, position: "sticky", left: RAIL_HANDLE, zIndex: 1, backgroundColor: bg }}
+      className={`flex shrink-0 items-center justify-center ${bg} ${children ? "" : " pointer-events-none"} ${className}`}
+      style={{ width: RAIL_CHECK, position: "sticky", left: RAIL_HANDLE, zIndex: 1 }}
     >
       {children}
     </div>
@@ -138,11 +139,11 @@ function DataCell({ width, first, stickyLeft, children, className = "", style }:
   );
 }
 
-function ActionRail({ children, bg = "white" }: { children?: React.ReactNode; bg?: string }) {
+function ActionRail({ children, bg = "bg-white", className = "" }: { children?: React.ReactNode; bg?: string; className?: string }) {
   return (
     <div
-      className="flex shrink-0 items-center justify-center"
-      style={{ width: RAIL_ACTION, position: "sticky", right: 0, zIndex: 1, backgroundColor: bg }}
+      className={`flex shrink-0 items-center justify-center ${bg} ${className}`}
+      style={{ width: RAIL_ACTION, position: "sticky", right: 0, zIndex: 1 }}
     >
       {children}
     </div>
@@ -202,22 +203,24 @@ function TaskRow({
       }`}
       style={{ minWidth: minW }}
     >
-      {/* Drag-handle rail — hover-revealed grip, sticky left 0. */}
-      <HandleRail bg="white">
+      {/* Drag-handle rail — reference zone: cursor-grab, zone-level
+          hover-reveal, p-1, white bg tinting on row hover. */}
+      <HandleRail className="cursor-grab opacity-0 transition-opacity hover:cursor-grabbing group-hover:bg-[#F5F6F8] group-hover:opacity-100">
         {canDrag && (
           <span
             {...dragListeners}
             aria-label={`Reorder ${task.title}`}
             title="Drag to reorder"
-            className="flex cursor-grab items-center justify-center p-1 opacity-0 transition-opacity hover:cursor-grabbing focus-visible:opacity-100 group-hover:opacity-100"
+            className="flex cursor-grab items-center justify-center focus-visible:outline-none"
           >
             <GripVertical className="h-3 w-3 text-[#676879]" />
           </span>
         )}
       </HandleRail>
 
-      {/* Checkbox rail — hover-revealed, sticky left 24. */}
-      <CheckRail bg="white">
+      {/* Checkbox rail — hover-revealed, sticky left 24. Checked state is
+          the reference's near-black bg-primary (#171717). */}
+      <CheckRail className="group-hover:bg-[#F5F6F8]">
         <Checkbox
           aria-label={task.completed ? `Mark "${task.title}" not done` : `Mark "${task.title}" done`}
           checked={task.completed}
@@ -227,7 +230,7 @@ function TaskRow({
               status: checked === true ? "done" : "not_started",
             })
           }
-          className="opacity-0 transition-opacity group-hover:opacity-100 data-[state=checked]:opacity-100 data-[state=checked]:border-[#00c875] data-[state=checked]:bg-[#00c875] data-[state=checked]:text-white"
+          className="opacity-0 transition-opacity group-hover:opacity-100 data-[state=checked]:opacity-100"
         />
       </CheckRail>
 
@@ -313,9 +316,9 @@ function TaskRow({
       })}
 
       {/* Spacer so the row spans full width like the reference. */}
-      <div className="min-w-0 flex-1" aria-hidden="true" />
+      <div className="min-w-0 flex-1 bg-white group-hover:bg-[#F5F6F8]" aria-hidden="true" />
 
-      <ActionRail bg="white">
+      <ActionRail className="border-l border-[#E1E5F3] group-hover:bg-[#F5F6F8]">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -323,12 +326,13 @@ function TaskRow({
               aria-label={`Actions for ${task.title}`}
               className="flex h-6 w-6 items-center justify-center rounded-md opacity-0 transition-opacity hover:bg-[#E1E5F3] focus-visible:opacity-100 group-hover:opacity-100"
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <Trash2 className="h-3 w-3 text-[#676879]" />
             </button>
           </DropdownMenuTrigger>
-          {/* Reference row menu is a single "Delete Task" item. */}
+          {/* Reference row menu: a single standard-color "Delete Task" item
+              (their delete is client-side only; ours keeps the real API). */}
           <DropdownMenuContent align="end">
-            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDeleteTask(task.id)}>
+            <DropdownMenuItem onClick={() => onDeleteTask(task.id)}>
               Delete Task
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -380,12 +384,15 @@ function AddTaskRow({
       className="group flex items-center border-b border-[#E1E5F3] hover:bg-[#F5F6F8] min-h-[48px]"
       style={{ minWidth: minW }}
     >
-      <HandleRail />
-      <CheckRail />
+      {/* Reference add-task row: every zone is transparent (the row-level
+          hover tint shows through) and the title zone is flex-1, not a
+          fixed-width sticky cell. */}
+      <HandleRail bg="" />
+      <CheckRail bg="" />
       {columns.map((col, i) => {
         if (col.key === "task") {
           return (
-            <DataCell key={col.key} width={COLUMN_WIDTHS.task} first={i === 0} stickyLeft={RAIL_HANDLE + RAIL_CHECK}>
+            <div key={col.key} className="flex-1 px-3 py-2">
               {active ? (
                 <input
                   autoFocus
@@ -413,13 +420,13 @@ function AddTaskRow({
                   <Plus className="mr-2 h-4 w-4" />Add task
                 </button>
               )}
-            </DataCell>
+            </div>
           );
         }
         return <DataCell key={col.key} width={COLUMN_WIDTHS[col.key]} first={i === 0} />;
       })}
       <div className="min-w-0 flex-1" aria-hidden="true" />
-      <ActionRail />
+      <ActionRail bg="" />
     </div>
   );
 }
@@ -467,8 +474,8 @@ function SummaryRow({
       style={{ minWidth: minW }}
       aria-label="Group summary"
     >
-      <HandleRail bg="#f9fafb" />
-      <CheckRail bg="#f9fafb" />
+      <HandleRail bg="bg-gray-50" />
+      <CheckRail bg="bg-gray-50" />
       {columns.map((col, i) => (
         <DataCell
           key={col.key}
@@ -511,12 +518,35 @@ function SummaryRow({
             ) : (
               <span className="px-1">-</span>
             ))}
-          {col.key === "owner" && <span className="px-1">-</span>}
-          {col.key === "dueDate" && <span className="px-1">-</span>}
+          {col.key === "owner" && (() => {
+            // Reference aggregate (probed): users icon + "N people".
+            const label = summaryOwnerLabel(tasks.map((t) => t.owner?.id ?? null));
+            return label ? (
+              <span className="flex items-center gap-1 text-xs text-gray-600">
+                <Users className="h-3 w-3" aria-hidden="true" />
+                {label}
+              </span>
+            ) : (
+              <span className="px-1">-</span>
+            );
+          })()}
+          {col.key === "dueDate" && (() => {
+            // Reference aggregate (probed): calendar icon + "Sep 25" or a
+            // "Sep 18 - Sep 25" range; dash when the group has no dates.
+            const label = summaryDateLabel(tasks.map((t) => t.dueDate));
+            return label ? (
+              <span className="flex items-center gap-1 text-xs text-gray-600">
+                <CalendarIcon className="h-3 w-3" aria-hidden="true" />
+                {label}
+              </span>
+            ) : (
+              <span className="px-1">-</span>
+            );
+          })()}
         </DataCell>
       ))}
       <div className="min-w-0 flex-1 bg-gray-50" aria-hidden="true" />
-      <ActionRail bg="#f9fafb" />
+      <ActionRail bg="bg-gray-50" />
     </div>
   );
 }
@@ -549,8 +579,8 @@ function ColumnHeaderRow({
       style={{ minWidth: minW }}
       role="row"
     >
-      <HandleRail bg="#F5F6F8" />
-      <CheckRail bg="#F5F6F8" />
+      <HandleRail bg="bg-[#F5F6F8]" />
+      <CheckRail bg="bg-[#F5F6F8]" />
       {columns.map((col, i) => (
         <div
           key={col.key}
@@ -590,7 +620,7 @@ function ColumnHeaderRow({
         </div>
       ))}
       <div className="min-w-0 flex-1 bg-[#F5F6F8]" aria-hidden="true" />
-      <ActionRail bg="#F5F6F8">
+      <ActionRail bg="bg-[#F5F6F8]" className="border-l border-[#E1E5F3] px-3 py-3">
         <button
           type="button"
           aria-label="Add task to this group"
