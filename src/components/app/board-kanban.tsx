@@ -12,7 +12,7 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { format } from "date-fns";
-import { CalendarDays, List, MoreHorizontal, Plus } from "lucide-react";
+import { CalendarDays, Ellipsis, List, Plus } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -74,7 +74,7 @@ function KanbanCard({ task }: { task: TaskDTO }) {
           aria-label={`Actions for ${task.title}`}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-gray-600 focus-visible:opacity-100 group-hover:opacity-100"
         >
-          <MoreHorizontal className="h-4 w-4" />
+          <Ellipsis className="h-4 w-4" />
         </button>
       </div>
       {/* Card footer — reference: due-date chip left, owner avatar right. */}
@@ -110,20 +110,27 @@ function KanbanCard({ task }: { task: TaskDTO }) {
   );
 }
 
-/** The reference's empty-column placeholder: a large colored disc + hint. */
+/** The reference's empty-column placeholder (probed 2026-09-17): a dashed
+ *  border box with a tinted disc, colored "Drag tasks here" + hint line. */
 function EmptyColumnHint({ color, onAddTask }: { color: string; onAddTask: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-lg py-8">
+    <div
+      className="rounded-2xl border-3 border-dashed px-4 py-8 transition-colors"
+      style={{ borderColor: `${color}40` }}
+    >
       <button
         type="button"
         aria-label="Add a task to this column"
         onClick={onAddTask}
-        className="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-md transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        style={{ backgroundColor: color }}
+        className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        style={{ backgroundColor: `${color}20` }}
       >
-        <Plus className="h-6 w-6" />
+        <Plus className="h-6 w-6" style={{ color }} />
       </button>
-      <p className="text-xs text-muted-foreground">Drag tasks here</p>
+      <p className="text-sm font-medium" style={{ color }}>
+        Drag tasks here
+      </p>
+      <p className="mt-1 text-xs text-gray-500">or click + to add new</p>
     </div>
   );
 }
@@ -149,45 +156,50 @@ function KanbanColumn({
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
-    <div className="flex w-72 shrink-0 flex-col rounded-xl border bg-secondary/30 sm:w-full" data-column={column.id}>
-      <div
-        ref={setNodeRef}
-        className={`flex min-h-[280px] flex-1 flex-col rounded-xl p-3 transition-colors ${
-          isOver ? "bg-accent ring-2 ring-primary/30" : ""
-        }`}
-      >
-        <div className="mb-3 flex items-center justify-between px-1">
-          <div className="flex min-w-0 items-center gap-3">
-            {column.avatar ? (
-              <Avatar className="h-6 w-6">
-                <AvatarFallback
-                  className="text-[9px] font-semibold text-white"
-                  style={{ backgroundColor: column.avatar.avatarColor }}
-                >
-                  {initialsOf(column.avatar.name)}
-                </AvatarFallback>
-              </Avatar>
-            ) : null}
-            {/* Reference column header: bold title + tinted count badge (no dot). */}
-            <h3 className="truncate text-lg font-bold text-gray-800">{column.label}</h3>
-            <span
-              className="rounded-full px-2.5 py-1 text-sm font-bold shadow-sm"
-              style={{ backgroundColor: `${column.dotColor}20`, color: column.dotColor }}
+    <div
+      className="w-80 flex-shrink-0 rounded-2xl p-2 shadow-lg transition-all duration-300"
+      data-column={column.id}
+      style={{ background: "linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)" }}
+    >
+      <div ref={setNodeRef} className="flex flex-col">
+        <div className="mb-2 px-4 py-3">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              {column.avatar ? (
+                <Avatar className="h-6 w-6">
+                  <AvatarFallback
+                    className="text-[9px] font-semibold text-white"
+                    style={{ backgroundColor: column.avatar.avatarColor }}
+                  >
+                    {initialsOf(column.avatar.name)}
+                  </AvatarFallback>
+                </Avatar>
+              ) : null}
+              {/* Reference column header: bold title + tinted count badge (no dot). */}
+              <h3 className="truncate text-lg font-bold text-gray-800">{column.label}</h3>
+              <span
+                className="rounded-full px-2.5 py-1 text-sm font-bold shadow-sm"
+                style={{ backgroundColor: `${column.dotColor}20`, color: column.dotColor }}
+              >
+                {column.tasks.length}
+              </span>
+            </div>
+            <button
+              type="button"
+              aria-label={`Add task to ${column.label}`}
+              onClick={onAddTask}
+              className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/50"
             >
-              {column.tasks.length}
-            </span>
+              <Plus className="h-5 w-5" style={{ color: column.dotColor }} />
+            </button>
           </div>
-          <button
-            type="button"
-            aria-label={`Add task to ${column.label}`}
-            onClick={onAddTask}
-            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          {column.sublabel && <p className="-mt-1 text-[11px] text-muted-foreground">{column.sublabel}</p>}
         </div>
-        {column.sublabel && <p className="-mt-2 mb-2 px-1 text-[11px] text-muted-foreground">{column.sublabel}</p>}
-        <div className="flex flex-col gap-2">
+        <div
+          className={`tuesday-scroll group max-h-[calc(100vh-300px)] min-h-[200px] overflow-y-auto px-2 pb-2 transition-colors ${
+            isOver ? "rounded-2xl bg-accent ring-2 ring-[#0073EA]/30" : ""
+          }`}
+        >
           {column.tasks.map((task) => (
             <KanbanCard key={task.id} task={task} />
           ))}
@@ -258,13 +270,13 @@ export function BoardKanban({ tasks, members, onStatusChange, onOwnerChange, onA
     <div>
       {/* Reference heading tile (probed 2026-09-17): standalone gradient band
           with a gradient icon tile, title + subtitle, and the Group by selector. */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-purple-50 p-4">
+      <div className="mb-6 flex items-center justify-between rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-purple-50 p-4">
         <div className="flex items-center gap-3">
           <span
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white"
             aria-hidden="true"
           >
-            <MoreHorizontal className="h-5 w-5" />
+            <Ellipsis className="h-5 w-5" />
           </span>
           <div>
             <h2 className="text-xl font-bold text-gray-800">Kanban Board</h2>
@@ -298,26 +310,24 @@ export function BoardKanban({ tasks, members, onStatusChange, onOwnerChange, onA
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border bg-card">
-        <div className="p-3">
-        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="flex gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-4 lg:overflow-visible">
-            {columns.map((column) => (
-              <KanbanColumn key={column.id} column={column} onAddTask={onAddTask}>
-                {null}
-              </KanbanColumn>
-            ))}
-          </div>
-          <DragOverlay>
-            {activeTask ? (
-              <div className="w-64 rotate-2 rounded-2xl border-l-4 bg-white p-4 shadow-xl" style={{ borderLeftColor: KANBAN_CARD_BORDER }}>
-                <p className="text-lg font-bold leading-tight text-gray-800">{activeTask.title}</p>
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        {/* Reference columns row (probed): a bare flex scroller — no outer
+            card wrapper — with fixed w-80 shadow columns. */}
+        <div className="flex gap-6 overflow-x-auto p-2 pb-8">
+          {columns.map((column) => (
+            <KanbanColumn key={column.id} column={column} onAddTask={onAddTask}>
+              {null}
+            </KanbanColumn>
+          ))}
         </div>
-      </div>
+        <DragOverlay>
+          {activeTask ? (
+            <div className="w-64 rotate-2 rounded-2xl border-l-4 bg-white p-4 shadow-xl" style={{ borderLeftColor: KANBAN_CARD_BORDER }}>
+              <p className="text-lg font-bold leading-tight text-gray-800">{activeTask.title}</p>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 }
