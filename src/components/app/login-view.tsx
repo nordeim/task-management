@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Lock, LogIn, Mail, UserPlus } from "lucide-react";
+import { Loader2, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,7 +44,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-10">
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
       <div className="w-full max-w-md">
         {/* Reference card: gradient top bar, backdrop blur, circular logo. */}
         <div className="relative overflow-hidden rounded-2xl border-0 bg-white/95 p-8 shadow-2xl backdrop-blur-sm sm:p-10">
@@ -58,7 +58,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                 className="absolute inset-0 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 opacity-30 blur-xl transition-opacity group-hover:opacity-40"
                 aria-hidden="true"
               />
-              <span className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 text-2xl font-bold text-slate-700 shadow-lg ring-4 ring-white/50 sm:h-24 sm:w-24 sm:text-3xl">
+              <span className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 text-xl font-bold text-slate-700 shadow-lg ring-4 ring-white/50 sm:h-24 sm:w-24 sm:text-2xl">
                 T
               </span>
             </div>
@@ -117,7 +117,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                   onChange={(e) => setName(e.target.value)}
                   required
                   minLength={2}
-                  className="h-10"
+                  className="h-11 rounded-xl border-slate-200 bg-slate-50/50 placeholder:text-slate-600 focus:border-slate-400 focus:ring-slate-400 sm:h-12"
                 />
               </div>
             )}
@@ -136,7 +136,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="h-10 pl-9"
+                  className="h-11 rounded-xl border-slate-200 bg-slate-50/50 pl-9 placeholder:text-slate-600 focus:border-slate-400 focus:ring-slate-400 sm:h-12"
                 />
               </div>
             </div>
@@ -156,7 +156,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={mode === "signup" ? 8 : undefined}
-                  className="h-10 pl-9"
+                  className="h-11 rounded-xl border-slate-200 bg-slate-50/50 pl-9 placeholder:text-slate-600 focus:border-slate-400 focus:ring-slate-400 sm:h-12"
                 />
               </div>
               {mode === "signup" && (
@@ -170,45 +170,42 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
               </p>
             )}
 
-            <Button type="submit" className="h-11 w-full text-sm font-semibold" disabled={busy !== null}>
+            <Button
+              type="submit"
+              className="h-11 w-full rounded-xl bg-slate-900 px-3 py-2 font-medium text-white shadow-sm transition-all duration-200 hover:bg-slate-800 sm:h-12"
+              disabled={busy !== null}
+            >
               {busy === "form" ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                   {mode === "login" ? "Signing in…" : "Creating account…"}
                 </>
+              ) : mode === "login" ? (
+                "Sign in"
               ) : (
-                <>
-                  {mode === "login" ? (
-                    <>
-                      <LogIn className="mr-2 h-4 w-4" /> Sign in
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="mr-2 h-4 w-4" /> Sign up
-                    </>
-                  )}
-                </>
+                "Sign up"
               )}
             </Button>
           </form>
 
-          <div className="mt-5 flex flex-col items-center gap-2 text-sm">
+          {/* Reference footer: two text links split apart, no extra tagline. */}
+          <div className="mt-5 flex flex-col items-center justify-between gap-2 text-sm sm:flex-row sm:gap-0">
             {mode === "login" ? (
               <>
                 <button
                   type="button"
-                  className="text-muted-foreground transition-colors hover:text-foreground"
+                  className="font-medium text-slate-500 transition-colors hover:text-slate-700"
                   onClick={() =>
                     setError("Password reset is not available on this deployment.")
                   }
                 >
                   Forgot password?
                 </button>
-                <p className="text-muted-foreground">
+                <p className="text-slate-500 transition-colors hover:text-slate-700">
                   Need an account?{" "}
                   <button
                     type="button"
-                    className="font-medium text-primary hover:underline"
+                    className="font-medium text-slate-700 hover:underline"
                     onClick={() => {
                       setMode("signup");
                       setError(null);
@@ -219,11 +216,11 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                 </p>
               </>
             ) : (
-              <p className="text-muted-foreground">
+              <p className="text-slate-500 transition-colors hover:text-slate-700">
                 Already have an account?{" "}
                 <button
                   type="button"
-                  className="font-medium text-primary hover:underline"
+                  className="font-medium text-slate-700 hover:underline"
                   onClick={() => {
                     setMode("login");
                     setError(null);
@@ -235,10 +232,6 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
             )}
           </div>
         </div>
-
-        <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
-          Tuesday.com — manage boards, tasks, and teamwork in one place.
-        </p>
       </div>
     </main>
   );
