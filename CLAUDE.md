@@ -225,9 +225,9 @@ src/app/[...path]/     styled 404 catch-all (server-rendered titles)
 src/app/api/**         JSON route handlers, ActionResult envelopes
 src/components/app/**  product UI (shell, header, views, cells, dialogs — incl. edit-board + create-group + edit-task + board-analytics/integrations/automations centers)
 src/components/app/routes/** route wrappers (dashboard/boards/board/analytics/login)
-src/components/ui/**   shadcn primitives (vendored)
+src/components/ui/**   shadcn primitives (vendored, OLD-shadcn anatomy per the reference — Badge/Switch class contracts locked by primitives.test.ts)
 src/lib/domain.ts      vocabulary + DTOs + ActionResult + pure helpers (single source)
-src/lib/domain.test.ts Vitest unit suite over the pure seams (120 tests)
+src/lib/domain.test.ts Vitest unit suite over the pure seams (120 tests) + src/components/ui/primitives.test.ts (11 anatomy-contract tests) = 131
 src/lib/auth.ts        scrypt + cookie sessions
 src/lib/api-client.ts  typed fetch (never throws)
 prisma/schema.prisma   User · Session · Board · Group · Task · Activity

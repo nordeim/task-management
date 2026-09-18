@@ -1,4 +1,4 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.9
+# Tuesday.com — Master Project Architecture Document (PAD) v1.10
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
@@ -7,6 +7,48 @@
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.10 (Parity Deep-Pass #8: Primitive Anatomy Convergence, 2026-09-18)
+
+- `[SYN]` Tenth parity pass (session 13,
+  `docs/remediation-plan-session13.md`): a fresh drift sweep re-ran the
+  controlled experiment on BOTH apps (throwaway "S12 Probe Board", 10
+  tasks, 3 owners + unassigned), captured 12 view pairs, and VLM-compared
+  them — 11 MATCH on the first pass. The single verdict difference
+  triaged to a probe-tooling artifact (the local seed script resolved
+  owners by reference-side names that don't exist in the clone's user
+  table), NOT an app gap: the Team Workload panel was live-verified in
+  BOTH states (renders with owners on Website Redesign; hidden on
+  owner-less boards exactly like the reference's Product Launch).
+- `[UI]` **Two systemic vendored-primitive gaps closed** — the reference
+  ships OLD shadcn/ui primitives while two of our vendored files still
+  carried the 2024 "new shadcn" anatomy (sub-perceptual diffs every
+  prior VLM pass missed; caught this cycle by computed-style ground
+  truth + bundle decompilation):
+  `ui/badge.tsx` — base `px-2.5 py-0.5 font-semibold` (was px-2/
+  font-medium → computed 2px 10px + weight 600 like the reference;
+  consumer `px-2.5 font-semibold` overrides in the integrations/
+  automations dialogs are now redundant), default/destructive gain the
+  reference's v3 `shadow` (ported as v4 `shadow-sm`), outline stays
+  `text-foreground`.
+  `ui/switch.tsx` — track `h-5 w-9 border-2` + thumb `h-4 w-4
+  shadow-lg translate-x-4` (was `h-[1.15rem] w-8` border-1 + calc
+  translate: checked thumb 15px→18px from track left, matching the
+  reference exactly; the integrations/automations `h-5 w-9` color
+  overrides remain and are now redundant).
+- `[GAT]` Unit suite 120→131 (TDD, red-first — 11 failing contract tests
+  before implementation): new `src/components/ui/primitives.test.ts`
+  locks the decompiled anatomy of all four Badge variants and the Switch
+  track/thumb constants so dependency refreshes cannot silently drift
+  the geometry. Progress bar and modal Configure buttons were
+  computed-verified IDENTICAL — untouched. Button base left as-is (only
+  focus-ring/transition diffs at rest; every live surface previously
+  verified).
+- `[VER]` All 12 VLM view pairs now converge (modal-analytics,
+  modal-integrations, modal-automations re-captured post-fix and
+  re-compared — MATCH). Reference restored to pristine (1 board / 1
+  item, all entity deletions 200); clone restored to the canonical
+  4-board seed state.
 
 #### Revision Block — v1.9 (Parity Deep-Pass #7: Board Modals, Card Anatomy, Analytics Ordering, 2026-09-18)
 
@@ -1048,6 +1090,19 @@ Checkbox, Progress, ScrollArea, Skeleton, Table primitives, and the Sonner
 toaster. Custom product surfaces (stat cards, status pills, priority flags,
 kanban columns) wrap these or use plain elements with the tokens above.
 
+**Anatomy contract (session 13):** the reference ships the OLD shadcn/ui
+primitives, and our vendored copies are aligned to that anatomy —
+`ui/card.tsx` (header `p-6` / content `p-6 pt-0`, 0px gap, session 11),
+`ui/label.tsx` (inline, session 11), `ui/badge.tsx` (base `px-2.5 py-0.5
+font-semibold`, default/destructive `shadow-sm`, outline `text-foreground`),
+and `ui/switch.tsx` (track `h-5 w-9 border-2 shadow-xs`, thumb `h-4 w-4
+shadow-lg translate-x-4`). The Badge cva and the exported
+`SWITCH_TRACK_CLASS` / `SWITCH_THUMB_CLASS` constants are locked by
+`src/components/ui/primitives.test.ts` — do not "upgrade" these primitives
+to newer shadcn anatomy without re-proving parity against the live
+reference (v3 `shadow`→v4 `shadow-sm`, v3 `shadow-sm`→v4 `shadow-xs` renames
+apply when porting decompiled strings).
+
 ### 5.4 Motion / Animation
 
 Tailwind `transition-*` utilities plus Radix enter/exit animations via
@@ -1305,6 +1360,9 @@ bun run dev                # http://localhost:3000
 | `src/components/app/date-cell.tsx` | 108 | Native date input, noon storage, plain set-state text, overdue red chip |
 | `src/lib/domain.ts` | 848 | Vocabulary (incl. `ROUTE_PATHS`, `isNavActive`, `calendarCells`, summary/palette/avatar seams, `distributionEntries`, `teamWorkload`, `recentActivityItems`, `boardStats`, `formatBoardActivityTime`), DTOs, ActionResult, pure helpers — the contract file |
 | `src/lib/domain.test.ts` | 1076 | Vitest suite over the pure seams (120 tests) |
+| `src/components/ui/badge.tsx` | 54 | OLD-shadcn Badge anatomy (decompiled cva; px-2.5/semibold, shadow on default) |
+| `src/components/ui/switch.tsx` | 43 | OLD-shadcn Switch anatomy (h-5 w-9 border-2; thumb shadow-lg translate-x-4) — exports the class constants |
+| `src/components/ui/primitives.test.ts` | 132 | Class-contract tests locking Badge + Switch anatomy to the decompiled reference (11 tests) |
 | `src/lib/auth.ts` | 79 | scrypt + sessions |
 | `src/lib/api-client.ts` | 31 | Typed fetch that never throws |
 | `src/app/globals.css` | 185 | Theme tokens (shadcn-neutral grayscale + explicit blues, both modes) + deco discs + global styles |

@@ -174,3 +174,25 @@ Work Log:
 Stage Summary:
 - Session-11 pass fully delivered: reference now matched on every surface modulo documented deviations; 3 new modal components + 5 new domain seams; all 12 VLM pairs converged
 - Reference left pristine; no key residue; main-branch-only contract honored
+
+---
+Task ID: 9
+Agent: main (Super Z)
+Task: Session 13 (cycle 12) — finish session-12 drift sweep, primitive anatomy convergence, delivery
+
+Work Log:
+- Recovered the interrupted session-12 state: repo at 26af4ac (clean), dev server alive, 24 captures on disk; re-established the reference browser session (re-login) and ran the persisted VLM comparison for all 12 view pairs — 11 MATCH, 1 verdict difference (modal-analytics Team Workload claim)
+- Triage: Team Workload "missing panel" = probe-data artifact (local seed script resolved owners by reference-side names absent from the clone's user table; ownerId never written) — feature live-verified in BOTH states (renders with owners on Website Redesign; hidden on owner-less boards exactly like the reference's Product Launch)
+- Because the workload badge rows had never rendered side by side, ran computed-style primitive audits: found 2 systemic gaps (Badge NEW-vs-OLD shadcn: 8px vs 10px padding, 500 vs 600 weight, missing default shadow; Switch: 1px vs 2px border, 15px vs 18px thumb offset, missing thumb shadow-lg); Progress bar + Configure buttons verified identical; Button base has no at-rest gap (left as-is)
+- Fetched the reference bundle (no drift, index-BuEJAhK4.js) and decompiled the exact OLD-shadcn cva for Badge (all 4 variants) and Switch (track + thumb)
+- Wrote docs/remediation-plan-session13.md and validated it against the codebase (consumer blast radius: only board-analytics-dialog renders un-overridden anatomy; dashboard badges/pills are custom)
+- TDD: RED 11 failing contract tests in new src/components/ui/primitives.test.ts; GREEN — badge.tsx + switch.tsx rewritten to the decompiled anatomy (v3 shadow renames applied); 131/131
+- Browser verification: outline badge 2px 10px / 600 / #E5E7EB border, default badge black fill + shadow, switch 2px border + thumb shadow-lg + 18px offset — all identical to the live reference
+- Loop closure: fixed the local probe tooling (owner resolution by email/position), patched the clone's probe tasks with owners (3/3/2 + 2 unassigned), re-captured modal-analytics + modal-integrations + modal-automations, re-ran VLM — all MATCH; all 12 pairs converged
+- Cleanup: reference restored to pristine (S12 Probe Board + 10 items deleted via entities API, all 200s, verified 1 board/1 item); clone probe board deleted (canonical 4-board seed)
+- Gates: lint 0, tsc 0, 131/131, standalone build OK; docs aligned (PAD v1.10 §5.3 anatomy contract + key files, README test table, CLAUDE.md inventory, AGENTS.md primitives invariant)
+- Atomic commits on main + SSH wrapper push (dry-run, real, remote verify, key shredded)
+
+Stage Summary:
+- Session-13 pass fully delivered: the reference now matches on every surface AND at the vendored-primitive geometry level (sub-perceptual diffs closed); 2 primitive files rewritten + 11 contract tests added
+- Reference left pristine; no key residue; main-branch-only contract honored
