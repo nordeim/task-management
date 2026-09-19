@@ -233,3 +233,22 @@ Work Log:
 Stage Summary:
 - Verification-only cycle complete: no reference drift, no new gaps; parity state from session 15 holds under a fresh date state and cold environment (10 MATCH + 2 fully-triaged DIFF, better than the session-15 baseline sweep)
 - No remediation plan produced (zero verified gaps); delivery = single docs commit on main pushed via the SSH wrapper with key shredded after use
+
+---
+Task ID: 12
+Agent: main (Super Z)
+Task: Session 17 (cycle 16) — post-delivery parity verification sweep (drift check #11)
+
+Work Log:
+- Workspace had been reset; re-cloned https://github.com/nordeim/task-management.git at 70052fd (== origin/main, clean tree — the session-16 delivery is the remote tip)
+- Reviewed AGENTS.md / CLAUDE.md / README.md / PAD v1.11 in full + session_15.md, session_16.md, the closed remediation-plan-session15.md, and the worklog; spot-checked every session-15 claim in the tree (isOverdueDate + wiring, TEAM_MEMBERS mock, SELECT_TRIGGER_CLASS exports, no-Inter, literal "U" avatars, "No description provided.") — all present as documented
+- Gates on the fresh clone: lint 0, tsc 0, 143/143; standalone production build ALSO re-run green this cycle (cold fresh-install boot path proven); next-env.d.ts churn restored, tree clean
+- Environment: bun install + db:push + db:seed — SQLite landed at the parent-dir quirk location again (canonical 4 boards / 9 groups / 25 tasks); dev server booted clean (no cache panic on a fresh clone); login + boards API verified
+- Reference drift check: shell still ships index-BuEJAhK4.js + index-DjjZtFMQ.css (unchanged since session 9 — all decompiled specs valid); reference live state pristine (1 board, 1 pending owner-less task, not favorited — identical to session-16 arrival)
+- Convergence sweep: 24 fresh captures (12 pairs) under one date state, canonical route casings, content-wait on board-table (no cold-compile race); modals captured on freshly reloaded board pages with overlay-close verification; VLM verdicts 10 direct MATCH + 2 DIFF with claim structure identical to session 16, re-triaged live: board-unassigned = documented dead-unassigned-view deviation + data-only favorite (isFavorite re-verified via API) + dev-widget; modal-analytics = data-driven Team Workload (reference modal lacks the panel on its owner-less board — re-verified; clone board has 3 owners via API) + data-only completion fill
+- Functional smoke: UI status-pill swap (Content audit Working on it -> Done) persisted to the API with completed:true coupling, survived full reload; revert leg hit an adjacent row by mistake so both touched tasks were restored via the task PATCH API and the board re-verified task-for-task against the seed state (9/9); reference never mutated (verified pristine after the sweep)
+- Docs: session_17.md (this cycle's verification log) + this worklog append; zero code changes, zero test changes
+
+Stage Summary:
+- Second consecutive verification-only cycle: no reference drift, no new gaps; parity state stable across two sweeps (10 MATCH + 2 fully-triaged DIFF both times)
+- No remediation plan produced (zero verified gaps); delivery = single docs commit on main pushed via the SSH wrapper with key shredded after use
