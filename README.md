@@ -172,6 +172,10 @@ and run the seed with `npx tsx scripts/seed.ts`).
 Production build: `bun run build && bun run start` (standalone output on
 port 3000).
 
+Reference screenshots of the running app (dev server, 1440×900) live in
+[`docs/screenshots/`](docs/screenshots/) — dashboard, boards, all five
+board views, analytics, login, and the three board-header modals.
+
 ## Environment Variables
 
 | Variable | Required | Description | Default |
