@@ -196,3 +196,21 @@ Work Log:
 Stage Summary:
 - Session-13 pass fully delivered: the reference now matches on every surface AND at the vendored-primitive geometry level (sub-perceptual diffs closed); 2 primitive files rewritten + 11 contract tests added
 - Reference left pristine; no key residue; main-branch-only contract honored
+
+---
+Task ID: 10
+Agent: main (Super Z)
+Task: Session 15 (cycle 14) — system font, Select anatomy, mock chrome, date boundary, final convergence, delivery
+
+Work Log:
+- Recovered the interrupted session-15 state: working tree carried the six gap fixes uncommitted, gates green (143/143), dev server alive; re-established both browser sessions (reference token intact, clone re-login)
+- Re-ran the full 24-capture set under one fresh post-midnight date state (the interrupted sweep's premise); captured login pairs via isolated agent-browser sessions to avoid logout; used canonical route casings (/Boards, /Analytics) after the first sweep exposed a nav-highlight capture artifact (lowercase spellings correctly do not highlight under exact-match isNavActive) — re-captured and re-verified MATCH
+- Final VLM convergence sweep: 5 direct MATCH (login, boards, board-kanban, board-calendar, modal-integrations) + 7 DIFF, every DIFF triaged to ground truth: timeline trigger border DISPROVEN (computed 0px both apps), "day-header indicators" = the documented timeline bars (DOM: clone 3 board-blue 32x28px bars, reference zero), board-performance tiles data-only (board-color), status-order data-driven (shared first-encounter algorithm), remainder = data-only + documented deviations (checkbox coupling, priority distribution, unassigned listing, dateless section) + dev-widget artifacts
+- Cleanup: reference restored to pristine (probe board deleted + 10 orphaned items cascade-deleted via entities API, verified 1 board/1 item); clone probe board deleted (canonical 4-board seed); next-env.d.ts restored to dev variant after the build gate
+- Gates: lint 0, tsc 0, 143/143 tests, standalone production build OK
+- Docs aligned: PAD v1.11 (revision block, §5.1 system-stack typography, §5.3 Select anatomy contract, §11 key files), README (typography, test table, shell/due-date rows), CLAUDE.md (inventory, 143 counts), AGENTS.md (five new invariants: Select anatomy, no-webfont, mock chrome, isOverdueDate, title-cell geometry), remediation-plan-session15.md execution closure, session_15.md, worklog append
+- Atomic commits on main + SSH wrapper push (dry-run, real, remote verify, key shredded)
+
+Stage Summary:
+- Session-15 pass fully delivered: the clone now renders in the reference's exact system font, its vendored Select carries the OLD-shadcn anatomy (plain h-9/w-full trigger utilities so consumer overrides merge like the reference), header/team/avatar/date/placeholder chrome match the decompiled mocks and rules, and all 12 VLM pairs are converged (direct MATCH or fully-triaged)
+- Reference left pristine; no key residue; main-branch-only contract honored

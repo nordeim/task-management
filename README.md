@@ -40,11 +40,11 @@ SQLite for persistence — which makes the whole product cloneable with
 | ✏️ Board & group management | Create **and edit** boards (title, description, 6 colors, Private/Shared visibility) from the boards page Options menu; **Add New Group** dialog with 7 named color swatches; rename inline from the board header; boards page renders grid or list cards (top color bar / left color stripe, p-5 body, footer Options zone) |
 | ✏️ Task editing | Click any kanban card, its Ellipsis button, or a calendar chip to open the reference's **Edit Task modal** (`sm:max-w-2xl`): Task Title + two-column grid (Priority select, Status select, Owner free-text, Due Date calendar popover) and a `pt-4 border-t` footer — Delete Task (red, behind `window.confirm`) | Cancel + Save Changes (blue). Inline table cells (status pill swap, priority select, free-text owner, date input) stay |
 | 🪟 Board-header modals | The board header's **Analytics** button opens the reference's **Board Analytics modal** (`Ote`): three gradient stat cards (Total Tasks / Completion Rate with inline Progress / Overdue = dueDate < now && status ≠ done), a vocabulary-order Status Distribution card (zero counts included, `w-3 h-3` palette dots, outline %-badges), a first-encounter top-5 Team Workload card (solid-blue initial avatars), and a top-5 24-hour Recent Activity feed ("Updated Sep 17, 22:01") — over the board's UNFILTERED task set; **Integrate** opens the **Integrations Center** (8 brand-tiled cards — Slack/Drive/GitHub/Figma/Zoom/Jira/Shopify/HubSpot — with local-state Switches that reset on close, like the reference); **Automate** opens the **Automations Center** (banner + Create Custom Automation button + 5 recipe cards with the same switch/tile anatomy). Configure/Customize buttons mirror the reference's inert mock behavior |
-| 📅 Due dates | Native date input (matches the reference), stored at local noon so timezone edges never shift the rendered day; the set state renders as plain `Sep 22` text (no icon) and past dates turn into red-tinted chips |
+| 📅 Due dates | Native date input (matches the reference), stored at local noon so timezone edges never shift the rendered day; the set state renders as plain `Sep 22` text (no icon) and past dates turn into red-tinted chips — the overdue boundary is the reference's decompiled rule (`isOverdueDate`: before-now AND not-today, so a task due TODAY never renders red) |
 | 👤 Owner cells | Free-text "Enter name…" inline input (commit on blur/Enter, Escape cancels) resolving to a member account; assigned rows show a solid-blue 24px first-letter avatar + name — kanban cards show the reference's 8-gradient avatar with 2-char initials |
 | 🔐 Email + password auth | scrypt-hashed passwords, opaque session tokens in httpOnly cookies (30-day TTL), login/signup/sign-out flows |
 | 🎨 Themes | Six board colors (Ocean Blue, Success Green, Warning Orange, Danger Red, Purple, Teal) driving accents across every surface, plus seven per-group swatches (adds Gray `#676879`) driving each group's 4px left accent |
-| 📱 Responsive shell | Desktop nav with the reference's exact-match active highlight (`bg-[#E1E5F3] text-[#0073EA]` via `isNavActive`; `/` highlights nothing) plus a mobile hamburger with an inline collapsible panel; global "Search everything…" board search; **no app footer** (like the reference) |
+| 📱 Responsive shell | Desktop nav with the reference's exact-match active highlight (`bg-[#E1E5F3] text-[#0073EA]` via `isNavActive`; `/` highlights nothing) plus a mobile hamburger with an inline collapsible panel; global "Search everything…" board search; header avatar renders the reference's literal "U" mock chrome (mobile panel shows the reference's `User Name` / `user@example.com` placeholders); the board header's team row is the reference's hardcoded four-member mock (JD/JS/MJ + "+1", position colors, pulsing presence dots, per-avatar tooltips, one row-level members popover); **no app footer** (like the reference) |
 
 ## Architecture
 
@@ -98,7 +98,7 @@ container (`flex-1 overflow-y-auto`), matching the reference.
 │   │   ├── 📂 boards/ · 📂 board/ · 📂 analytics/ ← real routes
 │   ├── 📂 login/page.tsx              ← /login (bare, renders even when authed)
 │   ├── 📂 [...path]/page.tsx          ← styled 404 catch-all (server-rendered titles)
-│   ├── 📄 not-found.tsx · 📄 layout.tsx ← 404 root + Inter font, metadata, Toaster
+│   ├── 📄 not-found.tsx · 📄 layout.tsx ← 404 root + metadata + Toaster (NO webfont — system stack)
 │   ├── 📄 globals.css                 ← Tuesday.com theme tokens (Tailwind v4 @theme inline)
 │   └── 📂 api/                        ← JSON API route handlers
 │       ├── 📂 auth/{login,signup,logout,me}/route.ts
@@ -192,7 +192,7 @@ verified against the live app).
 |-------|---------|-------|
 | Lint | `bun run lint` | ESLint 9 flat config, `eslint-config-next` defaults with **no rule weakening**; must exit 0 |
 | Types | `bun run typecheck` | `tsc --noEmit`; strict mode fully on; `skills/` and `docs/` excluded — the vendored skill library is outside every gate |
-| Unit tests | `bun run test` | Vitest, colocated `src/lib/*.test.ts` + `src/components/ui/primitives.test.ts` (131 tests) over the pure domain seams (status↔completed coupling, timeline window math, kanban grouping, distribution bars **incl. first-encounter ordering with zero-omission**, saved-indicator format, task filter/sort pipeline — incl. the 7-field sort with nulls-last — column visibility, group summary with badge cap/overflow, relative time, reference palette, priority badge recipe, visibility labels, view-trigger labels, kanban card border token, group color options, route paths, nav active-state matcher, dynamic calendar weeks, summary date/owner labels, team avatar palettes, 404 titlecase helper, recent-task time format, kanban avatar gradient/initials, group-header status dots, distinct owner names, people-column palette, **team workload counts, recent-activity items, board modal stats, board-modal 24-hour timestamps**) **plus the vendored-primitive anatomy contracts** (Badge cva + Switch track/thumb classes locked to the reference's OLD-shadcn decompiled strings — px-2.5/semibold badges, h-5 w-9 border-2 switch with shadow-lg thumb) |
+| Unit tests | `bun run test` | Vitest, colocated `src/lib/*.test.ts` + `src/components/ui/primitives.test.ts` (143 tests) over the pure domain seams (status↔completed coupling, timeline window math, kanban grouping, distribution bars **incl. first-encounter ordering with zero-omission**, saved-indicator format, task filter/sort pipeline — incl. the 7-field sort with nulls-last — column visibility, group summary with badge cap/overflow, relative time, reference palette, priority badge recipe, visibility labels, view-trigger labels, kanban card border token, group color options, route paths, nav active-state matcher, dynamic calendar weeks, summary date/owner labels, team avatar palettes, 404 titlecase helper, recent-task time format, kanban avatar gradient/initials, group-header status dots, distinct owner names, people-column palette, **team workload counts, recent-activity items, board modal stats, board-modal 24-hour timestamps, overdue date boundary (today-never-red)**) **plus the vendored-primitive anatomy contracts** (Badge cva + Switch track/thumb + Select trigger/item classes locked to the reference's OLD-shadcn decompiled strings — px-2.5/semibold badges, h-5 w-9 border-2 switch with shadow-lg thumb, plain h-9/w-full Select trigger utilities so consumer overrides merge) |
 | Build | `bun run build` | Standalone production build |
 | Smoke (manual/agent-browser) | sign in as the demo user, edit a board, filter/hide/sort, drag a kanban card, reload | changes persist — verified against the database during development |
 
@@ -249,8 +249,10 @@ blue `h-1` strip that flips from `scaleX(0)` to full width once the page
 scrolls past 32px. Board palette (6): `#0073ea`, `#00c875`, `#ffcb00`,
 `#e2445c`, `#a25ddb`, `#00d9ff`; group palette (7, `GROUP_COLOR_OPTIONS`)
 adds Gray `#676879`. The header logo is a gradient tile (`#2563EB→#1D4ED8`)
-with a white briefcase icon. Typography is **Inter** (Latin) via `next/font`,
-falling back to the system stack. `prefers-reduced-motion` collapses all
+with a white briefcase icon. Typography is Tailwind v4's **default system
+stack** (`ui-sans-serif, system-ui, …`) — NO webfont, exactly like the
+reference (verified live + in its stylesheet during session 15; `next build`
+carries zero font network deps). `prefers-reduced-motion` collapses all
 animations. Page containers: `max-w-7xl` on dashboard/boards/analytics
 (padding outside the container, like the reference), `max-w-full` on the
 board detail.

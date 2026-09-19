@@ -1,12 +1,70 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.10
+# Tuesday.com — Master Project Architecture Document (PAD) v1.11
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
 **Companion Documents:** `README.md` (onboarding), `AGENTS.md` (agent gotchas), `CLAUDE.md` (workflow contract)
-**Last Updated:** 2026-09-18
+**Last Updated:** 2026-09-19
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.11 (Parity Deep-Pass #9: System Font, Select Anatomy, Mock Chrome, Date Boundary, 2026-09-19)
+
+- `[SYN]` Eleventh parity pass (session 15,
+  `docs/remediation-plan-session15.md`): bundle still unchanged
+  (`index-BuEJAhK4.js` — every prior decompiled spec remains valid);
+  controlled experiment re-run ("S14 Probe Board", 10 tasks, 3 owners +
+  2 unassigned, dates Sep 14–Oct 10) on BOTH apps; 12 view pairs captured
+  and VLM-compared twice (the first run exposed a probe-seeding bug —
+  the clone's createTaskSchema is title+groupId only, so statuses/
+  priorities/owners/dates must be PATCHed after create, exactly like the
+  reference's inline-edit flow). Final convergence: 5 direct MATCH
+  verdicts + 7 DIFF verdicts fully triaged (data-only, documented
+  deliberate deviations, disproven VLM hallucinations, one capture-path
+  artifact — lowercase `/boards` vs canonical `/Boards` — re-captured
+  canonically and re-verified MATCH).
+- `[UI]` **Systemic font gap closed** — the reference ships Tailwind v4's
+  DEFAULT system font stack (`ui-sans-serif, system-ui, …`; zero
+  `@font-face`, empty `document.fonts`, body NOT antialiased). Our Inter
+  `next/font` override produced different glyph metrics (calendar chips
+  truncated one character later; table titles wrapped at different
+  points → different row heights). Inter import and `--font-sans`
+  override deleted; `<body>` drops `antialiased` (reference smoothing is
+  `auto`). This also removes the Google-Fonts network dependency from
+  `next build`.
+- `[UI]` **Vendored Select rewritten to OLD-shadcn anatomy** (same drift
+  class as the session-11/13 Card/Badge/Switch fixes): plain `h-9 w-full`
+  trigger utilities (no `data-[size=default]:h-9` attribute variant) so
+  consumer `h-full`/`h-auto`/`w-48` merge away in `cn()` exactly like
+  the reference — the priority/status cell triggers now follow their
+  cell height and every table row matches the reference's geometry
+  (~5px shorter). Item/Label/Separator/Chevron ported to the decompiled
+  strings (v3→v4 renames applied); `SELECT_TRIGGER_CLASS` /
+  `SELECT_ITEM_CLASS` exported and locked by `primitives.test.ts`.
+- `[UI]` **Board-table title cell** — the reference's title cell carries
+  NO `text-size` class (inherits 16px/24px — what makes 2-line titles
+  65px tall) and rounds only on hover; our `text-sm w-full rounded`
+  version produced uniformly shorter rows.
+- `[UI]` **Mock chrome parity** — the reference hardcodes header avatar
+  letter "U" (desktop w-8 + mobile w-10), mobile panel placeholder texts
+  `User Name` / `user@example.com`, and a four-member mock team
+  (JD/JS/MJ/SW with position colors, pulsing presence dots, per-avatar
+  tooltips `"name (role)"`, ONE row-level members popover). The clone now
+  renders the same mock chrome (`TEAM_MEMBERS` const in board-view.tsx);
+  `board.members` and the users API stay untouched.
+- `[LOGIC]` **Date-cell overdue boundary** — the reference's decompiled
+  rule renders the red chip only when `due < now &&
+  due.toDateString() !== now.toDateString()` (today NEVER red). New pure
+  seam `isOverdueDate(date, now?)` in domain.ts replaces the naked
+  `date < new Date()` comparison (which turned every task due today red
+  after local noon). The Board Analytics overdue COUNT keeps the
+  guardless comparison — matching the reference.
+- `[UI]` **Boards grid card placeholder** — "No description provided."
+  (the list row keeps the plain "No description") — decompiled strings.
+- `[GAT]` Unit suite 131→143 (TDD, red-first — 12 failing tests before
+  implementation): `isOverdueDate` boundary tests (yesterday red,
+  today-noon NOT red, today-23:59 NOT red, future plain) + Select
+  anatomy contract tests (trigger/item markers, exported constants).
 
 #### Revision Block — v1.10 (Parity Deep-Pass #8: Primitive Anatomy Convergence, 2026-09-18)
 
@@ -530,7 +588,7 @@ being cloned is `https://tuesdaycom-a6700714.base44.app/`.
 | Drag & drop | @dnd-kit/core | 6.3.1 | Pointer-sensor DnD with activation distance; persists status changes (ADR-007) |
 | Dates | date-fns | 4.1.0 | Formatting + month-grid math; noon-storage convention (§3.3 P3) |
 | Icons | lucide-react | 0.525.0 | Icon vocabulary matched to the reference app |
-| Font | Inter | via `next/font` | Reference app's typographic feel; Latin subset |
+| Font | Tailwind v4 default system stack | NO webfont — `@font-face`-free, `next build` has zero font network deps (reference's stylesheet, session 15) |
 
 ### 1.3 Architecture Decision Records (ADRs)
 
@@ -760,7 +818,7 @@ imports nothing from the app).
 │   │   └── analytics/page.tsx     ← /Analytics
 │   ├── login/page.tsx             ← /login — bare (renders even when authed)
 │   ├── [...path]/page.tsx         ← styled 404 catch-all (server-rendered titlecased titles)
-│   ├── not-found.tsx · layout.tsx ← root 404 + Inter font, metadata, Toaster
+│   ├── not-found.tsx · layout.tsx ← root 404 + metadata + Toaster (NO webfont — system stack)
 │   ├── globals.css                ← Tuesday.com theme: :root/.dark hex tokens, @theme inline, scrollbars, deco circles, reduced-motion
 │   └── api/
 │       ├── auth/login/route.ts        ← POST: Zod → scrypt verify → session cookie (uniform 401)
@@ -1022,9 +1080,9 @@ The client only ever sees DTOs.
 
 | Role | Face | Notes |
 |------|------|-------|
-| All UI text | Inter (`next/font`, latin subset) | Fallback: system stack |
-| Board/task titles | Inter 700 | `text-xl` / inline-weight at row level |
-| Muted meta | Inter 400–500 | `--muted-foreground` |
+| All UI text | Tailwind v4 default system stack (`ui-sans-serif, system-ui, …`) | NO webfont, NO `@font-face`, body not antialiased — exactly the reference's stylesheet (session 15); zero font network deps |
+| Board/task titles | System stack, inherited 16px/24px in table rows | The title cell carries NO `text-size` class (decompiled `yZ`) |
+| Muted meta | System stack 400–500 | `--muted-foreground` |
 
 ### 5.2 Color Tokens
 
@@ -1090,18 +1148,24 @@ Checkbox, Progress, ScrollArea, Skeleton, Table primitives, and the Sonner
 toaster. Custom product surfaces (stat cards, status pills, priority flags,
 kanban columns) wrap these or use plain elements with the tokens above.
 
-**Anatomy contract (session 13):** the reference ships the OLD shadcn/ui
+**Anatomy contract (sessions 11–15):** the reference ships the OLD shadcn/ui
 primitives, and our vendored copies are aligned to that anatomy —
 `ui/card.tsx` (header `p-6` / content `p-6 pt-0`, 0px gap, session 11),
 `ui/label.tsx` (inline, session 11), `ui/badge.tsx` (base `px-2.5 py-0.5
 font-semibold`, default/destructive `shadow-sm`, outline `text-foreground`),
-and `ui/switch.tsx` (track `h-5 w-9 border-2 shadow-xs`, thumb `h-4 w-4
-shadow-lg translate-x-4`). The Badge cva and the exported
-`SWITCH_TRACK_CLASS` / `SWITCH_THUMB_CLASS` constants are locked by
+`ui/switch.tsx` (track `h-5 w-9 border-2 shadow-xs`, thumb `h-4 w-4
+shadow-lg translate-x-4`), and `ui/select.tsx` (session 15: trigger uses
+PLAIN `h-9 w-full` utilities — no `data-[size]` attribute variant — so
+consumer `h-full`/`h-auto`/`w-48` overrides merge away in `cn()` exactly
+like the reference; content `max-h-96 overflow-hidden`, item `pl-2 pr-8`,
+chevron `h-4 w-4 opacity-50`). The Badge cva, the exported
+`SWITCH_TRACK_CLASS` / `SWITCH_THUMB_CLASS`, and the exported
+`SELECT_TRIGGER_CLASS` / `SELECT_ITEM_CLASS` constants are locked by
 `src/components/ui/primitives.test.ts` — do not "upgrade" these primitives
 to newer shadcn anatomy without re-proving parity against the live
-reference (v3 `shadow`→v4 `shadow-sm`, v3 `shadow-sm`→v4 `shadow-xs` renames
-apply when porting decompiled strings).
+reference (v3 `shadow`→v4 `shadow-sm`, v3 `shadow-sm`→v4 `shadow-xs`,
+v3 `focus:outline-none`→v4 `focus:outline-hidden` renames apply when
+porting decompiled strings).
 
 ### 5.4 Motion / Animation
 
@@ -1336,15 +1400,15 @@ bun run dev                # http://localhost:3000
 | `src/app/[...path]/page.tsx` | 30 | Styled 404 catch-all with server-rendered titlecased titles |
 | `src/components/app/app-shell.tsx` | 112 | Shell: flex column, nav + main scroll container, AuthContext + AppProvider |
 | `src/components/app/routes/*.tsx` | 20 ea | Route wrappers (dashboard/boards/board/analytics/login) |
-| `src/components/app/board-view.tsx` | 1375 | Board detail: sticky chrome (gray wrapper + white bar + has-scrolled strip), one-row header, team row + popover, toolbar card (card-styled Person/Filter/Sort/Hide/Group-by menus), 5 views, Edit Task + Board Analytics/Integrations/Automations modal wiring, all mutations |
-| `src/components/app/boards-view.tsx` | 452 | Boards grid/list cards (color bar / stripe, Options footer), search, inert reference Filter button, edit/delete flows |
+| `src/components/app/board-view.tsx` | 1395 | Board detail: sticky chrome (gray wrapper + white bar + has-scrolled strip), one-row header, hardcoded mock team row (`TEAM_MEMBERS`) + row-level popover + per-avatar tooltips + pulsing dots, toolbar card (card-styled Person/Filter/Sort/Hide/Group-by menus), 5 views, Edit Task + Board Analytics/Integrations/Automations modal wiring, all mutations |
+| `src/components/app/boards-view.tsx` | 455 | Boards grid/list cards (color bar / stripe, Options footer), search, inert reference Filter button, edit/delete flows; grid placeholder "No description provided." vs list "No description" |
 | `src/components/app/dashboard-view.tsx` | 529 | Home: reference KPI perspective cards, hero, RB gradient card with anchor rows + gradient badges + View All ghost button, quick actions, top-5 recent-TASKS activity (space-y-3) |
 | `src/components/app/analytics-view.tsx` | 385 | Filters, stat cards, #171717 translateX completion fill, first-encounter distributions (zero-omission), board-order performance rows |
-| `src/components/app/board-table.tsx` | 898 | Main Table: ONE card + per-group scroll containers, sticky rails, per-status header dots, Trash2 row actions, capped footer aggregates, empty-group flow |
+| `src/components/app/board-table.tsx` | 905 | Main Table: ONE card + per-group scroll containers, sticky rails, per-status header dots, Trash2 row actions, capped footer aggregates, empty-group flow; title cell inherits 16px/24px (no text-size class, rounds on hover — decompiled `yZ`) |
 | `src/components/app/board-kanban.tsx` | 400 | @dnd-kit columns grouped by Status or People (drag assigns owner); reference w-80 shadow columns, gradient avatars, LE-palette people columns, click-to-edit cards |
 | `src/components/app/board-timeline.tsx` | 207 | Gantt timeline: title-left/nav-right header, 40px day columns, no today highlight; 32px reference-anatomy rows (static 200px labels, single unbordered body container, absolute due-date bars) |
 | `src/components/app/board-calendar.tsx` | 147 | Sun-first month grid, p-4 header, white bordered due-date chips, ring-inset today |
-| `src/components/app/app-header.tsx` | 430 | Nav (exact-match active state), gradient logo + wordmark, search, honest notifications/help/settings, gradient avatar + "My Account" menu, inline mobile panel |
+| `src/components/app/app-header.tsx` | 431 | Nav (exact-match active state), gradient logo + wordmark, search, honest notifications/help/settings, gradient avatar with the reference's LITERAL "U" letter + "My Account" menu, inline mobile panel ("User Name" / "user@example.com" placeholders — decompiled mock chrome) |
 | `src/components/app/login-view.tsx` | 238 | Login/signup: slate-900 h-12 sign-in, slate-50/50 inputs, split footer links |
 | `src/components/app/not-found-view.tsx` | 39 | Styled slate 404 (404 / divider / quoted path / Go Home) |
 | `src/components/app/board-not-found.tsx` | 29 | In-app "Board not found" card for /Board with missing/unknown id |
@@ -1357,15 +1421,16 @@ bun run dev                # http://localhost:3000
 | `src/components/app/create-group-dialog.tsx` | 158 | Add New Group: title + 7 `GROUP_COLOR_OPTIONS` swatches (fresh-mount form pattern) |
 | `src/components/app/edit-board-dialog.tsx` | 195 | Board editing: title/description/colors/visibility (fresh-mount form pattern) |
 | `src/components/app/owner-cell.tsx` | 110 | Free-text "Enter name…" inline owner editor (resolves to members); solid-blue first-letter avatar |
-| `src/components/app/date-cell.tsx` | 108 | Native date input, noon storage, plain set-state text, overdue red chip |
-| `src/lib/domain.ts` | 848 | Vocabulary (incl. `ROUTE_PATHS`, `isNavActive`, `calendarCells`, summary/palette/avatar seams, `distributionEntries`, `teamWorkload`, `recentActivityItems`, `boardStats`, `formatBoardActivityTime`), DTOs, ActionResult, pure helpers — the contract file |
-| `src/lib/domain.test.ts` | 1076 | Vitest suite over the pure seams (120 tests) |
+| `src/components/app/date-cell.tsx` | 112 | Native date input, noon storage, plain set-state text, overdue red chip via `isOverdueDate` (before-now AND not-today) |
+| `src/lib/domain.ts` | 862 | Vocabulary (incl. `ROUTE_PATHS`, `isNavActive`, `calendarCells`, summary/palette/avatar seams, `distributionEntries`, `teamWorkload`, `recentActivityItems`, `boardStats`, `formatBoardActivityTime`, `isOverdueDate`), DTOs, ActionResult, pure helpers — the contract file |
+| `src/lib/domain.test.ts` | 1123 | Vitest suite over the pure seams (128 tests) |
 | `src/components/ui/badge.tsx` | 54 | OLD-shadcn Badge anatomy (decompiled cva; px-2.5/semibold, shadow on default) |
 | `src/components/ui/switch.tsx` | 43 | OLD-shadcn Switch anatomy (h-5 w-9 border-2; thumb shadow-lg translate-x-4) — exports the class constants |
-| `src/components/ui/primitives.test.ts` | 132 | Class-contract tests locking Badge + Switch anatomy to the decompiled reference (11 tests) |
+| `src/components/ui/select.tsx` | 199 | OLD-shadcn Select anatomy (plain h-9/w-full trigger utilities so consumer overrides merge; exports SELECT_TRIGGER_CLASS / SELECT_ITEM_CLASS) |
+| `src/components/ui/primitives.test.ts` | 193 | Class-contract tests locking Badge + Switch + Select anatomy to the decompiled reference (15 tests) |
 | `src/lib/auth.ts` | 79 | scrypt + sessions |
 | `src/lib/api-client.ts` | 31 | Typed fetch that never throws |
-| `src/app/globals.css` | 185 | Theme tokens (shadcn-neutral grayscale + explicit blues, both modes) + deco discs + global styles |
+| `src/app/globals.css` | 214 | Theme tokens (shadcn-neutral grayscale + explicit blues, both modes) + deco discs + team-presence pulse keyframes + global styles |
 | `prisma/schema.prisma` | 117 | The six models (Group carries its own `color`) |
 | `scripts/seed.ts` | 295 | Idempotent demo dataset (demo user `sepnetflix2023`, per-group colors, team roles/presence) |
 
