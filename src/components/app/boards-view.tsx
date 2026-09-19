@@ -288,7 +288,10 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
                   </h3>
 
                   <p className="mb-5 line-clamp-2 flex-grow text-sm text-gray-600">
-                    {board.description || "No description"}
+                    {/* Reference grid card placeholder (decompiled):
+                        "No description provided." — the list row's is the
+                        plain "No description" below. */}
+                    {board.description || "No description provided."}
                   </p>
 
                   <div className="mt-auto flex items-center justify-between border-t border-gray-100 pt-4 text-xs text-gray-500">

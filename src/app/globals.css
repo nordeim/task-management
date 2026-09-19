@@ -6,7 +6,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
+  /* No --font-sans override: the reference ships Tailwind v4's default
+     system stack (ui-sans-serif, system-ui, …) with zero @font-face —
+     verified live + in its stylesheet during session 15. */
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -181,6 +183,24 @@
   border-radius: 50%;
   transform: translate(-30%, 30%);
   pointer-events: none;
+}
+
+/* Board-header team presence dots (decompiled `zq`): the reference pulses
+   them with framer scale keyframes [1, 1.2, 1] over 2s. The global
+   prefers-reduced-motion block above collapses this for motion-sensitive
+   users. */
+@keyframes team-presence-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+.team-presence-dot {
+  animation: team-presence-pulse 2s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

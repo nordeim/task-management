@@ -32,20 +32,8 @@ const NAV_ITEMS: { label: string; href: string }[] = [
   { label: "Analytics", href: ROUTE_PATHS.analytics },
 ];
 
-function initialsOf(name: string): string {
-  return (
-    name
-      .split(" ")
-      .map((part) => part[0])
-      .filter(Boolean)
-      .slice(0, 2)
-      .join("")
-      .toUpperCase() || "?"
-  );
-}
-
 export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string }) {
-  const { user, navigate, signOut } = useApp();
+  const { navigate, signOut } = useApp();
   const pathname = usePathname() ?? "/";
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -259,9 +247,13 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
                   aria-label="Open user menu"
                   className="rounded-full outline-none ring-ring focus-visible:ring-2"
                 >
-                  {/* Reference avatar (probed): 32px blue→green gradient. */}
+                  {/* Reference avatar (decompiled `zq`-era header, verified
+                      live session 15): 32px blue→green gradient whose letter
+                      is the LITERAL string "U" — mock chrome, not a derived
+                      initial (the reference shows "U" while greeting
+                      "sepnetflix2023"). */}
                   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-[#0073EA] to-[#00C875]">
-                    <span className="text-xs font-bold text-white">{initialsOf(user.name)}</span>
+                    <span className="text-xs font-bold text-white">U</span>
                   </span>
                 </button>
               </DropdownMenuTrigger>
@@ -370,13 +362,18 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
           <div className="border-t border-gray-200 pb-3 pt-4">
             <div className="flex items-center px-5">
               <div className="shrink-0">
+                {/* Reference mobile avatar (decompiled): 40px gradient with
+                    the LITERAL "U" — same mock chrome as the desktop header. */}
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-r from-[#0073EA] to-[#00C875]">
-                  <span className="text-sm font-bold text-white">{initialsOf(user.name)}</span>
+                  <span className="text-sm font-bold text-white">U</span>
                 </div>
               </div>
               <div className="ml-3 min-w-0">
-                <div className="truncate text-base font-medium text-gray-800">{user.name}</div>
-                <div className="truncate text-sm font-medium text-gray-500">{user.email}</div>
+                {/* Reference mobile panel renders LITERAL placeholder texts
+                    ("User Name" / "user@example.com") regardless of the
+                    authed user — decompiled strings, verified live. */}
+                <div className="truncate text-base font-medium text-gray-800">User Name</div>
+                <div className="truncate text-sm font-medium text-gray-500">user@example.com</div>
               </div>
               <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
                 <PopoverTrigger asChild>

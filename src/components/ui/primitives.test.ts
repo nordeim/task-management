@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { badgeVariants } from "./badge";
+import { SELECT_ITEM_CLASS, SELECT_TRIGGER_CLASS } from "./select";
 import { SWITCH_THUMB_CLASS, SWITCH_TRACK_CLASS } from "./switch";
 
 /**
@@ -128,5 +129,65 @@ describe("switch anatomy (decompiled reference contract)", () => {
     const cls = SWITCH_THUMB_CLASS;
     expect(cls).not.toContain("translate-x-[calc");
     expect(cls).not.toContain("size-4");
+  });
+});
+
+describe("select anatomy (decompiled reference contract)", () => {
+  /**
+   * The reference's vendored Select is the OLD shadcn anatomy (decompiled
+   * 2026-09-19 from the unchanged bundle; see
+   * docs/remediation-plan-session15.md). The load-bearing detail: the
+   * trigger's height is the PLAIN `h-9` utility — so a consumer's `h-full`
+   * (priority cell) or `h-auto` (status cell open state) merges it away in
+   * cn()/tailwind-merge and wins, exactly like the reference. The NEW-shadcn
+   * `data-[size=default]:h-9` attribute variant cannot be merged away and
+   * pins the trigger at 36px — which inflated every board-table row by ~5px
+   * vs the reference (verified live, session 15).
+   */
+  it("trigger uses the old geometry: plain h-9, w-full, px-3 py-2", () => {
+    const cls = SELECT_TRIGGER_CLASS;
+    expect(cls).toContain("h-9");
+    expect(cls).toContain("w-full");
+    expect(cls).toContain("px-3");
+    expect(cls).toContain("py-2");
+    expect(cls).toContain("text-sm");
+    expect(cls).toContain("items-center");
+    expect(cls).toContain("justify-between");
+    expect(cls).toContain("whitespace-nowrap");
+    expect(cls).toContain("rounded-md");
+    expect(cls).toContain("border-input");
+    // v3 `shadow-sm` == v4 `shadow-xs` (trigger computed shadow 0 1px 2px)
+    expect(cls).toContain("shadow-xs");
+    expect(cls).toContain("[&>span]:line-clamp-1");
+    expect(cls).toContain("data-[placeholder]:text-muted-foreground");
+  });
+
+  it("trigger height is a plain utility, NOT the NEW data-size variant", () => {
+    const cls = SELECT_TRIGGER_CLASS;
+    expect(cls).not.toContain("data-[size=default]:h-9");
+    expect(cls).not.toContain("data-[size=sm]:h-8");
+    expect(cls).not.toContain("w-fit");
+    expect(cls).not.toContain("focus-visible:ring-[3px]");
+    expect(cls).not.toContain("transition-[color,box-shadow]");
+  });
+
+  it("trigger keeps the old focus ring (ring-1 + offset background)", () => {
+    const cls = SELECT_TRIGGER_CLASS;
+    expect(cls).toContain("focus:ring-1");
+    expect(cls).toContain("focus:ring-ring");
+    expect(cls).toContain("ring-offset-background");
+    expect(cls).toContain("focus:outline-hidden");
+  });
+
+  it("item uses the old geometry: py-1.5 pl-2 pr-8, absolute indicator", () => {
+    const cls = SELECT_ITEM_CLASS;
+    expect(cls).toContain("py-1.5");
+    expect(cls).toContain("pl-2");
+    expect(cls).toContain("pr-8");
+    expect(cls).toContain("text-sm");
+    expect(cls).toContain("rounded-sm");
+    expect(cls).toContain("focus:bg-accent");
+    expect(cls).toContain("focus:text-accent-foreground");
+    expect(cls).not.toContain("gap-2");
   });
 });

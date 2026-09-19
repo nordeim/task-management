@@ -20,6 +20,7 @@ import {
   filterTasks,
   formatBoardActivityTime,
   isNavActive,
+  isOverdueDate,
   recentActivityItems,
   formatRecentTaskTime,
   formatSavedAt,
@@ -1064,6 +1065,52 @@ describe("boardStats (Board Analytics modal headline numbers)", () => {
       completionRate: 0,
       overdue: 0,
     });
+  });
+});
+
+describe("isOverdueDate (date-cell overdue boundary, decompiled pZ)", () => {
+  // The reference's rule (decompiled from pZ): a date is overdue when
+  // `new Date(e) < new Date && new Date(e).toDateString() !==
+  // new Date().toDateString()` — strictly before now AND not today.
+  // Due dates live at local noon, so "today after noon" must NOT render red.
+  it("yesterday's noon date is overdue", () => {
+    const now = new Date(2026, 8, 18, 15, 30);
+    expect(isOverdueDate(new Date(2026, 8, 17, 12, 0), now)).toBe(true);
+  });
+
+  it("today at noon is NOT overdue (the clone's old < now bug)", () => {
+    const now = new Date(2026, 8, 18, 15, 30);
+    expect(isOverdueDate(new Date(2026, 8, 18, 12, 0), now)).toBe(false);
+  });
+
+  it("today at 00:01 is NOT overdue", () => {
+    const now = new Date(2026, 8, 18, 0, 1);
+    expect(isOverdueDate(new Date(2026, 8, 18, 12, 0), now)).toBe(false);
+  });
+
+  it("today at 23:59 is NOT overdue even though the date is before now", () => {
+    const now = new Date(2026, 8, 18, 23, 59);
+    expect(isOverdueDate(new Date(2026, 8, 18, 12, 0), now)).toBe(false);
+  });
+
+  it("an instant exactly equal to now is NOT overdue (same day)", () => {
+    const now = new Date(2026, 8, 18, 12, 0);
+    expect(isOverdueDate(now, now)).toBe(false);
+  });
+
+  it("a future date is NOT overdue", () => {
+    const now = new Date(2026, 8, 18, 15, 30);
+    expect(isOverdueDate(new Date(2026, 8, 25, 12, 0), now)).toBe(false);
+  });
+
+  it("today at 00:00 midnight (start of day) with the date at noon is NOT overdue", () => {
+    const now = new Date(2026, 8, 18, 0, 0);
+    expect(isOverdueDate(new Date(2026, 8, 18, 12, 0), now)).toBe(false);
+  });
+
+  it("the last millisecond before midnight yesterday is overdue", () => {
+    const now = new Date(2026, 8, 18, 0, 0);
+    expect(isOverdueDate(new Date(2026, 8, 17, 23, 59, 59, 999), now)).toBe(true);
   });
 });
 

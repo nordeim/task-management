@@ -4,6 +4,8 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, X } from "lucide-react";
 
+import { isOverdueDate } from "@/lib/domain";
+
 /** yyyy-mm-dd for the native input's value attribute. */
 function toDateInputValue(date: Date): string {
   const y = date.getFullYear();
@@ -19,7 +21,9 @@ function toDateInputValue(date: Date): string {
  *   past dates render as a red-tinted chip (bg #E2445C/10, text #E2445C)
  * - editing: borderless native date input
  * Dates are stored at local noon so timezone edges can never shift the
- * rendered day.
+ * rendered day. The overdue boundary is the decompiled `pZ` rule
+ * (`isOverdueDate`): before now AND not today — a task due TODAY never
+ * renders red, even after local noon (verified live, session 15).
  */
 export function DateCell({
   value,
@@ -30,7 +34,7 @@ export function DateCell({
 }) {
   const [editing, setEditing] = useState(false);
   const date = value ? new Date(value) : null;
-  const overdue = date !== null && date < new Date();
+  const overdue = date !== null && isOverdueDate(date);
 
   function handleChange(next: string) {
     if (!next) {

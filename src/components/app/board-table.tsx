@@ -252,7 +252,7 @@ function TaskRow({
                       setEditing(false);
                     }
                   }}
-                  className="w-full rounded-md border-none bg-transparent p-0 text-sm font-medium text-[#323338] outline-none focus:ring-0"
+                  className="w-full rounded-md border-none bg-transparent p-0 font-medium text-[#323338] outline-none focus:ring-0"
                 />
               ) : (
                 <div
@@ -266,7 +266,11 @@ function TaskRow({
                     }
                   }}
                   title={task.title}
-                  className="w-full cursor-pointer rounded px-2 py-1 text-sm font-medium text-[#323338] transition-colors -mx-2 -my-1 hover:bg-[#E1E5F3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  /* Reference title cell (decompiled yZ): NO text-size class —
+                     inherits text-base 16px/24px, which is what makes 2-line
+                     titles 56px tall on the reference; hover:rounded (not
+                     always-rounded). Our focus-visible ring stays (a11y floor). */
+                  className="cursor-pointer px-2 py-1 font-medium text-[#323338] transition-colors -mx-2 -my-1 hover:rounded hover:bg-[#E1E5F3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {task.title}
                 </div>

@@ -56,6 +56,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useApp } from "@/components/app/app-context";
@@ -158,17 +159,22 @@ function newTaskShape(title: string): Omit<TaskDTO, "id" | "groupId"> {
   };
 }
 
-function initialsOf(name: string): string {
-  return (
-    name
-      .split(" ")
-      .map((part) => part[0])
-      .filter(Boolean)
-      .slice(0, 2)
-      .join("")
-      .toUpperCase() || "?"
-  );
-}
+/**
+ * The board header's team chrome is the reference's HARDCODED mock
+ * (decompiled from `zq`, verified live session 15): a local useState array
+ * of four fake members — never fetched, identical on every board, initials
+ * rendered from the precomputed `avatar` field. The row shows the first
+ * three (JD/JS/MJ) + "+1" overflow with POSITION colors and per-avatar
+ * tooltips ("name (role)"); the whole row is ONE popover trigger for the
+ * members list. Presence dots pulse (framer keyframes on the reference —
+ * a CSS keyframe here, collapsed by prefers-reduced-motion).
+ */
+const TEAM_MEMBERS: { id: number; name: string; avatar: string; online: boolean; role: string }[] = [
+  { id: 1, name: "John Doe", avatar: "JD", online: true, role: "Owner" },
+  { id: 2, name: "Jane Smith", avatar: "JS", online: true, role: "Editor" },
+  { id: 3, name: "Mike Johnson", avatar: "MJ", online: false, role: "Viewer" },
+  { id: 4, name: "Sarah Wilson", avatar: "SW", online: true, role: "Editor" },
+];
 
 interface TaskPatch {
   title?: string;
@@ -730,37 +736,46 @@ export function BoardView({ boardId }: { boardId: string }) {
             />
           </Button>
 
-          {/* Member avatars — reference layout (probed 2026-09-17): three
-              position-colored avatars + "+N" overflow, presence dots for
-              online members, and each avatar opens the team popover. */}
-          <div className="flex cursor-pointer items-center -space-x-2">
-            {board.members.slice(0, 3).map((member, index) => (
-              <Popover key={member.id}>
-                <PopoverTrigger asChild>
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Team member ${member.name}`}
-                    className={`relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-xs font-medium text-white transition-transform hover:z-10 hover:scale-110 active:scale-95 ${teamAvatarPalette(index)}`}
-                  >
-                    {initialsOf(member.name)}
-                    {member.online && (
+          {/* Member avatars — reference anatomy (decompiled `zq`, session 15):
+              the whole -space-x-2 row is ONE popover trigger; the first three
+              mock avatars (position colors) each carry a TOOLTIP rendering
+              "{name} ({role})"; presence dots PULSE; the overflow chip reads
+              "+N". The members are the hardcoded mock — see TEAM_MEMBERS. */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <div className="flex cursor-pointer items-center -space-x-2">
+                {TEAM_MEMBERS.slice(0, 3).map((member, index) => (
+                  <Tooltip key={member.id}>
+                    <TooltipTrigger asChild>
                       <span
-                        aria-hidden="true"
-                        className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white bg-green-400"
-                      />
-                    )}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Team member ${member.name}`}
+                        className={`relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-xs font-medium text-white transition-transform hover:z-10 hover:scale-110 active:scale-95 ${teamAvatarPalette(index)}`}
+                      >
+                        {member.avatar}
+                        {member.online && (
+                          <span
+                            aria-hidden="true"
+                            className="team-presence-dot absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white bg-green-400"
+                          />
+                        )}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {member.name} ({member.role})
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+                {TEAM_MEMBERS.length > 3 && (
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-gray-400 text-xs text-white">
+                    +{TEAM_MEMBERS.length - 3}
                   </span>
-                </PopoverTrigger>
-                <TeamMembersPopover members={board.members} />
-              </Popover>
-            ))}
-            {board.members.length > 3 && (
-              <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-gray-400 text-xs text-white">
-                +{board.members.length - 3}
-              </span>
-            )}
-          </div>
+                )}
+              </div>
+            </PopoverTrigger>
+            <TeamMembersPopover members={TEAM_MEMBERS} />
+          </Popover>
         </div>
         </div>
         </div>
@@ -1308,7 +1323,12 @@ export function BoardView({ boardId }: { boardId: string }) {
  * message ghost icon buttons. The reference's buttons are dead chrome; the
  * clone keeps the honest "not available" toast instead.
  */
-function TeamMembersPopover({ members }: { members: UserDTO[] }) {
+/** The popover consumes the reference's hardcoded mock team — see TEAM_MEMBERS. */
+function TeamMembersPopover({
+  members,
+}: {
+  members: { id: number; name: string; avatar: string; online: boolean; role: string }[];
+}) {
   function notAvailable(feature: string) {
     toast({ title: "Not available", description: `${feature} is not configured on this deployment.` });
   }
@@ -1331,9 +1351,9 @@ function TeamMembersPopover({ members }: { members: UserDTO[] }) {
             <div key={member.id} className="flex items-center justify-between rounded-lg p-2 hover:bg-gray-50">
               <div className="flex items-center gap-3">
                 <div
-                  className={`relative flex h-8 w-8 items-center justify-center rounded-full text-xs text-white ${memberPopoverPalette(member.id)}`}
+                  className={`relative flex h-8 w-8 items-center justify-center rounded-full text-xs text-white ${memberPopoverPalette(String(member.id))}`}
                 >
-                  {initialsOf(member.name)}
+                  {member.avatar}
                   {member.online && (
                     <span
                       aria-hidden="true"

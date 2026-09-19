@@ -570,6 +570,20 @@ export function recentActivityItems(tasks: readonly TaskDTO[], limit = 5): TaskD
 }
 
 /**
+ * Date-cell overdue boundary (decompiled `pZ`, verified live session 15):
+ * a due date renders the red overdue chip only when it is strictly before
+ * now AND NOT today — `new Date(e) < new Date && new Date(e).toDateString()
+ * !== new Date().toDateString()`. Due dates live at local noon, so without
+ * the not-today guard every task due TODAY would flip red after 12:00 local
+ * (the clone's old `date < new Date()` bug). The Board Analytics modal's
+ * overdue COUNT (Ote) deliberately keeps the guardless comparison — it
+ * matches the reference — so only the date cell consumes this seam.
+ */
+export function isOverdueDate(date: Date, now: Date = new Date()): boolean {
+  return date.getTime() < now.getTime() && date.toDateString() !== now.toDateString();
+}
+
+/**
  * Board Analytics modal — headline numbers (decompiled `Ote`): total, done,
  * completion rate, and overdue (due date in the past AND status not done).
  * `now` is injectable for tests.
