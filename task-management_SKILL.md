@@ -1,9 +1,9 @@
 ---
 name: task-management
-description: "Tuesday.com — a monday.com-style task management platform: Next.js 16.1.3 + React 19.2 + Tailwind v4 CSS-first (plain :hover variant) + Prisma 6.19/SQLite (repo-anchored db-path) + shadcn OLD-anatomy primitives — boards/groups/tasks with five views, real URL routes, ActionResult envelopes, auth rate limiting, Vitest 172 + Playwright 13"
-version: 1.1.0
+description: "Tuesday.com — a monday.com-style task management platform: Next.js 16.1.3 + React 19.2 + Tailwind v4 CSS-first (plain :hover variant, v3 space-y semantics) + Prisma 6.19/SQLite (repo-anchored db-path) + shadcn OLD-anatomy primitives — boards/groups/tasks with five views, real URL routes, ActionResult envelopes, auth rate limiting, platform-parity login/signup, Vitest 185 + Playwright 16"
+version: 1.2.0
 last_updated: 2026-09-22
-project_state: "Parity-converged (10 MATCH + 2 documented-deviation DIFF across 12 VLM pairs, sweeps 15-19; 5/5 MATCH re-verified session 23), session-21 remediation delivered (hover variant, db-path contract, Button anatomy, Playwright E2E), session-23 auth rate limiting delivered, 172 unit tests + 13 E2E specs green"
+project_state: "Parity-converged (5/5 MATCH authed sweep session 25; platform login/signup re-cloned at computed-style equality after the reference redeploy), session-21 remediation delivered (hover variant, db-path contract, Button anatomy, Playwright E2E), session-23 auth rate limiting delivered, session-25 reference-redeploy remediation delivered (platform login/signup parity, Input/Textarea/Label anatomy, v3→v4 shadow + space-y ports), 185 unit tests + 16 E2E specs green"
 audience: "engineers + AI agents extending, debugging, onboarding, or replicating this task-management codebase"
 tags: [nextjs16, react19, tailwind-v4, prisma, sqlite, shadcn, zod, vitest, playwright, dnd-kit]
 ---
@@ -85,11 +85,14 @@ tokens (`src/app/globals.css:47-90`).
 | **Closed vocabulary, one file** | Statuses/priorities/colors/visibility are `const` arrays in `domain.ts`; components and Zod schemas derive from them — never hardcode a status string | `src/lib/domain.ts` |
 | **DB path goes through `src/lib/db-path.ts`** | Prisma's .env-relative resolution lands the SQLite file OUTSIDE the repo; the contract pins it at `<repo>/db/custom.db` | `src/lib/db-path.ts:1`, pinned by `tests/db-path.test.ts:1` |
 | **Auth attempts are rate-limited (failures-only on login)** | `login:${ip}:${email}` counts FAILURES (5/15 min) and a success `reset`s the key — counting successes would lock out the E2E suite's demo logins and real users; signup counts every parsed POST (10/15 min per IP); the gate runs BEFORE the scrypt work; bounds are module constants, not env | `src/lib/rate-limit.ts:1`, pinned by `src/lib/rate-limit.test.ts:1` + `e2e/auth.spec.ts:31` |
+| **`space-y` must keep v3 semantics** | Tailwind v4 flipped `space-y-*` to margin-BOTTOM on `:not(:last-child)`; vertical margins are INERT on the inline Radix Label — every `<Label/><Input/>` group collapsed to a 4px gap (reference: 12px). The `@layer utilities` overrides in globals.css restore v3 margin-TOP semantics; removing them silently shrinks every form group | `src/app/globals.css` (space-y restoration block), measured on both apps' dialogs session 25 |
+| **v3→v4 shadow renames on every ported string** | v3 `shadow` → v4 `shadow-sm`, v3 `shadow-sm` → v4 `shadow-xs` (bare `shadow` and `shadow-lg` are identical); a literal v3 `shadow-sm` under v4 renders at DOUBLE the intended value. Exception: the platform login page ports verbatim (both apps compile it against the v4 runtime) | `src/components/ui/*` + app components, computed-verified session 25 |
+| **Signup derives the display name** | The redesigned platform signup collects no Full name — `POST /api/auth/signup` accepts `{email, password}` and derives the name via `deriveSignupName` (email prefix, "user" fallback); the client's confirm-match check fails fast with no request | `src/lib/domain.ts` (`deriveSignupName`), `e2e/auth.spec.ts` (surface specs) |
 
-**North-star state:** parity-converged across 12 VLM view pairs (10 direct
-MATCH + 2 fully-triaged documented deviations — PAD §10; re-verified 5/5
-MATCH on a fresh 5-pair sweep, session 23), gates at lint 0 /
-tsc 0 / **172 unit tests** / **13 Playwright specs** / standalone build.
+**North-star state:** parity-converged (authed app 5/5 MATCH re-verified
+session 25; the platform login/signup surfaces re-cloned at computed-style
+equality after the reference redeploy), gates at lint 0 /
+tsc 0 / **185 unit tests** / **16 Playwright specs** / standalone build.
 
 ---
 
@@ -126,8 +129,8 @@ Versions below are the installed pins (verified `bun pm ls`, 2026-09-22).
 | `bun run dev` | Dev server on :3000 (Turbopack) |
 | `bun run lint` | ESLint 9 flat config — must exit 0 |
 | `bun run typecheck` | `tsc --noEmit` — must report no errors |
-| `bun run test` | Vitest unit suite (172 tests) |
-| `bun run test:e2e` | Playwright suite (13 specs) — run after `bun run build` |
+| `bun run test` | Vitest unit suite (185 tests) |
+| `bun run test:e2e` | Playwright suite (16 specs) — run after `bun run build` |
 | `bun run build` | Standalone production build |
 | `bun run start` | Serve the standalone build on :3000 |
 
@@ -470,9 +473,9 @@ coupling.
 ```bash
 bun run lint          # exit 0
 bun run typecheck     # no errors (skills/docs excluded)
-bun run test          # 172/172
+bun run test          # 185/185
 bun run build         # standalone build green
-bun run test:e2e      # 13/13 against the build (boots the standalone artifact)
+bun run test:e2e      # 16/16 against the build (boots the standalone artifact)
 ```
 
 Then the live smoke: dev server boots → login as the demo user → one
@@ -755,6 +758,7 @@ all inputs Zod-parsed.
 | 16–19 | Verification sweeps (drift checks) + `docs/screenshots/` + `.env.example` | 10 MATCH + 2 triaged DIFF ×4 cycles |
 | 21 | Hover variant, db-path contract, Button anatomy, Playwright E2E | 160 tests + 12 E2E specs, VLM 3/3 MATCH (mobile menu/dashboard/boards), mutation-probe DB verification |
 | 23 | Auth rate limiting (login 5 failures/15 min per email+IP w/ reset-on-success; signup 10/15 min per IP) — the PAD §10 open Medium item closed | 172 tests + 13 E2E specs, VLM 5/5 MATCH re-verification, live 429 + Retry-After probes |
+| 25 | Reference redeploy absorbed: platform login/signup parity (no-Full-name signup via `deriveSignupName`), Input/Textarea/Label OLD anatomy, v3→v4 shadow port (20 sites), v3 space-y semantics restoration (the Label→field collapse) | 185 tests + 16 E2E specs, login VLM MATCH (desktop/mobile/signup), card geometry 746==746px, computed-style equality on nav/dialog/footer surfaces |
 
 ## Appendix C — Deliberate Deviations from the Reference
 

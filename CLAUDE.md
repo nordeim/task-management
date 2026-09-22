@@ -1,7 +1,7 @@
 ---
 IMPORTANT: File is read fresh for every conversation. Be brief and practical.
 project_type: nextjs-single-app
-version: 1.6.0
+version: 1.7.0
 last_updated: 2026-09-22
 ---
 
@@ -18,10 +18,11 @@ built and verified by AI coding agents under the contract below.
 **Stack**: Bun · Next.js 16.1.3 (App Router, Turbopack) · React 19.2 ·
 TypeScript 5 (strict, no overrides) · Tailwind CSS 4.1 (CSS-first `@theme
 inline`, no tailwind.config.js, `@custom-variant hover` restoring v3-style
-plain `:hover`) · shadcn/ui (new-york, OLD-shadcn anatomy: Card/Badge/
-Button/Switch/Select) on Radix · Prisma 6.19 + SQLite (repo-anchored via
-`src/lib/db-path.ts`) · Zod 4 · @dnd-kit 6 · date-fns 4 · lucide-react ·
-Vitest (unit) + Playwright (E2E).
+plain `:hover`, `@layer utilities` overrides restoring v3 `space-y`
+margin-direction) · shadcn/ui (new-york, OLD-shadcn anatomy: Card/Badge/
+Button/Switch/Select/Input/Textarea/Label) on Radix · Prisma 6.19 + SQLite
+(repo-anchored via `src/lib/db-path.ts`) · Zod 4 · @dnd-kit 6 · date-fns 4 ·
+lucide-react · Vitest (unit) + Playwright (E2E).
 
 ## Core Identity & Purpose
 
@@ -136,8 +137,8 @@ public demo credentials).
 | `bun run start` | Serve the standalone build |
 | `bun run lint` | ESLint — must exit 0 (`eslint-config-next` defaults, no rule weakening) |
 | `bun run typecheck` | `tsc --noEmit` — no errors; `skills/` and `docs/` excluded from the compile |
-| `bun run test` | Vitest unit suite — domain seams + primitive anatomy + db-path + rate-limit contracts (172 tests) |
-| `bun run test:e2e` | Playwright golden-path suite (Chromium, 13 specs) — run after `bun run build` |
+| `bun run test` | Vitest unit suite — domain seams + primitive anatomy + db-path + rate-limit contracts (185 tests) |
+| `bun run test:e2e` | Playwright golden-path suite (Chromium, 16 specs) — run after `bun run build` |
 | `bun run db:push` / `db:seed` / `db:generate` | Schema sync / demo data / client regen (db:push goes through `scripts/prisma-cli.ts`) |
 
 ## Testing Strategy
@@ -164,9 +165,10 @@ public demo credentials).
   (`KANBAN_CARD_BORDER`), the Add New Group swatches
   (`GROUP_COLOR_OPTIONS`), the route surface (`ROUTE_PATHS`), the 404
   titlecase helper (`notFoundTitle`), the dashboard activity time format
-  (`formatRecentTaskTime`), and the auth rate limiter's window semantics
+  (`formatRecentTaskTime`), the auth rate limiter's window semantics
   (`src/lib/rate-limit.test.ts` — failures-only counting, reset-on-success,
-  pruning, maxKeys cap).
+  pruning, maxKeys cap), and the signup display-name derivation
+  (`deriveSignupName`).
 - **TDD is the rule for new logic**: write the failing test first (red),
   implement the pure function in `src/lib/domain.ts` (green), then wire it
   into components/routes. Bug fixes require a regression test that fails
@@ -181,8 +183,11 @@ public demo credentials).
   dashboard, boards → status round-trip persistence, the mobile navigation
   menu in a touch context (the hover-variant regression), and the route
   surface. Session 23 added the login rate-limit regression (unique
-  throwaway email → 5×401 → 429 + `Retry-After` + message). A red test is a
-  regression or a wrong test — never skip to pass.
+  throwaway email → 5×401 → 429 + `Retry-After` + message). Session 25
+  added the login/signup surface structure specs (the platform redesign:
+  hero/Google/divider/footer; Back-to-sign-in + three-field signup
+  round-trip; mismatched-passwords inline error — no account created). A
+  red test is a regression or a wrong test — never skip to pass.
 
 ## Code Quality Standards
 
@@ -240,16 +245,16 @@ src/app/[...path]/     styled 404 catch-all (server-rendered titles)
 src/app/api/**         JSON route handlers, ActionResult envelopes
 src/components/app/**  product UI (shell, header, views, cells, dialogs — incl. edit-board + create-group + edit-task + board-analytics/integrations/automations centers)
 src/components/app/routes/** route wrappers (dashboard/boards/board/analytics/login)
-src/components/ui/**   shadcn primitives (vendored, OLD-shadcn anatomy per the reference — Badge/Button/Switch/Select class contracts locked by primitives.test.ts)
+src/components/ui/**   shadcn primitives (vendored, OLD-shadcn anatomy per the reference — Badge/Button/Switch/Select/Input/Textarea/Label class contracts locked by primitives.test.ts)
 src/lib/domain.ts      vocabulary + DTOs + ActionResult + pure helpers (single source)
-src/lib/domain.test.ts Vitest unit suite over the pure seams (128 tests)
+src/lib/domain.test.ts Vitest unit suite over the pure seams (132 tests)
 src/lib/db-path.ts     repo-anchored SQLite URL resolution (operator contract)
 src/lib/db.ts          Prisma client singleton (db-path datasource override)
 src/lib/rate-limit.ts  auth rate limiter (login failures-only + reset; signup all-attempts) + clientIp
 src/lib/auth.ts        scrypt + cookie sessions
 src/lib/api-client.ts  typed fetch (never throws)
 tests/db-path.test.ts  db-path contract suite (11 tests)
-e2e/*.spec.ts          Playwright golden-path specs (13) + helpers
+e2e/*.spec.ts          Playwright golden-path specs (16) + helpers
 prisma/schema.prisma   User · Session · Board · Group · Task · Activity
 scripts/seed.ts        idempotent demo dataset
 scripts/prisma-cli.ts  Prisma CLI wrapper (resolved absolute DATABASE_URL)
@@ -269,6 +274,10 @@ sign-in; board sub-views are client state (URL unchanged, like the reference).
   transaction); deletes: `DELETE` on the same. Reads: `GET /api/boards`,
   `GET /api/boards/[id]`, `GET /api/dashboard`, `GET /api/analytics`,
   `GET /api/users`. All authenticated by the session cookie.
+- **Signup** (session 25): `POST /api/auth/signup` takes
+  `{email, password}` — `name` optional, derived from the email prefix via
+  `deriveSignupName` when absent (the redesigned platform signup collects
+  no Full name); the client's confirm-match check fails fast inline.
 - **Invariant**: `PATCH /api/tasks/[id]` couples `status` and `completed`
   (either field derives the other). The client mirrors this in
   `board-view.tsx` before patching state — every new mutation path must too.

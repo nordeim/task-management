@@ -1,4 +1,4 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.13
+# Tuesday.com — Master Project Architecture Document (PAD) v1.14
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
@@ -7,6 +7,84 @@
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.14 (Reference Redeploy: Platform-Login Parity, Input/Textarea/Label Anatomy, v3→v4 Shadow + space-y Ports, 2026-09-22)
+
+- `[SYN]` Fourteenth pass (session 25,
+  `docs/remediation-plan-session25.md`): the reference was REDEPLOYED —
+  but only its unauthenticated `/login` route (a new platform shell:
+  `/static/index-CWZT4F4c.js` + `/static/index-CE8lozEC.css` + the Tailwind
+  v4 RUNTIME + Google GSI). The authed SPA is UNCHANGED
+  (`/assets/index-BuEJAhK4.js` — verified in the live DOM + served HTML),
+  and a fresh 5-pair VLM sweep of the authed app re-confirmed 5/5 MATCH.
+  The rebuilt login/signup surfaces were DOM-dumped and audited; the
+  audit also caught two latent drift classes the old bundle hid: a
+  systematic v3→v4 `shadow-sm` porting miss on 20 app-level sites and
+  (deepest) Tailwind v4's `space-y` margin-direction flip collapsing
+  every Label→field gap (vertical margins are inert on inline labels).
+  All closed with TDD; post-fix login parity verified at computed-style
+  equality (card 746 == 746px, field block 172 == 172px, label gap 10 ==
+  10px) + VLM MATCH on login desktop/mobile and signup pairs.
+- `[CSS]` **Tailwind v4 `space-y` semantics restored to v3 (the
+  Label→field collapse)** — v4 applies margin-BOTTOM to
+  `:not(:last-child)`; v3 applied margin-TOP to every child except the
+  first. The (Radix) Label renders `display: inline`, and vertical
+  margins are inert on inline boxes — so every form group shaped
+  `<Label/><Input/>` rendered a 4px gap where the reference renders 12px
+  (measured live on both apps' Create Board dialogs; login card 724 vs
+  746px). Fix: `@layer utilities` overrides in `globals.css` restoring
+  v3 semantics for every space-y value used here (0.5–8) plus the `sm:`
+  variants — same `:where()` specificity as Tailwind's generated rules
+  but AFTER them in the cascade, so consumer margin utilities still win.
+  A CSS comment at the site documents the contract.
+- `[CSS]` **v3→v4 `shadow-sm` port completed on app components** — the
+  vendored primitives already honored the rename (v3 `shadow-sm` == v4
+  `shadow-xs` computed), but 20 app-level sites ported from decompiled
+  strings kept the literal `shadow-sm`, rendering at DOUBLE the v3
+  value (nav: `0.1 0 1px 3px` vs the reference's `0.05 0 1px 2px`).
+  All renamed (`header`, board sticky bars/toolbar/table card, boards
+  toolbar, dashboard cards/quick-actions/badges, kanban count badge,
+  calendar chip, search inputs); computed-equality verified live on the
+  nav, toolbar card, and dialog fields.
+- `[UI]` **Vendored Input/Textarea/Label locked to the OLD-shadcn
+  anatomy** (same drift class as Card s11 / Badge+Switch s13 / Select
+  s15 / Button s21): `px-3 py-1` input with a thin `ring-1` keyboard
+  ring and v4 `shadow-xs`; textarea `px-3 py-2` with NO
+  `field-sizing-content` (the v3 textarea never auto-grows); label
+  `text-sm font-medium leading-none` without the NEW `inline`/
+  `select-none`/`group-data-[disabled=true]` extras. Class constants
+  exported (`INPUT_CLASS`/`TEXTAREA_CLASS`/`LABEL_CLASS`) and pinned by
+  9 new contract tests in `primitives.test.ts`.
+- `[UI]` **Board/create-task/create-group dialogs**: Create/Edit Board
+  gained the reference's consumer overrides (input `h-12 rounded-xl
+  border-[#E1E5F3] focus:ring-2 focus:ring-[#0073EA]/20`; textarea
+  `min-h-20` + same) — the clone's fields were 36px/64px vs the
+  reference's 48px/80px (original gap). The create-task/create-group
+  raw `<input>` strings switched to the vendored Input; the Select
+  trigger consumer dropped its `shadow-sm` override. Verified live:
+  48px / 80px / 12px label gap / v3-equivalent resting shadow /
+  `field-sizing: fixed`.
+- `[AUTH]` **Platform signup parity** — the redesigned reference signup
+  (no Full name; Back to sign in + "Create your account" + Email /
+  Password / Confirm Password; h-10/sm:h-11 inputs with slate-400
+  placeholders/icons; "Create account" submit; no logo/Google/footer)
+  cloned verbatim; login mode refined to the platform anatomy (labels
+  `leading-5`, inputs `py-2 shadow-none focus-visible:ring-2
+  focus-visible:ring-offset-2`, Sign-in `gap-1` + ring-2/offset-2,
+  Google button as a PLAIN button with the platform's exact class
+  string + classic "G" svg paths). New pure seam `deriveSignupName`
+  (email prefix → display name, "user" fallback) in `domain.ts`;
+  `POST /api/auth/signup` accepts `{email, password}` (name optional —
+  derived when absent). Client-side confirm-match validation feeds the
+  existing inline alert; no request is sent on mismatch.
+- `[GAT]` Unit suite 172→**185** (+9 Input/Textarea/Label contracts, +4
+  `deriveSignupName`). E2E 13→**16 specs** (login surface structure,
+  signup toggle round-trip, mismatch inline error — no account created,
+  the DB stays at seed; one locator fix in-loop: `getByLabel("Password",
+  { exact: true })`).
+- `[OPS]` Fresh 15-surface dev-server screenshot set (the canonical 14
+  + the redesigned signup surface) into `docs/screenshots/`;
+  `.env.example` re-verified byte-identical (no new env vars).
 
 #### Revision Block — v1.13 (Auth Rate Limiting — the §10 Open Medium Item Closed, 2026-09-22)
 
@@ -1370,10 +1448,10 @@ transition to 0.01ms.
 |----------|-------|----------|------------|
 | Lint gate | 1 suite | `eslint.config.mjs` | ESLint 9, `eslint-config-next` defaults, zero rule weakening |
 | Type gate | 1 run | `tsconfig.json` | `tsc --noEmit` — strict, no overrides; `skills/` + `docs` excluded |
-| Unit tests | 149 tests | `src/lib/domain.test.ts` + `src/components/ui/primitives.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (all seven fields, nulls-last), `visibleColumns`, `groupSummary`, `statusHeaderDots`, `relativeBoardTime`, `VISIBILITY_OPTIONS`, the reference palette hexes, `priorityBadgeStyle`, `visibilityLabel`, `VIEW_TRIGGER_LABELS`, `KANBAN_CARD_BORDER`, `GROUP_COLOR_OPTIONS`, `ROUTE_PATHS`, `notFoundTitle`, `formatRecentTaskTime`, kanban avatars, team workload, modal stats/timestamps, `isOverdueDate` — PLUS the vendored-primitive anatomy contracts (Badge cva + Switch track/thumb + Select trigger/item + Button base/variants/sizes locked to the reference's OLD-shadcn decompiled strings) |
+| Unit tests | 162 tests | `src/lib/domain.test.ts` + `src/components/ui/primitives.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (all seven fields, nulls-last), `visibleColumns`, `groupSummary`, `statusHeaderDots`, `relativeBoardTime`, `VISIBILITY_OPTIONS`, the reference palette hexes, `priorityBadgeStyle`, `visibilityLabel`, `VIEW_TRIGGER_LABELS`, `KANBAN_CARD_BORDER`, `GROUP_COLOR_OPTIONS`, `ROUTE_PATHS`, `notFoundTitle`, `formatRecentTaskTime`, kanban avatars, team workload, modal stats/timestamps, `isOverdueDate`, `deriveSignupName` (email-prefix display name) — PLUS the vendored-primitive anatomy contracts (Badge cva + Switch track/thumb + Select trigger/item + Button base/variants/sizes + Input/Textarea/Label bases locked to the reference's OLD-shadcn decompiled strings) |
 | DB-path contract | 11 tests | `tests/db-path.test.ts` | Vitest 5 — `resolveDatabaseUrl`: schema-directory anchoring, nested start dirs, first-anchor preference, build-output (`.next`) skip, absolute/postgres passthrough, default fallback |
 | Rate-limit contract | 12 tests | `src/lib/rate-limit.test.ts` | Vitest 5 (fake timers) — under-max allowed, blocked-at-max with retryAfterSec, check-never-counts, per-key isolation, window expiry + fixed-from-first-failure, retryAfter math, reset semantics, pruning, maxKeys eviction, fresh-window-after-expiry |
-| E2E | 13 specs | `e2e/*.spec.ts` | Playwright (Chromium) — auth golden path (+ login rate limiting: 5×401 → 429 + Retry-After + message), board status round-trip persistence, mobile navigation (incl. the hover-variant regression in a `hasTouch` context), route surface (case-insensitivity, styled 404, back/forward) |
+| E2E | 16 specs | `e2e/*.spec.ts` | Playwright (Chromium) — auth golden path (+ login rate limiting: 5×401 → 429 + Retry-After + message; + the login/signup surface structure specs pinning the platform redesign: hero/Google/divider/footer, Back-to-sign-in + three-field signup round-trip, mismatched-passwords inline error), board status round-trip persistence, mobile navigation (incl. the hover-variant regression in a `hasTouch` context), route surface (case-insensitivity, styled 404, back/forward) |
 
 ### 7.2 Test Patterns
 
@@ -1518,6 +1596,7 @@ bun run dev                # http://localhost:3000
 | Low | Members list = all users | no real multi-tenant membership model | Open — introduce BoardMember when collaboration is real |
 | Low | Search is client-side title matching only (header + board toolbar) | no deep/full-text search | Open |
 | Low | Timeline bars are single-day (due date only) | the data model has no task start dates | Open — add `startDate` to Task for span bars |
+| Info | Reference was redeployed (2026-09-22): unauthenticated `/login` is now a platform page (new `/static/index-CWZT4F4c.js` + Tailwind v4 runtime); the authed SPA bundle is unchanged (`/assets/index-BuEJAhK4.js`) | drift-watch: re-check BOTH asset hashes each cycle; the login/signup surfaces were re-cloned at computed-style equality in v1.14 | Closed in v1.14 — platform login/signup parity delivered |
 | Info | Reference analytics reports Medium priority for a Low task | reference-side inconsistency | Deliberate deviation — we count actual priorities |
 | Info | Reference boards-page Filter button is inert | reference-side dead control | Parity as of v1.5 — our Filter button matches (inert); favorites toggle from the board header where the reference actually works |
 | Info | Reference popovers stay mounted after Escape | focus-management quirk | Deliberate deviation — standard Radix dismiss |
@@ -1569,23 +1648,23 @@ bun run dev                # http://localhost:3000
 | `src/components/app/edit-board-dialog.tsx` | 195 | Board editing: title/description/colors/visibility (fresh-mount form pattern) |
 | `src/components/app/owner-cell.tsx` | 110 | Free-text "Enter name…" inline owner editor (resolves to members); solid-blue first-letter avatar |
 | `src/components/app/date-cell.tsx` | 112 | Native date input, noon storage, plain set-state text, overdue red chip via `isOverdueDate` (before-now AND not-today) |
-| `src/lib/domain.ts` | 862 | Vocabulary (incl. `ROUTE_PATHS`, `isNavActive`, `calendarCells`, summary/palette/avatar seams, `distributionEntries`, `teamWorkload`, `recentActivityItems`, `boardStats`, `formatBoardActivityTime`, `isOverdueDate`), DTOs, ActionResult, pure helpers — the contract file |
-| `src/lib/domain.test.ts` | 1123 | Vitest suite over the pure seams (128 tests) |
+| `src/lib/domain.ts` | 873 | Vocabulary (incl. `ROUTE_PATHS`, `isNavActive`, `calendarCells`, summary/palette/avatar seams, `distributionEntries`, `teamWorkload`, `recentActivityItems`, `boardStats`, `formatBoardActivityTime`, `isOverdueDate`, `deriveSignupName`), DTOs, ActionResult, pure helpers — the contract file |
+| `src/lib/domain.test.ts` | 1152 | Vitest suite over the pure seams (132 tests) |
 | `src/lib/db-path.ts` | 82 | `resolveDatabaseUrl` — repo-anchored SQLite URL resolution (schema-directory anchor, `.next` build-output skip; the operator's db-path contract) |
 | `src/lib/rate-limit.ts` | 118 | `createRateLimiter` (fixed-window in-memory limiter: failures-only login counting + reset-on-success, all-attempts signup counting, pruning + maxKeys cap), `loginLimiter`/`signupLimiter` singletons, `clientIp` |
 | `tests/db-path.test.ts` | 118 | Vitest contract suite over `resolveDatabaseUrl` (11 tests) |
 | `src/lib/db.ts` | 19 | Prisma client singleton with the db-path datasource override |
 | `scripts/prisma-cli.ts` | 37 | Prisma CLI wrapper — runs `prisma <args>` with the resolved absolute DATABASE_URL |
 | `playwright.config.ts` | 42 | E2E config — Chromium, webServer = the standalone production artifact, reuseExistingServer |
-| `e2e/*.spec.ts` + `e2e/helpers.ts` | 425 | Playwright golden-path specs (auth incl. login rate limiting, board persistence, mobile-nav incl. the hover-variant regression, routes) — 13 specs |
+| `e2e/*.spec.ts` + `e2e/helpers.ts` | 310 | Playwright golden-path specs (auth incl. login rate limiting + login/signup surface structure, board persistence, mobile-nav incl. the hover-variant regression, routes) — 16 specs |
 | `src/components/ui/badge.tsx` | 54 | OLD-shadcn Badge anatomy (decompiled cva; px-2.5/semibold, shadow on default) |
 | `src/components/ui/button.tsx` | 73 | OLD-shadcn Button anatomy (transition-colors, ring-1 keyboard focus, h-9 w-9 icon — decompiled session 21) |
 | `src/components/ui/switch.tsx` | 43 | OLD-shadcn Switch anatomy (h-5 w-9 border-2; thumb shadow-lg translate-x-4) — exports the class constants |
 | `src/components/ui/select.tsx` | 199 | OLD-shadcn Select anatomy (plain h-9/w-full trigger utilities so consumer overrides merge; exports SELECT_TRIGGER_CLASS / SELECT_ITEM_CLASS) |
-| `src/components/ui/primitives.test.ts` | 193 | Class-contract tests locking Badge + Button + Switch + Select anatomy to the decompiled reference (21 tests) |
+| `src/components/ui/primitives.test.ts` | 392 | Class-contract tests locking Badge + Button + Switch + Select + Input + Textarea + Label anatomy to the decompiled reference (30 tests) |
 | `src/lib/auth.ts` | 79 | scrypt + sessions |
 | `src/lib/api-client.ts` | 31 | Typed fetch that never throws |
-| `src/app/globals.css` | 226 | Theme tokens (shadcn-neutral grayscale + explicit blues, both modes) + `@custom-variant hover` (v3-style plain :hover — reference parity on touch) + deco discs + team-presence pulse keyframes + global styles |
+| `src/app/globals.css` | 273 | Theme tokens (shadcn-neutral grayscale + explicit blues, both modes) + `@custom-variant hover` (v3-style plain :hover — reference parity on touch) + the v3 `space-y` margin-direction restoration (Label→field gaps) + deco discs + team-presence pulse keyframes + global styles |
 | `prisma/schema.prisma` | 117 | The six models (Group carries its own `color`) |
 | `scripts/seed.ts` | 311 | Idempotent demo dataset (demo user `sepnetflix2023`, per-group colors, team roles/presence) — db-path-resolved URL, hardened disconnect |
 

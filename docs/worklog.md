@@ -314,3 +314,29 @@ Work Log:
 Stage Summary:
 - Session-23 remediation fully delivered: the repository's last open Medium item closed with TDD and pinned by 12 unit tests + an E2E regression spec; parity re-verified (5/5 VLM MATCH + computed-style mobile-nav equality); all gates green (172 unit / 13 E2E)
 - Reference left pristine; atomic commits on main + SSH-wrapper push with key shredded after use
+
+---
+Task ID: 16
+Agent: main (Super Z)
+Task: Session 25 (cycle 22) — reference redeploy absorbed: platform login/signup parity, Input/Textarea/Label anatomy, v3→v4 shadow + space-y ports, screenshots, docs, push
+
+Work Log:
+- git pull brought in 9cf3123 (operator's session_24 transcript, zero code delta); reviewed AGENTS/CLAUDE/README/PAD v1.13/SKILL v1.1.0 + session_23/24, worklog, remediation-plan-session23; every session-21/23 marker re-confirmed; baseline gates green (lint 0, tsc 0, 172/172); DB at canonical seed via the app's own db-path client
+- DRIFT DETECTED: the reference was redeployed — the unauthenticated /login route now runs a NEW platform shell (/static/index-CWZT4F4c.js + /static/index-CE8lozEC.css + Tailwind v4 RUNTIME + Google GSI) while the authed SPA is UNCHANGED (still /assets/index-BuEJAhK4.js + index-DjjZtFMQ.css, verified in live DOM + served HTML); fresh 5-pair VLM sweep of the authed app: 5/5 MATCH; mobile-nav hover + panel content re-verified (session-21 fix holds)
+- Platform login/signup DOM-dumped end to end; audit findings: (1) signup redesigned — no Full name, Back-to-sign-in + h2 + Email/Password/Confirm Password + Create account; (2) 20 app-level sites kept literal v3 shadow-sm → rendered at DOUBLE the v4 value (computed evidence on nav/toolbar/table card); (3) vendored Input/Textarea/Label never locked (NEW anatomy: ring-[3px]/ring-ring/50, field-sizing-content auto-grow, selection:/dark: extras); (4) board dialogs rendered 36px/64px fields vs the reference's 48px/80px (missing consumer overrides — original gap); (5) create-task/create-group raw inputs carried literal v3 shadow-sm; (6) DEEPEST: Tailwind v4 flipped space-y to margin-BOTTOM on :not(:last-child) — inert on the inline Radix Label — every Label→field group collapsed to 4px (reference 12px; login card 724 vs 746px)
+- Wrote docs/remediation-plan-session25.md + validated against the tree BEFORE executing; then executed TDD:
+  - Primitives: RED primitives.test.ts (+9 contracts) → GREEN vendored input.tsx/textarea.tsx/label.tsx rewritten to OLD-shadcn anatomy with exported INPUT_CLASS/TEXTAREA_CLASS/LABEL_CLASS (181 tests)
+  - Shadow port: shadow-sm → shadow-xs at the 20 enumerated sites; nav computed shadow == reference verified
+  - Board dialogs: consumer overrides (h-12 input, min-h-20 textarea); create-task/create-group switched to the vendored Input; Select trigger consumer shadow-sm dropped
+  - Signup: RED domain.test.ts (+4 deriveSignupName tests) → GREEN domain.ts → signup route name-optional (derived from email prefix) (185 tests)
+  - login-view restructure: login mode refined to platform anatomy (leading-5 labels, py-2 shadow-none ring-2/offset-2 inputs, gap-1 Sign-in, PLAIN Google button with classic G paths); signup mode rewritten (Back-to-sign-in + three fields + Create account; client-side confirm-match, no request on mismatch)
+  - space-y: v3 semantics restored in globals.css (@layer utilities overrides for 0.5–8 + sm: variants; comment fix for an early parse error); login card geometry 746==746px, field block 172==172px, label gap 10==10px; dialog gap 12px
+  - E2E: +3 specs (login surface structure, signup toggle round-trip, mismatch inline error); one locator fix in-loop (getByLabel Password exact); 16/16 green against the rebuilt artifact; DB re-verified at seed
+- Post-fix verification: VLM login desktop/mobile + signup pairs all MATCH; authed regression sweep re-captured (computed-style equality confirmed on nav shadow, dialog fields, footer badges, recent-board rows; remaining VLM flags triaged as data-driven noise — reference pristine 1 board/1 task vs clone 4/25)
+- Fresh 15-surface dev-server screenshot set into docs/screenshots/ (canonical 14 + signup); .env.example re-verified byte-identical
+- Docs aligned: PAD v1.14 (revision block, §7 testing, §10 redeploy row, §11 key files), README (auth row, testing table, screenshots mention), AGENTS.md (space-y + shadow-port + signup invariants, Input/Textarea/Label conventions, commands), CLAUDE.md v1.7.0 (stack, counts, inventory, signup API), task-management_SKILL.md v1.2.0 (frontmatter, invariants, pre-ship, audit history), session_25.md, this worklog append
+
+Stage Summary:
+- Session-25 remediation fully delivered: the reference redeploy absorbed (authed app re-verified unchanged 5/5 MATCH; the rebuilt platform login/signup cloned at computed-style equality), the vendored Input/Textarea/Label joined the OLD-shadcn anatomy lock, the v3→v4 shadow port completed, and the deepest find — v4's space-y margin-direction flip collapsing every Label→field gap — fixed globally
+- All gates green (185 unit / 16 E2E / build); DB at canonical seed; reference left pristine
+- Atomic commits on main + SSH-wrapper push with key shredded after use
