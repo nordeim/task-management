@@ -2,20 +2,28 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * OLD-shadcn Input anatomy — decompiled 2026-09-22 from the reference's
+ * authed bundle (Edit Task modal title input / Create Board dialog input /
+ * toolbar + table search inputs; see docs/remediation-plan-session25.md,
+ * Finding 3). The reference renders the 2024-era shadcn anatomy: `px-3 py-1`,
+  * v3 `shadow-sm`, a thin `focus-visible:ring-1` keyboard ring, and NO
+ * selection:/dark:/aria-invalid extras. v3→v4 renames applied when porting:
+ * v3 `shadow-sm` → v4 `shadow-xs` (computed-equal), `focus-visible:outline-none`
+ * → `focus-visible:outline-hidden`. Locked by primitives.test.ts.
+ */
+const INPUT_CLASS =
+  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (
     <input
       type={type}
       data-slot="input"
-      className={cn(
-        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-        className
-      )}
+      className={cn(INPUT_CLASS, className)}
       {...props}
     />
   )
 }
 
-export { Input }
+export { Input, INPUT_CLASS }

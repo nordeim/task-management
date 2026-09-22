@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { badgeVariants } from "./badge";
 import { buttonVariants } from "./button";
+import { INPUT_CLASS } from "./input";
+import { LABEL_CLASS } from "./label";
 import { SELECT_ITEM_CLASS, SELECT_TRIGGER_CLASS } from "./select";
 import { SWITCH_THUMB_CLASS, SWITCH_TRACK_CLASS } from "./switch";
+import { TEXTAREA_CLASS } from "./textarea";
 
 /**
  * Vendored-primitive anatomy contracts — decompiled 2026-09-18 from the
@@ -270,5 +273,120 @@ describe("button anatomy (decompiled reference contract)", () => {
     expect(buttonVariants({ size: "default" })).toContain("h-9");
     expect(buttonVariants({ size: "default" })).toContain("px-4");
     expect(buttonVariants({ size: "default" })).not.toContain("has-[>svg]:px-3");
+  });
+});
+
+/**
+ * Input / Textarea / Label anatomy contracts (session 25, decompiled live
+ * 2026-09-22 from the reference's authed app — the Edit Task modal title
+ * input, the Create Board dialog's input+textarea, and every dialog label;
+ * see docs/remediation-plan-session25.md, Findings 3–5). Same drift class
+ * as the Badge/Switch/Select/Button fixes: the scaffold shipped NEW-shadcn
+ * anatomy (ring-[3px]/ring-ring/50 focus rings, `field-sizing-content`
+ * auto-grow textarea, selection:/dark:/aria-invalid extras) while the
+ * reference renders the OLD anatomy. v3→v4 renames applied when porting:
+ * v3 `shadow-sm` → v4 `shadow-xs`, `focus-visible:outline-none` →
+ * `focus-visible:outline-hidden`.
+ */
+describe("input anatomy (decompiled reference contract)", () => {
+  it("base uses the old-shadcn tokens: h-9, px-3 py-1, text-base, ring-1", () => {
+    const cls = INPUT_CLASS;
+    expect(cls).toContain("flex");
+    expect(cls).toContain("h-9");
+    expect(cls).toContain("w-full");
+    expect(cls).toContain("rounded-md");
+    expect(cls).toContain("border");
+    expect(cls).toContain("border-input");
+    expect(cls).toContain("bg-transparent");
+    expect(cls).toContain("px-3");
+    expect(cls).toContain("py-1");
+    expect(cls).toContain("text-base");
+    expect(cls).toContain("md:text-sm");
+    expect(cls).toContain("transition-colors");
+    expect(cls).toContain("placeholder:text-muted-foreground");
+  });
+
+  it("focus ring is the old pattern (ring-1, crisp ring color)", () => {
+    const cls = INPUT_CLASS;
+    expect(cls).toContain("focus-visible:outline-hidden");
+    expect(cls).toContain("focus-visible:ring-1");
+    expect(cls).toContain("focus-visible:ring-ring");
+  });
+
+  it("v3 shadow-sm → v4 shadow-xs mapping", () => {
+    const cls = INPUT_CLASS;
+    expect(cls).toContain("shadow-xs");
+    expect(cls).not.toContain("shadow-sm");
+  });
+
+  it("drops NEW-shadcn-only classes", () => {
+    const cls = INPUT_CLASS;
+    expect(cls).not.toContain("min-w-0");
+    expect(cls).not.toContain("selection:bg-primary");
+    expect(cls).not.toContain("dark:bg-input/30");
+    expect(cls).not.toContain("file:inline-flex");
+    expect(cls).not.toContain("file:h-7");
+    expect(cls).not.toContain("transition-[color,box-shadow]");
+    expect(cls).not.toContain("outline-none"); // plain outline-none (non-focus-visible)
+    expect(cls).not.toContain("ring-[3px]");
+    expect(cls).not.toContain("ring-ring/50");
+    expect(cls).not.toContain("focus-visible:border-ring");
+    expect(cls).not.toContain("aria-invalid");
+  });
+});
+
+describe("textarea anatomy (decompiled reference contract)", () => {
+  it("base uses the old-shadcn tokens: px-3 py-2, text-base, ring-1", () => {
+    const cls = TEXTAREA_CLASS;
+    expect(cls).toContain("flex");
+    expect(cls).toContain("w-full");
+    expect(cls).toContain("bg-transparent");
+    expect(cls).toContain("px-3");
+    expect(cls).toContain("py-2");
+    expect(cls).toContain("text-base");
+    expect(cls).toContain("md:text-sm");
+    expect(cls).toContain("placeholder:text-muted-foreground");
+  });
+
+  it("focus ring is the old pattern (ring-1) and NO auto-grow field-sizing", () => {
+    const cls = TEXTAREA_CLASS;
+    expect(cls).toContain("focus-visible:outline-hidden");
+    expect(cls).toContain("focus-visible:ring-1");
+    expect(cls).toContain("focus-visible:ring-ring");
+    // The reference's v3 textarea never auto-grows — field-sizing-content is
+    // a v4 NEW-shadcn behavior change (typing multi-line changes height).
+    expect(cls).not.toContain("field-sizing-content");
+    expect(cls).not.toContain("min-h-16");
+    expect(cls).not.toContain("rounded-md");
+    expect(cls).not.toContain("border-input");
+  });
+
+  it("v3 shadow-sm → v4 shadow-xs mapping; no NEW extras", () => {
+    const cls = TEXTAREA_CLASS;
+    expect(cls).toContain("shadow-xs");
+    expect(cls).not.toContain("shadow-sm");
+    expect(cls).not.toContain("transition-[color,box-shadow]");
+    expect(cls).not.toContain("ring-[3px]");
+    expect(cls).not.toContain("ring-ring/50");
+    expect(cls).not.toContain("aria-invalid");
+    expect(cls).not.toContain("dark:bg-input/30");
+  });
+});
+
+describe("label anatomy (decompiled reference contract)", () => {
+  it("base uses the old-shadcn tokens: text-sm font-medium leading-none", () => {
+    const cls = LABEL_CLASS;
+    expect(cls).toContain("text-sm");
+    expect(cls).toContain("font-medium");
+    expect(cls).toContain("leading-none");
+    expect(cls).toContain("peer-disabled:cursor-not-allowed");
+    expect(cls).toContain("peer-disabled:opacity-70");
+  });
+
+  it("drops NEW-shadcn-only classes", () => {
+    const cls = LABEL_CLASS;
+    expect(cls).not.toContain("inline");
+    expect(cls).not.toContain("select-none");
+    expect(cls).not.toContain("group-data-[disabled=true]");
   });
 });
