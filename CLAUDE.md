@@ -1,8 +1,8 @@
 ---
 IMPORTANT: File is read fresh for every conversation. Be brief and practical.
 project_type: nextjs-single-app
-version: 1.5.0
-last_updated: 2026-09-18
+version: 1.6.0
+last_updated: 2026-09-22
 ---
 
 # Tuesday.com — Task Management
@@ -17,8 +17,11 @@ built and verified by AI coding agents under the contract below.
 
 **Stack**: Bun · Next.js 16.1.3 (App Router, Turbopack) · React 19.2 ·
 TypeScript 5 (strict, no overrides) · Tailwind CSS 4.1 (CSS-first `@theme
-inline`, no tailwind.config.js) · shadcn/ui (new-york) on Radix · Prisma 6.19 +
-SQLite · Zod 4 · @dnd-kit 6 · date-fns 4 · lucide-react · Vitest (unit).
+inline`, no tailwind.config.js, `@custom-variant hover` restoring v3-style
+plain `:hover`) · shadcn/ui (new-york, OLD-shadcn anatomy: Card/Badge/
+Button/Switch/Select) on Radix · Prisma 6.19 + SQLite (repo-anchored via
+`src/lib/db-path.ts`) · Zod 4 · @dnd-kit 6 · date-fns 4 · lucide-react ·
+Vitest (unit) + Playwright (E2E).
 
 ## Core Identity & Purpose
 
@@ -97,6 +100,10 @@ Follow this six-phase workflow for all implementation tasks:
   passes raw `var()` values through, so they must be complete `hsl(…)`
   colors); the app's blues are explicit `#0073EA` classes exactly like the
   reference, which hardcodes blues and keeps shadcn's neutral tokens.
+  `@custom-variant hover (&:hover);` is load-bearing: v4's default
+  `@media (hover: hover)` guard killed hover/tap feedback on touch devices
+  (the mobile-menu bug, session 21) — the reference's v3 CSS applies plain
+  `:hover`; `e2e/mobile-nav.spec.ts` pins the regression.
 - **shadcn/ui primitives first**: wrap/styled library components (Dialog,
   Popover, Select, Calendar, DropdownMenu, AlertDialog) instead of building
   custom equivalents.
@@ -111,8 +118,8 @@ Follow this six-phase workflow for all implementation tasks:
 
 ```bash
 bun install
-cp .env.example .env        # DATABASE_URL=file:../db/custom.db (relative to prisma/)
-bun run db:push             # create ./db/custom.db
+cp .env.example .env        # DATABASE_URL="file:../db/custom.db" (repo-anchored by src/lib/db-path.ts)
+bun run db:push             # creates <repo>/db/custom.db (via scripts/prisma-cli.ts)
 bun run db:seed             # demo account + 4 boards + 25 tasks (idempotent)
 bun run dev                 # http://localhost:3000
 ```
@@ -129,13 +136,16 @@ public demo credentials).
 | `bun run start` | Serve the standalone build |
 | `bun run lint` | ESLint — must exit 0 (`eslint-config-next` defaults, no rule weakening) |
 | `bun run typecheck` | `tsc --noEmit` — no errors; `skills/` and `docs/` excluded from the compile |
-| `bun run test` | Vitest unit suite over the pure domain seams |
-| `bun run db:push` / `db:seed` / `db:generate` | Schema sync / demo data / client regen |
+| `bun run test` | Vitest unit suite — domain seams + primitive anatomy + db-path contract (160 tests) |
+| `bun run test:e2e` | Playwright golden-path suite (Chromium, 12 specs) — run after `bun run build` |
+| `bun run db:push` / `db:seed` / `db:generate` | Schema sync / demo data / client regen (db:push goes through `scripts/prisma-cli.ts`) |
 
 ## Testing Strategy
 
 - **Gate before every delivery**: `bun run lint && bun run typecheck &&
-  bun run test` — all green or the work is not done.
+  bun run test` — all green or the work is not done. After a build,
+  `bun run test:e2e` exercises the golden path against the standalone
+  artifact.
 - **Unit suite (Vitest)**: colocated `src/lib/*.test.ts` covering the pure
   seams — `statusMeta`/`priorityMeta`, the shared status↔completed coupling
   (`resolveStatusCompletedPatch`), timeline window math (`timelineRange`),
@@ -165,9 +175,10 @@ public demo credentials).
   database — not just the UI. Deep-link round-trips: `/Boards`,
   `/Board?id=<real>`, `/Analytics`, unknown path → styled 404, back/forward
   navigation, logged-out `/Boards` → `/login?from_url` → sign-in returns.
-- **E2E (Playwright) is the tracked next step** (PAD §10): golden path
-  login → board → mutation → reload → persisted. A red test is a regression
-  or a wrong test — never skip to pass.
+- **E2E (Playwright) — delivered session 21**: `e2e/` specs cover login →
+  dashboard, boards → status round-trip persistence, the mobile navigation
+  menu in a touch context (the hover-variant regression), and the route
+  surface. A red test is a regression or a wrong test — never skip to pass.
 
 ## Code Quality Standards
 
@@ -225,13 +236,18 @@ src/app/[...path]/     styled 404 catch-all (server-rendered titles)
 src/app/api/**         JSON route handlers, ActionResult envelopes
 src/components/app/**  product UI (shell, header, views, cells, dialogs — incl. edit-board + create-group + edit-task + board-analytics/integrations/automations centers)
 src/components/app/routes/** route wrappers (dashboard/boards/board/analytics/login)
-src/components/ui/**   shadcn primitives (vendored, OLD-shadcn anatomy per the reference — Badge/Switch/Select class contracts locked by primitives.test.ts)
+src/components/ui/**   shadcn primitives (vendored, OLD-shadcn anatomy per the reference — Badge/Button/Switch/Select class contracts locked by primitives.test.ts)
 src/lib/domain.ts      vocabulary + DTOs + ActionResult + pure helpers (single source)
-src/lib/domain.test.ts Vitest unit suite over the pure seams (128 tests) + src/components/ui/primitives.test.ts (15 anatomy-contract tests) = 143
+src/lib/domain.test.ts Vitest unit suite over the pure seams (128 tests)
+src/lib/db-path.ts     repo-anchored SQLite URL resolution (operator contract)
+src/lib/db.ts          Prisma client singleton (db-path datasource override)
 src/lib/auth.ts        scrypt + cookie sessions
 src/lib/api-client.ts  typed fetch (never throws)
+tests/db-path.test.ts  db-path contract suite (11 tests)
+e2e/*.spec.ts          Playwright golden-path specs (12) + helpers
 prisma/schema.prisma   User · Session · Board · Group · Task · Activity
 scripts/seed.ts        idempotent demo dataset
+scripts/prisma-cli.ts  Prisma CLI wrapper (resolved absolute DATABASE_URL)
 ```
 
 Real URL routes mirror the reference (`/Dashboard` etc. rewrite in, case-insensitive);
@@ -256,7 +272,12 @@ sign-in; board sub-views are client state (URL unchanged, like the reference).
 
 ### Database / Data Layer
 
-- SQLite via the `db` export in `src/lib/db.ts` (global-singleton client).
+- SQLite via the `db` export in `src/lib/db.ts` (global-singleton client
+  whose datasource URL is resolved by `src/lib/db-path.ts` — relative
+  `file:` URLs anchor at the repo's `prisma/` directory, skipping `.next`
+  build-output anchors, so the database always lives at
+  `<repo>/db/custom.db`; the same resolution serves the seed and the
+  `scripts/prisma-cli.ts` wrapper for `db:push`).
   Cascades: `Board → Group → Task`; `Task.ownerId` is `SetNull`.
   Indexes on `boardId`, `groupId`, `ownerId`, `userId`, `createdAt`.
 - Schema edits: update `prisma/schema.prisma` → `bun run db:push` → (dev)
@@ -266,7 +287,7 @@ sign-in; board sub-views are client state (URL unchanged, like the reference).
 
 | Variable | Purpose | Notes |
 |----------|---------|-------|
-| `DATABASE_URL` | SQLite file URL | Resolved relative to `prisma/` — use `file:../db/custom.db` |
+| `DATABASE_URL` | SQLite file URL | Resolved by `src/lib/db-path.ts` — relative `file:` URLs anchor at the repo's `prisma/` dir, so `file:../db/custom.db` = `<repo>/db/custom.db` from any CWD; use an absolute path in production (docs/DEPLOYMENT.md) |
 
 ## Anti-Patterns to Avoid
 

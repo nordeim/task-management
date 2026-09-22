@@ -1,12 +1,87 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.11
+# Tuesday.com — Master Project Architecture Document (PAD) v1.12
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
 **Companion Documents:** `README.md` (onboarding), `AGENTS.md` (agent gotchas), `CLAUDE.md` (workflow contract)
-**Last Updated:** 2026-09-19
+**Last Updated:** 2026-09-22
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.12 (Hover Variant, DB Path Contract, Button Anatomy, Playwright E2E, 2026-09-22)
+
+- `[SYN]` Twelfth pass (session 21,
+  `docs/remediation-plan-session21.md`): operator brief pointed at the
+  mobile navigation menu ("look out for a possible TailwindCSS v4 related
+  bug") — reproduced, root-caused, and fixed; the database-location
+  contract from the operator's `.env.example` spec commit (`8a680df`) was
+  implemented (`src/lib/db-path.ts` + `tests/db-path.test.ts`); the
+  Playwright golden-path suite landed (PAD §7.2's tracked "next" step);
+  the vendored Button joined the OLD-shadcn anatomy lock. Post-fix
+  verification: lint 0 / tsc 0 / **160 unit tests** / **12 Playwright
+  specs** green against the standalone production build / fresh 14-screenshot
+  set / VLM 3-for-3 MATCH (mobile menu open with hover applied, dashboard,
+  boards) / kanban drag + reload persistence re-smoked.
+- `[CSS]` **Tailwind v4 hover-variant media guard removed (the mobile-menu
+  bug)** — Tailwind v4 wraps every `hover:*` utility in
+  `@media (hover: hover)` (the v3.3 `hoverOnlyWhenSupported` future flag
+  became the default); the reference's v3-compiled CSS applies plain
+  `:hover` unconditionally (verified in its stylesheet). On
+  `(hover: none)` devices the clone's hover/tap feedback was dead — the
+  hamburger matched `:hover` with a transparent computed background
+  (reproduced live 2026-09-22). Fix: `@custom-variant hover (&:hover);` in
+  `globals.css` restores v3 behavior for ALL ~150 hover utilities;
+  `group-hover` is NOT media-guarded in v4 (verified in the compiled CSS)
+  and needed no change. Regression-pinned by
+  `e2e/mobile-nav.spec.ts` (a `hasTouch: true` context — the exact
+  environment where the pre-fix CSS provably failed; red before the fix,
+  green after).
+- `[DB]` **Database-location contract implemented** — Prisma 6.19.2
+  resolves a relative `file:` URL from `.env` against the .env/CWD
+  location, so `file:../db/custom.db` landed the database in the PARENT
+  directory of the repo (reproduced: CLI, seed, and dev runtime alike).
+  New pure module `src/lib/db-path.ts` (`resolveDatabaseUrl`) anchors
+  relative `file:` URLs at the repo's `prisma/` directory — located by
+  walking up from the process CWD and the module's own directory, SKIPPING
+  build-output anchors (`.next/…` — Next's standalone server `chdir`s into
+  `.next/standalone`, which contains a TRACED copy of the schema; without
+  the skip the DB lived inside the disposable build). Wired into
+  `src/lib/db.ts` (datasources override), `scripts/seed.ts`, and
+  `scripts/prisma-cli.ts` (the `db:push`/`db:migrate`/`db:reset` wrapper
+  that overrides DATABASE_URL with the resolved absolute URL). Contract
+  pinned by `tests/db-path.test.ts` (11 tests; `tests/` un-ignored in
+  `.gitignore` per the operator's spec). Verified end-to-end: fresh
+  push+seed lands `db/custom.db` in the repo, login round-trips, and the
+  standalone production build reads/writes the SAME file (mutation probe
+  changed only the repo file's mtime).
+- `[UI]` **Vendored Button rewritten to OLD-shadcn anatomy** (same drift
+  class as the session-11/13/15 Card/Badge/Switch/Select fixes — the
+  Button had been audited only for an at-rest gap): `transition-colors`,
+  thin `focus-visible:ring-1 ring-ring` keyboard ring (the NEW anatomy's
+  `ring-[3px] ring-ring/50` + `focus-visible:border-ring` differed on
+  every keyboard-focused surface), OLD sizes (`h-9 w-9` icon), no
+  dark-mode/aria-invalid extras, v3→v4 shadow renames on
+  default/outline/destructive/secondary. Locked by six new
+  `primitives.test.ts` contract tests (red against the NEW anatomy
+  first). Consumer overrides (`h-10 w-10 rounded-lg hover:bg-[#E1E5F3]`,
+  login's `h-11 w-full rounded-xl …`) merge over the plain utilities
+  exactly like the reference's.
+- `[GAT]` Unit suite 143→160 (TDD, red-first): 11 db-path contract tests
+  (schema-directory anchoring, nested start dirs, build-output skip,
+  absolute/postgres passthrough, default fallback) + 6 Button anatomy
+  contract tests. **Playwright E2E suite delivered** (`playwright.config.ts`
+  + `e2e/` — Chromium, webServer = the standalone production artifact,
+  `reuseExistingServer`): auth golden path (+ invalid credentials +
+  from_url redirect), board golden path (boards list → open board →
+  status-pill round-trip persisted across reload, seed state restored),
+  mobile navigation (panel content, the hover-variant regression,
+  tap-navigation closing the panel), and the route surface
+  (case-insensitivity, 404, back/forward).
+- `[OPS]` `db:seed` hardened: a rejected `$disconnect` no longer fails an
+  otherwise-successful run (SQLite contention with a live dev server was
+  exiting 1 AFTER printing the counts), and P2021 renders an actionable
+  "run `bun run db:push` first" message. `docs/DEPLOYMENT.md` created
+  (absolute-path guidance the `.env.example` cites).
 
 #### Revision Block — v1.11 (Parity Deep-Pass #9: System Font, Select Anatomy, Mock Chrome, Date Boundary, 2026-09-19)
 
@@ -1231,23 +1306,30 @@ transition to 0.01ms.
 ### 7.1 Test Distribution
 
 | Category | Count | Location | Framework |
-|----------|-------|----------|-----------|
+|----------|-------|----------|------------|
 | Lint gate | 1 suite | `eslint.config.mjs` | ESLint 9, `eslint-config-next` defaults, zero rule weakening |
-| Type gate | 1 run | `tsconfig.json` | `tsc --noEmit` — strict, no overrides; `skills/` + `docs/` excluded |
-| Unit tests | 69 tests | `src/lib/domain.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (Task Name/Created/Updated), `visibleColumns` (Show/Hide Columns), `groupSummary` (footer row), `relativeBoardTime`, `VISIBILITY_OPTIONS`, the reference palette hexes, `priorityBadgeStyle`, `visibilityLabel`, `VIEW_TRIGGER_LABELS` (short trigger labels), `KANBAN_CARD_BORDER` (fixed neutral), `GROUP_COLOR_OPTIONS` (7 swatches), `ROUTE_PATHS` (route surface), `notFoundTitle` (404 titlecase), `formatRecentTaskTime` (activity timestamps) |
-| Interactive verification | re-executed 2026-09-17 (session 6) | agent-browser session | deep-link round-trips (/Boards, /Board?id, /Analytics, unknown→404, back/forward); logged-out → /login?from_url → return; computed-style probes of every session-6 gap (header pill sizes/colors, toolbar heights, kanban select, calendar ring, analytics fill, KPI/particles/QA gradients, login input/button classes); forced-tall scroll experiments on BOTH apps (accent threshold 32px); VLM side-by-side: board table MATCH, dashboard MATCH |
+| Type gate | 1 run | `tsconfig.json` | `tsc --noEmit` — strict, no overrides; `skills/` + `docs` excluded |
+| Unit tests | 145 tests | `src/lib/domain.test.ts` + `src/components/ui/primitives.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (all seven fields, nulls-last), `visibleColumns`, `groupSummary`, `statusHeaderDots`, `relativeBoardTime`, `VISIBILITY_OPTIONS`, the reference palette hexes, `priorityBadgeStyle`, `visibilityLabel`, `VIEW_TRIGGER_LABELS`, `KANBAN_CARD_BORDER`, `GROUP_COLOR_OPTIONS`, `ROUTE_PATHS`, `notFoundTitle`, `formatRecentTaskTime`, kanban avatars, team workload, modal stats/timestamps, `isOverdueDate` — PLUS the vendored-primitive anatomy contracts (Badge cva + Switch track/thumb + Select trigger/item + Button base/variants/sizes locked to the reference's OLD-shadcn decompiled strings) |
+| DB-path contract | 11 tests | `tests/db-path.test.ts` | Vitest 5 — `resolveDatabaseUrl`: schema-directory anchoring, nested start dirs, first-anchor preference, build-output (`.next`) skip, absolute/postgres passthrough, default fallback |
+| E2E | 12 specs | `e2e/*.spec.ts` | Playwright (Chromium) — auth golden path, board status round-trip persistence, mobile navigation (incl. the hover-variant regression in a `hasTouch` context), route surface (case-insensitivity, styled 404, back/forward) |
 
 ### 7.2 Test Patterns
 
-- **TDD at the pure seams**: failing test in `src/lib/domain.test.ts` first
-  (red), implementation in `src/lib/domain.ts` (green), then wire into
+- **TDD at the pure seams**: failing test in `src/lib/domain.test.ts` (or
+  `tests/db-path.test.ts` / `primitives.test.ts` for their contracts)
+  first (red), implementation (green), then wire into
   components/routes. Bug fixes add a regression test that fails before and
   passes after.
 - **Handler-level (next)**: mount each route handler's Zod reject paths (400
   shapes) and ownership misses (404 vs 401) — they are table-driven tests.
-- **E2E golden path (Playwright, next)**: login → open board → edit status
-  pill → drag kanban card → reload → assert persistence; create board via
-  dialog; analytics renders with seeded numbers.
+- **E2E golden path (Playwright — DELIVERED session 21)**: `bun run
+  test:e2e` after `bun run build`; the config boots the standalone
+  production artifact (`reuseExistingServer` reuses a live server on the
+  port). Specs: login → dashboard; boards → open board → status-pill
+  round-trip persisted across reload (seed state restored); the mobile
+  navigation menu in a touch-emulated context (the Tailwind v4
+  hover-variant regression); case-insensitive routes + styled 404 +
+  back/forward.
 
 ### 7.3 Coverage Thresholds
 
@@ -1259,8 +1341,9 @@ handlers at their reject paths.
 
 - [ ] `bun run lint` exits 0
 - [ ] `bun run typecheck` — no errors (skills/docs excluded)
-- [ ] `bun run test` — full unit suite green
+- [ ] `bun run test` — full unit suite green (domain + primitives + db-path)
 - [ ] `bun run build` — production build green
+- [ ] `bun run test:e2e` — Playwright suite green against the build
 - [ ] Dev server boots; login as demo user; one mutation round trip works
 - [ ] No console errors on dashboard / board / analytics
 - [ ] `git status` clean of `.env`, `db/*.db`, logs
@@ -1364,7 +1447,7 @@ bun run dev                # http://localhost:3000
 
 | Priority | Issue | Impact | Status |
 |----------|-------|--------|--------|
-| Medium | No E2E suite (unit suite exists) | golden-path regressions rely on manual verification | Open — Playwright is the next spec (§7.2) |
+| ~~Medium~~ | ~~No E2E suite (unit suite exists)~~ | ~~golden-path regressions rely on manual verification~~ | **Closed in v1.12** — Playwright suite delivered (`e2e/`, 12 specs green against the standalone build) |
 | Medium | No login rate limiting | brute-force surface on public deployments | Open — add per-email+IP limiter before internet exposure |
 | ~~Low~~ | ~~Browser back button doesn't traverse views~~ | ~~view state lives in React context~~ | **Closed in v1.5** — real URL routes; back/forward and deep links work |
 | Low | Google OAuth / password reset are unconfigured states | features absent, honestly surfaced (Integrate/Automate are now full parity modals — v1.9) | By design until credentials exist |
@@ -1424,15 +1507,22 @@ bun run dev                # http://localhost:3000
 | `src/components/app/date-cell.tsx` | 112 | Native date input, noon storage, plain set-state text, overdue red chip via `isOverdueDate` (before-now AND not-today) |
 | `src/lib/domain.ts` | 862 | Vocabulary (incl. `ROUTE_PATHS`, `isNavActive`, `calendarCells`, summary/palette/avatar seams, `distributionEntries`, `teamWorkload`, `recentActivityItems`, `boardStats`, `formatBoardActivityTime`, `isOverdueDate`), DTOs, ActionResult, pure helpers — the contract file |
 | `src/lib/domain.test.ts` | 1123 | Vitest suite over the pure seams (128 tests) |
+| `src/lib/db-path.ts` | 82 | `resolveDatabaseUrl` — repo-anchored SQLite URL resolution (schema-directory anchor, `.next` build-output skip; the operator's db-path contract) |
+| `tests/db-path.test.ts` | 118 | Vitest contract suite over `resolveDatabaseUrl` (11 tests) |
+| `src/lib/db.ts` | 19 | Prisma client singleton with the db-path datasource override |
+| `scripts/prisma-cli.ts` | 37 | Prisma CLI wrapper — runs `prisma <args>` with the resolved absolute DATABASE_URL |
+| `playwright.config.ts` | 42 | E2E config — Chromium, webServer = the standalone production artifact, reuseExistingServer |
+| `e2e/*.spec.ts` + `e2e/helpers.ts` | 400 | Playwright golden-path specs (auth, board persistence, mobile-nav incl. the hover-variant regression, routes) — 12 specs |
 | `src/components/ui/badge.tsx` | 54 | OLD-shadcn Badge anatomy (decompiled cva; px-2.5/semibold, shadow on default) |
+| `src/components/ui/button.tsx` | 73 | OLD-shadcn Button anatomy (transition-colors, ring-1 keyboard focus, h-9 w-9 icon — decompiled session 21) |
 | `src/components/ui/switch.tsx` | 43 | OLD-shadcn Switch anatomy (h-5 w-9 border-2; thumb shadow-lg translate-x-4) — exports the class constants |
 | `src/components/ui/select.tsx` | 199 | OLD-shadcn Select anatomy (plain h-9/w-full trigger utilities so consumer overrides merge; exports SELECT_TRIGGER_CLASS / SELECT_ITEM_CLASS) |
-| `src/components/ui/primitives.test.ts` | 193 | Class-contract tests locking Badge + Switch + Select anatomy to the decompiled reference (15 tests) |
+| `src/components/ui/primitives.test.ts` | 193 | Class-contract tests locking Badge + Button + Switch + Select anatomy to the decompiled reference (21 tests) |
 | `src/lib/auth.ts` | 79 | scrypt + sessions |
 | `src/lib/api-client.ts` | 31 | Typed fetch that never throws |
-| `src/app/globals.css` | 214 | Theme tokens (shadcn-neutral grayscale + explicit blues, both modes) + deco discs + team-presence pulse keyframes + global styles |
+| `src/app/globals.css` | 226 | Theme tokens (shadcn-neutral grayscale + explicit blues, both modes) + `@custom-variant hover` (v3-style plain :hover — reference parity on touch) + deco discs + team-presence pulse keyframes + global styles |
 | `prisma/schema.prisma` | 117 | The six models (Group carries its own `color`) |
-| `scripts/seed.ts` | 295 | Idempotent demo dataset (demo user `sepnetflix2023`, per-group colors, team roles/presence) |
+| `scripts/seed.ts` | 311 | Idempotent demo dataset (demo user `sepnetflix2023`, per-group colors, team roles/presence) — db-path-resolved URL, hardened disconnect |
 
 ---
 

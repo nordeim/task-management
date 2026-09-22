@@ -272,3 +272,27 @@ Work Log:
 Stage Summary:
 - Third consecutive zero-gap verification cycle (sweeps 16, 17, 19 all at 10 MATCH + 2 fully-triaged DIFF on an unchanged bundle); this cycle additionally delivered the operator-requested docs/screenshots/ set and the enhanced committed .env.example
 - Delivery = one commit on main (screenshots + .env.example + docs) pushed via the SSH wrapper with key shredded after use
+
+---
+Task ID: 14
+Agent: main (Super Z)
+Task: Session 21 (cycle 18) — Tailwind v4 hover variant (mobile menu), db-path contract, Button anatomy, Playwright E2E, SKILL.md
+
+Work Log:
+- Workspace fresh; re-cloned at 8a680df (== origin/main). Reviewed AGENTS.md / CLAUDE.md / README.md / PAD v1.11 + session_19.md, session_20.md (operator transcript), worklog; baseline gates green (lint 0, tsc 0, 143/143). Found the operator's .env.example spec (commit 8a680df) documents src/lib/db-path.ts + tests/db-path.test.ts + docs/DEPLOYMENT.md §4 — none existed (the remediation spec).
+- Scandihaven reference repo cloned; reviewed AGENTS.md / PAD / scandihaven_SKILL.md / apps/web/playwright.config.ts (the E2E pattern). Local skills consulted: tdd, agent-browser, clone-app-pat-pro, tailwind-patterns, nextjs16-tailwind4, avant-garde-design-v4 (mobile-nav debugging), both distill skills.
+- Audit reproduced the operator's hints: (1) Tailwind v4 wraps hover:* utilities in @media (hover: hover) — the clone's mobile-menu hover feedback was DEAD on (hover: none) devices (hamburger matched :hover with transparent bg; reference's v3 CSS applies plain :hover — verified in both stylesheets); (2) db:push + db:seed wrote <parent>/db/custom.db (Prisma .env-relative resolution — empirically confirmed, even from prisma/ as CWD); (3) vendored Button = NEW shadcn anatomy vs reference OLD (transition/focus-ring drift — same class as the Badge/Switch/Select fixes); (4) no Playwright; (5) db:seed exit-1 on success (unhandled $disconnect rejection); (6) .gitignore blocked tests/.
+- Wrote docs/remediation-plan-session21.md (6 findings, execution order, per-finding validation against the tree) BEFORE executing; then executed TDD:
+  - Hover variant: @custom-variant hover (&:hover); in globals.css; verified in regenerated CSS + live browser (hamburger hover = #E1E5F3). RED→GREEN proven via e2e/mobile-nav.spec.ts (failed rgba(0,0,0,0) pre-fix). One Turbopack stale-CSS episode resolved by the documented runbook.
+  - db-path: RED tests/db-path.test.ts → GREEN src/lib/db-path.ts (schema-directory anchor, CWD+module walk, .next skip) → wired db.ts + seed.ts + scripts/prisma-cli.ts wrapper. Two mid-cycle catches: anchor must be prisma/ (not repo root) — tests caught it; Next's standalone server chdir's into .next/standalone with a TRACED schema copy → DB lived in the build output until the .next skip (RED→GREEN again). Verified end-to-end: fresh push+seed lands db/custom.db in the repo; standalone build reads/writes the SAME file (mutation-probe mtime evidence).
+  - Button: RED (6 contract tests) → GREEN OLD-shadcn rewrite with v3→v4 renames; live probe confirms reference anatomy.
+  - Playwright: @playwright/test 1.63.0, playwright.config.ts (Chromium, webServer = standalone artifact, reuseExistingServer), e2e/ 4 specs / 12 tests (auth, board persistence, mobile-nav hover regression in hasTouch context, routes). Spec locator bugs fixed in the loop (role="link" board cards, case-insensitive ROUTE_PATHS regexes, aria-label regex parse).
+  - Seed hardening (disconnect guard + P2021 message), .gitignore tests/ removal, docs/DEPLOYMENT.md creation.
+- Gates: lint 0, tsc 0, 160/160 unit tests, standalone build green, 12/12 Playwright specs against the production artifact.
+- Live verification: fresh 14-screenshot set into docs/screenshots/ (12 canonical + mobile dashboard + mobile nav open); VLM 3/3 MATCH (mobile-nav-open with hover applied on both, dashboard, boards); computed-style ground truth: both apps' hovered hamburger = rgb(225,229,243). Kanban drag smoke persisted (done 3→4) and was restored; DB ended task-for-task at seed (7 done / 18 pending).
+- Docs aligned: PAD v1.12 (revision block, §7 testing, §10 closure of the E2E item, §11 key files), README (testing table, db-path, screenshots, env var), AGENTS.md (commands, hover-variant + db-path invariants, Button anatomy, eslint-ignores correction), CLAUDE.md v1.6.0 (stack, testing, inventory), session_21.md, this worklog append.
+- task-management_SKILL.md created via skills/distill-codebase-skill + skills/to-distill-project-into-skill (20 sections + 3 appendices + quick reference; every claim cites file:line or a command).
+
+Stage Summary:
+- Session-21 remediation fully delivered: the mobile-menu Tailwind v4 hover bug fixed with a pinned regression test; the database-location contract implemented and verified across CLI/seed/dev/standalone; the Button joined the OLD-shadcn anatomy lock; the Playwright golden-path suite delivered green against the production artifact; the seed hardened; .env.example verified true against the tree
+- Parity re-verified post-fix (VLM 3/3 MATCH on fresh pairs + computed-style equality on the fixed surface); reference left pristine; atomic commits on main + SSH-wrapper push with key shredded after use

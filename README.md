@@ -145,6 +145,14 @@ and run the seed with `npx tsx scripts/seed.ts`).
    cp .env.example .env
    ```
 
+   The `db/` folder lives at the repo root (git-ignored). Relative `file:`
+   URLs are anchored at the repo's `prisma/` directory by
+   `src/lib/db-path.ts` — so `DATABASE_URL="file:../db/custom.db"` always
+   means `<repo>/db/custom.db`, for the Prisma CLI (via
+   `scripts/prisma-cli.ts`), the seed script, the dev server, and the
+   standalone production build alike, regardless of the process working
+   directory. The contract is pinned by `tests/db-path.test.ts`.
+
 3. Create the schema and seed demo data:
 
    ```bash
@@ -172,15 +180,16 @@ and run the seed with `npx tsx scripts/seed.ts`).
 Production build: `bun run build && bun run start` (standalone output on
 port 3000).
 
-Reference screenshots of the running app (dev server, 1440×900) live in
-[`docs/screenshots/`](docs/screenshots/) — dashboard, boards, all five
-board views, analytics, login, and the three board-header modals.
+Reference screenshots of the running app (dev server, 1440×900 + 375×812)
+live in [`docs/screenshots/`](docs/screenshots/) — dashboard, boards, all
+five board views, analytics, login, the three board-header modals, and the
+mobile navigation menu (open, with the reference's hover feedback).
 
 ## Environment Variables
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `DATABASE_URL` | Yes | SQLite file URL. Prisma resolves it **relative to `prisma/schema.prisma`** — `file:../db/custom.db` lands at the project root. | none |
+| `DATABASE_URL` | Yes | SQLite file URL, anchored at the repo's `prisma/` directory by `src/lib/db-path.ts` — `file:../db/custom.db` lands at `<repo>/db/custom.db` from any CWD. Production should use an absolute path (see `docs/DEPLOYMENT.md`). | none |
 
 That is the entire configuration surface: there are no API keys to provide.
 Features that depend on external providers (Google OAuth, e-mail reset)
@@ -196,15 +205,18 @@ verified against the live app).
 |-------|---------|-------|
 | Lint | `bun run lint` | ESLint 9 flat config, `eslint-config-next` defaults with **no rule weakening**; must exit 0 |
 | Types | `bun run typecheck` | `tsc --noEmit`; strict mode fully on; `skills/` and `docs/` excluded — the vendored skill library is outside every gate |
-| Unit tests | `bun run test` | Vitest, colocated `src/lib/*.test.ts` + `src/components/ui/primitives.test.ts` (143 tests) over the pure domain seams (status↔completed coupling, timeline window math, kanban grouping, distribution bars **incl. first-encounter ordering with zero-omission**, saved-indicator format, task filter/sort pipeline — incl. the 7-field sort with nulls-last — column visibility, group summary with badge cap/overflow, relative time, reference palette, priority badge recipe, visibility labels, view-trigger labels, kanban card border token, group color options, route paths, nav active-state matcher, dynamic calendar weeks, summary date/owner labels, team avatar palettes, 404 titlecase helper, recent-task time format, kanban avatar gradient/initials, group-header status dots, distinct owner names, people-column palette, **team workload counts, recent-activity items, board modal stats, board-modal 24-hour timestamps, overdue date boundary (today-never-red)**) **plus the vendored-primitive anatomy contracts** (Badge cva + Switch track/thumb + Select trigger/item classes locked to the reference's OLD-shadcn decompiled strings — px-2.5/semibold badges, h-5 w-9 border-2 switch with shadow-lg thumb, plain h-9/w-full Select trigger utilities so consumer overrides merge) |
+| Unit tests | `bun run test` | Vitest, colocated suites + `tests/db-path.test.ts` (**160 tests**) — the pure domain seams (status↔completed coupling, timeline window math, kanban grouping, distribution bars incl. first-encounter ordering with zero-omission, saved-indicator format, task filter/sort pipeline incl. the 7-field sort with nulls-last, column visibility, group summary with badge cap/overflow, relative time, reference palette, priority badge recipe, visibility labels, view-trigger labels, kanban card border token, group color options, route paths, nav active-state matcher, dynamic calendar weeks, summary date/owner labels, team avatar palettes, 404 titlecase helper, recent-task time format, kanban avatar gradient/initials, group-header status dots, distinct owner names, people-column palette, team workload counts, recent-activity items, board modal stats, board-modal 24-hour timestamps, overdue date boundary) **plus the vendored-primitive anatomy contracts** (Badge cva + Button base/variants/sizes + Switch track/thumb + Select trigger/item classes locked to the reference's OLD-shadcn decompiled strings) **plus the database-path contract** (schema-directory anchoring, `.next` build-output skip, absolute/postgres passthrough, default fallback) |
+| E2E | `bun run test:e2e` | Playwright (Chromium) — run after `bun run build`; the config boots the standalone artifact (`reuseExistingServer` reuses a live server). 12 specs: auth golden path (+ invalid credentials + `from_url` redirect), board status-pill round-trip persisted across reload, the mobile navigation menu in a touch context (**the Tailwind v4 hover-variant regression**), and the route surface (case-insensitivity, styled 404, back/forward) |
 | Build | `bun run build` | Standalone production build |
 | Smoke (manual/agent-browser) | sign in as the demo user, edit a board, filter/hide/sort, drag a kanban card, reload | changes persist — verified against the database during development |
 
-The TDD rule for new logic: write the failing test in `src/lib/*.test.ts`
-first (red), implement the pure function in `src/lib/domain.ts` (green),
-then wire it into components/routes. A red test is a regression or a wrong
-test — never skip to pass. Playwright specs for the golden path remain the
-natural next step; see `Project_Architecture_Document.md` §7 and §10.
+The TDD rule for new logic: write the failing test first (red) —
+`src/lib/*.test.ts` for domain seams, `tests/db-path.test.ts` for the
+database-location contract, `src/components/ui/primitives.test.ts` for
+vendored-primitive anatomy — implement the pure function (green), then
+wire it into components/routes. A red test is a regression or a wrong
+test — never skip to pass. The Playwright suite covers the golden path
+(`e2e/`); extend it when new user-facing flows land.
 
 ## Design System
 
