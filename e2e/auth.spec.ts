@@ -27,4 +27,29 @@ test.describe("auth golden path", () => {
     await expect(page.getByRole("heading", { name: "Welcome to Task Management" })).toBeVisible();
     await context.close();
   });
+
+  test("login rate limiting blocks the 6th failed attempt with a friendly 429", async ({ request }) => {
+    // Unique throwaway email: the limiter keys on email+IP, so this spec's
+    // failures cannot contaminate the demo account's budget (which only ever
+    // sees one failure per run — the invalid-credentials spec — and is reset
+    // by every successful sign-in).
+    const email = `ratelimit-${Date.now()}@example.test`;
+    const post = (password: string) =>
+      request.post("/api/auth/login", {
+        headers: { "Content-Type": "application/json" },
+        data: { email, password },
+      });
+
+    for (let i = 0; i < 5; i++) {
+      const response = await post("wrong-password");
+      expect(response.status()).toBe(401);
+    }
+
+    const blocked = await post("wrong-password");
+    expect(blocked.status()).toBe(429);
+    expect(Number(blocked.headers()["retry-after"])).toBeGreaterThanOrEqual(1);
+    const body = (await blocked.json()) as { ok: boolean; error: string };
+    expect(body.ok).toBe(false);
+    expect(body.error).toMatch(/too many attempts/i);
+  });
 });
