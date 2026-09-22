@@ -60,9 +60,12 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
         {/* Reference card (probed 2026-09-17, re-probed 2026-09-22 after the
             platform redeploy): padding lives on an INNER div with md:
             variants; every section stacks inside ONE space-y-6 sm:space-y-8
-            column. The platform page compiles under the Tailwind v4 RUNTIME —
-            class strings port VERBATIM (no v3→v4 renames on this surface). */}
-        <div className="relative overflow-hidden rounded-2xl border-0 bg-white/95 text-card-foreground shadow-2xl backdrop-blur-sm">
+            column. The platform page compiles under the Tailwind v3 PLAY CDN
+            (cdn.tailwindcss.com + window.tailwind.config — session 27), so
+            v3→v4 renames DO apply on this surface: shadow-sm→shadow-xs,
+            backdrop-blur-sm→backdrop-blur-xs. space-y ports verbatim because
+            globals.css already restores v3 margin-direction semantics. */}
+        <div className="relative overflow-hidden rounded-2xl border-0 bg-white/95 text-card-foreground shadow-2xl backdrop-blur-xs">
           <div
             className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200"
             aria-hidden="true"
@@ -99,7 +102,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                 <div className="space-y-3">
                   <button
                     type="button"
-                    className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3.5 font-medium text-[16px] text-slate-700 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
+                    className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3.5 font-medium text-[16px] text-slate-700 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:shadow-xs"
                     onClick={handleGoogle}
                     disabled={busy !== null}
                   >
@@ -158,7 +161,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
-                        className="h-11 rounded-xl border-slate-200 bg-slate-50/50 py-2 pl-10 placeholder:text-slate-600 focus:border-slate-400 focus:ring-slate-400 focus-visible:ring-2 focus-visible:ring-offset-2 shadow-none sm:h-12"
+                        className="h-11 rounded-xl border-slate-200 bg-slate-50/50 py-2 pl-10 placeholder:text-slate-600 focus:border-slate-400 focus:ring-slate-400 focus-visible:ring-slate-400 focus-visible:ring-2 focus-visible:ring-offset-2 shadow-none sm:h-12"
                       />
                     </div>
                   </div>
@@ -179,7 +182,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
-                        className="h-11 rounded-xl border-slate-200 bg-slate-50/50 py-2 pl-10 placeholder:text-slate-600 focus:border-slate-400 focus:ring-slate-400 focus-visible:ring-2 focus-visible:ring-offset-2 shadow-none sm:h-12"
+                        className="h-11 rounded-xl border-slate-200 bg-slate-50/50 py-2 pl-10 placeholder:text-slate-600 focus:border-slate-400 focus:ring-slate-400 focus-visible:ring-slate-400 focus-visible:ring-2 focus-visible:ring-offset-2 shadow-none sm:h-12"
                       />
                     </div>
                   </div>
@@ -194,7 +197,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                 <div className="space-y-3">
                   <Button
                     type="submit"
-                    className="h-11 w-full gap-1 rounded-xl bg-slate-900 px-3 py-2 font-medium text-white shadow-sm transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-2 hover:bg-slate-800 sm:h-12"
+                    className="h-11 w-full gap-1 rounded-xl bg-slate-900 px-3 py-2 font-medium text-white shadow-xs transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-2 hover:bg-slate-800 sm:h-12"
                     disabled={busy !== null}
                   >
                     {busy === "form" ? (
@@ -267,7 +270,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                               value={email}
                               onChange={(e) => setEmail(e.target.value)}
                               required
-                              className="h-10 rounded-xl border-slate-200 bg-slate-50/50 py-2 pl-10 text-sm placeholder:text-slate-400 focus:border-slate-400 focus:ring-slate-400 focus-visible:ring-2 focus-visible:ring-offset-2 shadow-none sm:h-11 sm:text-base"
+                              className="h-10 rounded-xl border-slate-200 bg-slate-50/50 py-2 pl-10 text-sm placeholder:text-slate-400 focus:border-slate-400 focus:ring-slate-400 focus-visible:ring-slate-400 focus-visible:ring-2 focus-visible:ring-offset-2 shadow-none sm:h-11 sm:text-base"
                             />
                           </div>
                         </div>
@@ -289,7 +292,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                               onChange={(e) => setPassword(e.target.value)}
                               required
                               minLength={8}
-                              className="h-10 rounded-xl border-slate-200 bg-slate-50/50 py-2 pl-10 text-sm placeholder:text-slate-400 focus:border-slate-400 focus:ring-slate-400 focus-visible:ring-2 focus-visible:ring-offset-2 shadow-none sm:h-11 sm:text-base"
+                              className="h-10 rounded-xl border-slate-200 bg-slate-50/50 py-2 pl-10 text-sm placeholder:text-slate-400 focus:border-slate-400 focus:ring-slate-400 focus-visible:ring-slate-400 focus-visible:ring-2 focus-visible:ring-offset-2 shadow-none sm:h-11 sm:text-base"
                             />
                           </div>
                         </div>
@@ -311,7 +314,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                               onChange={(e) => setConfirmPassword(e.target.value)}
                               required
                               minLength={8}
-                              className="h-10 rounded-xl border-slate-200 bg-slate-50/50 py-2 pl-10 text-sm placeholder:text-slate-400 focus:border-slate-400 focus:ring-slate-400 focus-visible:ring-2 focus-visible:ring-offset-2 shadow-none sm:h-11 sm:text-base"
+                              className="h-10 rounded-xl border-slate-200 bg-slate-50/50 py-2 pl-10 text-sm placeholder:text-slate-400 focus:border-slate-400 focus:ring-slate-400 focus-visible:ring-slate-400 focus-visible:ring-2 focus-visible:ring-offset-2 shadow-none sm:h-11 sm:text-base"
                             />
                           </div>
                         </div>
@@ -325,7 +328,7 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
 
                       <Button
                         type="submit"
-                        className="h-10 w-full gap-1 rounded-xl bg-slate-900 px-3 py-2 font-medium text-white shadow-sm transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-2 hover:bg-slate-800 sm:h-11"
+                        className="h-10 w-full gap-1 rounded-xl bg-slate-900 px-3 py-2 font-medium text-white shadow-xs transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-2 hover:bg-slate-800 sm:h-11"
                         disabled={busy !== null}
                       >
                         {busy === "form" ? (

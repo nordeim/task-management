@@ -29,7 +29,9 @@ import type { DashboardDTO } from "@/lib/domain";
 /**
  * Reference KPI cards (probed 2026-09-17): Tailwind gradient pairs with a
  * `group perspective-1000` wrapper, deco discs, hover particles, an icon tile
- * (w-10 bg-white/20 backdrop-blur), and a space-y-1 value zone.
+ * (w-10 bg-white/20 backdrop-blur-sm under the reference's v3-valued custom
+ * v4 theme = blur(4px); we port backdrop-blur-xs — session 27), and a
+ * space-y-1 value zone.
  */
 const STAT_CARDS = [
   {
@@ -276,7 +278,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                   <div className="relative z-10">
                     <div className="mb-3 flex items-center justify-between">
                       <span
-                        className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/20 bg-white/20 shadow-lg backdrop-blur-sm transition-all duration-300 group-hover:bg-white/30"
+                        className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/20 bg-white/20 shadow-lg backdrop-blur-xs transition-all duration-300 group-hover:bg-white/30"
                         aria-hidden="true"
                       >
                         <Icon className="h-5 w-5 text-white" />
@@ -311,7 +313,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-4">
         {/* Recent boards — gradient card spanning 3 of 4 columns. */}
-        <Card className="border-0 bg-gradient-to-br from-white via-white to-indigo-50/30 shadow-lg backdrop-blur-sm xl:col-span-3">
+        <Card className="border-0 bg-gradient-to-br from-white via-white to-indigo-50/30 shadow-lg backdrop-blur-xs xl:col-span-3">
           <CardHeader className="flex flex-col p-6 pb-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -424,7 +426,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
 
         {/* Sidebar: quick actions + recent activity */}
         <div className="space-y-8">
-          <Card className="border-0 bg-gradient-to-br from-white via-white to-purple-50/30 shadow-lg backdrop-blur-sm">
+          <Card className="border-0 bg-gradient-to-br from-white via-white to-purple-50/30 shadow-lg backdrop-blur-xs">
             <CardHeader className="flex flex-row items-center gap-3 pb-4">
               <span
                 className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg"
@@ -453,7 +455,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                     className={`flex w-full cursor-pointer items-center gap-4 rounded-xl bg-gradient-to-r p-4 text-left text-white shadow-md transition-all duration-200 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${action.gradient}`}
                   >
                     <span
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/20 backdrop-blur-sm"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/20 backdrop-blur-xs"
                       aria-hidden="true"
                     >
                       <Icon className="h-5 w-5" />
@@ -468,7 +470,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
             </CardContent>
           </Card>
 
-          <Card className="border-0 bg-gradient-to-br from-white via-white to-green-50/30 shadow-lg backdrop-blur-sm">
+          <Card className="border-0 bg-gradient-to-br from-white via-white to-green-50/30 shadow-lg backdrop-blur-xs">
             <CardHeader className="flex flex-row items-center gap-3 pb-4">
               <span
                 className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-teal-500 text-white shadow-lg"
