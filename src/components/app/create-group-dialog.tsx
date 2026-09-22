@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { api } from "@/lib/api-client";
 import { GROUP_COLOR_OPTIONS } from "@/lib/domain";
@@ -72,14 +73,14 @@ function CreateGroupForm({
           <Label htmlFor="group-title" className="text-sm font-medium text-[#323338]">
             Group Title *
           </Label>
-          <input
+          <Input
             id="group-title"
             autoFocus
             placeholder="e.g., To Do, In Progress"
             value={name}
             maxLength={80}
             onChange={(e) => setName(e.target.value)}
-            className="flex h-12 w-full rounded-xl border border-[#E1E5F3] bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0073EA]/20 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+            className="h-12 rounded-xl border-[#E1E5F3] focus:ring-2 focus:ring-[#0073EA]/20"
           />
         </div>
 

@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -80,14 +81,14 @@ function CreateTaskForm({
           <Label htmlFor="task-title" className="text-sm font-medium text-[#323338]">
             Task Title <span aria-hidden="true" className="text-destructive">*</span>
           </Label>
-          <input
+          <Input
             id="task-title"
             autoFocus
             placeholder="Enter task title..."
             value={title}
             maxLength={200}
             onChange={(e) => setTitle(e.target.value)}
-            className="flex h-12 w-full rounded-xl border border-[#E1E5F3] bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0073EA]/20 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+            className="h-12 rounded-xl border-[#E1E5F3] focus:ring-2 focus:ring-[#0073EA]/20"
           />
         </div>
 
@@ -98,7 +99,7 @@ function CreateTaskForm({
           <Select value={groupId} onValueChange={setGroupId}>
             <SelectTrigger
               id="task-group"
-              className="h-12 w-full rounded-xl border-[#E1E5F3] text-sm shadow-sm focus:ring-[#0073EA]/20"
+              className="h-12 w-full rounded-xl border-[#E1E5F3] text-sm focus:ring-[#0073EA]/20"
             >
               <SelectValue placeholder={groups.length === 0 ? "No groups yet" : "Pick a group"} />
             </SelectTrigger>

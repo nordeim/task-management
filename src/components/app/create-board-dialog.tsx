@@ -79,6 +79,7 @@ function CreateBoardForm({
             onChange={(e) => setTitle(e.target.value)}
             maxLength={120}
             autoFocus
+            className="h-12 rounded-xl border-[#E1E5F3] focus:ring-2 focus:ring-[#0073EA]/20"
           />
         </div>
 
@@ -91,6 +92,7 @@ function CreateBoardForm({
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
             maxLength={500}
+            className="min-h-20 rounded-xl border-[#E1E5F3] focus:ring-2 focus:ring-[#0073EA]/20"
           />
         </div>
 
