@@ -97,12 +97,13 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                   w-full wrapper — a single column child — with the divider
                   carrying `my-6` itself. The platform's Google button is a
                   PLAIN button (no shadcn base classes — verbatim port below,
-                  classic "G" svg paths). */}
+                  classic "G" svg paths, trailing `group` verbatim from the
+                  redeployed DOM — inert, no group-hover consumer inside). */}
               <div className="w-full">
                 <div className="space-y-3">
                   <button
                     type="button"
-                    className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3.5 font-medium text-[16px] text-slate-700 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:shadow-xs"
+                    className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3.5 font-medium text-[16px] text-slate-700 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:shadow-xs group"
                     onClick={handleGoogle}
                     disabled={busy !== null}
                   >
@@ -346,6 +347,14 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Reference (redeployed 2026-09-23, remediation-plan-session29
+            Finding 1): a mobile-only spacer footer follows the card — mt-8
+            + one text-xs whitespace line, hidden from 640px up. Renders in
+            BOTH modes (it sits outside the mode conditional). */}
+        <div className="mt-8 text-center text-xs text-slate-400 sm:hidden">
+          <p>&nbsp;</p>
         </div>
       </div>
     </main>

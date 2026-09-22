@@ -103,4 +103,35 @@ test.describe("login surface structure (platform redesign, session 25)", () => {
     await expect(page.getByText(/passwords do not match/i)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
   });
+
+  test("the mobile spacer footer renders below the card and hides at sm", async ({ page }) => {
+    // Reference (redeployed 2026-09-23, docs/remediation-plan-session29.md
+    // Finding 1): a mobile-only spacer footer follows the card inside the
+    // max-w-md wrapper — mt-8 (32px) + one text-xs whitespace line, hidden
+    // from 640px up (sm:hidden). It renders in BOTH login and signup modes.
+    const footer = page.locator("main .max-w-md > .sm\\:hidden");
+    const card = page.locator("main .max-w-md > div:not(.sm\\:hidden)");
+
+    // Mobile: visible, reference geometry, below the card.
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/login");
+    await expect(footer).toBeVisible();
+    await expect(footer).toHaveCSS("margin-top", "32px");
+    await expect(footer).toHaveCSS("font-size", "12px");
+    await expect(footer).toHaveText(/^\s*$/);
+    const cardBottom = await card.boundingBox();
+    const footerBox = await footer.boundingBox();
+    expect(cardBottom).not.toBeNull();
+    expect(footerBox).not.toBeNull();
+    expect(footerBox!.y).toBeGreaterThanOrEqual(cardBottom!.y + cardBottom!.height);
+
+    // Signup mode renders the same footer.
+    await page.getByRole("button", { name: "Need an account? Sign up" }).click();
+    await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+    await expect(footer).toBeVisible();
+
+    // Desktop (>= 640px): the footer is hidden, like the reference.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(footer).toBeHidden();
+  });
 });
