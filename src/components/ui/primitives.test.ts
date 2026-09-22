@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { badgeVariants } from "./badge";
+import { buttonVariants } from "./button";
 import { SELECT_ITEM_CLASS, SELECT_TRIGGER_CLASS } from "./select";
 import { SWITCH_THUMB_CLASS, SWITCH_TRACK_CLASS } from "./switch";
 
@@ -189,5 +190,85 @@ describe("select anatomy (decompiled reference contract)", () => {
     expect(cls).toContain("focus:bg-accent");
     expect(cls).toContain("focus:text-accent-foreground");
     expect(cls).not.toContain("gap-2");
+  });
+});
+
+/**
+ * Button anatomy contract (session 21, decompiled live 2026-09-22 from the
+ * reference's header ghost icon buttons — see
+ * docs/remediation-plan-session21.md, Finding 3). The reference ships the
+ * OLD shadcn Button: `transition-colors`, a thin `focus-visible:ring-1`
+ * ring, no dark-mode hover variants, no aria-invalid variants, and OLD
+ * size utilities (`h-9 w-9` icon, not `size-9`). Same drift class as the
+ * Badge/Switch/Select fixes (sessions 13/15) — locked here so future
+ * dependency refreshes cannot silently regress the keyboard-focus chrome.
+ * v3→v4 renames applied when porting: `focus-visible:outline-none` →
+ * `focus-visible:outline-hidden`, v3 `shadow` → v4 `shadow-sm`, v3
+ * `shadow-sm` → v4 `shadow-xs`.
+ */
+describe("button anatomy (decompiled reference contract)", () => {
+  it("base uses the old-shadcn tokens: transition-colors, ring-1, gap-2", () => {
+    const cls = buttonVariants();
+    expect(cls).toContain("transition-colors");
+    expect(cls).toContain("focus-visible:outline-hidden");
+    expect(cls).toContain("focus-visible:ring-1");
+    expect(cls).toContain("focus-visible:ring-ring");
+    expect(cls).toContain("gap-2");
+    expect(cls).toContain("whitespace-nowrap");
+    expect(cls).toContain("disabled:pointer-events-none");
+    expect(cls).toContain("disabled:opacity-50");
+    expect(cls).toContain("[&_svg]:size-4");
+    expect(cls).toContain("[&_svg]:shrink-0");
+    expect(cls).toContain("[&_svg]:pointer-events-none");
+  });
+
+  it("base drops NEW-shadcn-only classes (transition-all, ring-[3px], data-slot)", () => {
+    const cls = buttonVariants();
+    expect(cls).not.toContain("transition-all");
+    expect(cls).not.toContain("ring-[3px]");
+    expect(cls).not.toContain("focus-visible:border-ring");
+    expect(cls).not.toContain("ring-ring/50");
+    expect(cls).not.toContain("aria-invalid");
+    expect(cls).not.toContain("[&_svg:not([class*='size-'])]:size-4");
+  });
+
+  it("ghost variant: plain accent hover, no dark-mode extras", () => {
+    const cls = buttonVariants({ variant: "ghost" });
+    expect(cls).toContain("hover:bg-accent");
+    expect(cls).toContain("hover:text-accent-foreground");
+    expect(cls).not.toContain("dark:hover:bg-accent/50");
+  });
+
+  it("default variant: v3 shadow → v4 shadow-sm mapping", () => {
+    const cls = buttonVariants({ variant: "default" });
+    expect(cls).toContain("bg-primary");
+    expect(cls).toContain("text-primary-foreground");
+    expect(cls).toContain("shadow-sm");
+    expect(cls).not.toContain("shadow-xs");
+    expect(cls).toContain("hover:bg-primary/90");
+  });
+
+  it("outline variant: border-input + v3 shadow-sm → v4 shadow-xs, no dark extras", () => {
+    const cls = buttonVariants({ variant: "outline" });
+    expect(cls).toContain("border");
+    expect(cls).toContain("border-input");
+    expect(cls).toContain("bg-background");
+    expect(cls).toContain("shadow-xs");
+    expect(cls).toContain("hover:bg-accent");
+    expect(cls).not.toContain("dark:bg-input/30");
+    expect(cls).not.toContain("dark:border-input");
+  });
+
+  it("sizes use the old geometry (h-9 w-9 icon, not size-9)", () => {
+    expect(buttonVariants({ size: "icon" })).toContain("h-9");
+    expect(buttonVariants({ size: "icon" })).toContain("w-9");
+    expect(buttonVariants({ size: "icon" })).not.toContain("size-9");
+    expect(buttonVariants({ size: "sm" })).toContain("h-8");
+    expect(buttonVariants({ size: "sm" })).toContain("text-xs");
+    expect(buttonVariants({ size: "lg" })).toContain("h-10");
+    expect(buttonVariants({ size: "lg" })).toContain("px-8");
+    expect(buttonVariants({ size: "default" })).toContain("h-9");
+    expect(buttonVariants({ size: "default" })).toContain("px-4");
+    expect(buttonVariants({ size: "default" })).not.toContain("has-[>svg]:px-3");
   });
 });
