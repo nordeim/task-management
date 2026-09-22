@@ -136,8 +136,8 @@ public demo credentials).
 | `bun run start` | Serve the standalone build |
 | `bun run lint` | ESLint — must exit 0 (`eslint-config-next` defaults, no rule weakening) |
 | `bun run typecheck` | `tsc --noEmit` — no errors; `skills/` and `docs/` excluded from the compile |
-| `bun run test` | Vitest unit suite — domain seams + primitive anatomy + db-path contract (160 tests) |
-| `bun run test:e2e` | Playwright golden-path suite (Chromium, 12 specs) — run after `bun run build` |
+| `bun run test` | Vitest unit suite — domain seams + primitive anatomy + db-path + rate-limit contracts (172 tests) |
+| `bun run test:e2e` | Playwright golden-path suite (Chromium, 13 specs) — run after `bun run build` |
 | `bun run db:push` / `db:seed` / `db:generate` | Schema sync / demo data / client regen (db:push goes through `scripts/prisma-cli.ts`) |
 
 ## Testing Strategy
@@ -163,8 +163,10 @@ public demo credentials).
   trigger labels (`VIEW_TRIGGER_LABELS`), the kanban card border token
   (`KANBAN_CARD_BORDER`), the Add New Group swatches
   (`GROUP_COLOR_OPTIONS`), the route surface (`ROUTE_PATHS`), the 404
-  titlecase helper (`notFoundTitle`), and the dashboard activity time format
-  (`formatRecentTaskTime`).
+  titlecase helper (`notFoundTitle`), the dashboard activity time format
+  (`formatRecentTaskTime`), and the auth rate limiter's window semantics
+  (`src/lib/rate-limit.test.ts` — failures-only counting, reset-on-success,
+  pruning, maxKeys cap).
 - **TDD is the rule for new logic**: write the failing test first (red),
   implement the pure function in `src/lib/domain.ts` (green), then wire it
   into components/routes. Bug fixes require a regression test that fails
@@ -178,7 +180,9 @@ public demo credentials).
 - **E2E (Playwright) — delivered session 21**: `e2e/` specs cover login →
   dashboard, boards → status round-trip persistence, the mobile navigation
   menu in a touch context (the hover-variant regression), and the route
-  surface. A red test is a regression or a wrong test — never skip to pass.
+  surface. Session 23 added the login rate-limit regression (unique
+  throwaway email → 5×401 → 429 + `Retry-After` + message). A red test is a
+  regression or a wrong test — never skip to pass.
 
 ## Code Quality Standards
 
@@ -241,10 +245,11 @@ src/lib/domain.ts      vocabulary + DTOs + ActionResult + pure helpers (single s
 src/lib/domain.test.ts Vitest unit suite over the pure seams (128 tests)
 src/lib/db-path.ts     repo-anchored SQLite URL resolution (operator contract)
 src/lib/db.ts          Prisma client singleton (db-path datasource override)
+src/lib/rate-limit.ts  auth rate limiter (login failures-only + reset; signup all-attempts) + clientIp
 src/lib/auth.ts        scrypt + cookie sessions
 src/lib/api-client.ts  typed fetch (never throws)
 tests/db-path.test.ts  db-path contract suite (11 tests)
-e2e/*.spec.ts          Playwright golden-path specs (12) + helpers
+e2e/*.spec.ts          Playwright golden-path specs (13) + helpers
 prisma/schema.prisma   User · Session · Board · Group · Task · Activity
 scripts/seed.ts        idempotent demo dataset
 scripts/prisma-cli.ts  Prisma CLI wrapper (resolved absolute DATABASE_URL)

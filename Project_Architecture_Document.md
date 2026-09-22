@@ -1,4 +1,4 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.12
+# Tuesday.com — Master Project Architecture Document (PAD) v1.13
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
@@ -7,6 +7,60 @@
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.13 (Auth Rate Limiting — the §10 Open Medium Item Closed, 2026-09-22)
+
+- `[SYN]` Thirteenth pass (session 23,
+  `docs/remediation-plan-session23.md`): full re-verification first —
+  workspace refreshed at `9e9f6ab` (operator's session_22 transcript, zero
+  code delta), every session-21 marker re-confirmed in the tree, baseline
+  gates green (lint 0 / tsc 0 / 160 unit / 12 E2E vs the standalone
+  build), DB contract intact (repo-root `db/custom.db`, canonical seed),
+  reference bundle unchanged (`index-BuEJAhK4.js`) — fresh 5-pair VLM
+  sweep all MATCH (mobile-nav-open incl. hover, dashboard, boards, board
+  table, analytics), mobile-nav hover re-probed at computed-style level in
+  a `(hover: none)` context (both apps `rgb(225,229,243)`), kanban drag
+  persistence re-smoked (coupling intact, seed restored). Then the one
+  actionable finding — this repo's own tracked open item — was closed with
+  TDD. Post-fix: **172 unit tests / 13 Playwright specs** green against
+  the rebuilt artifact; live probes: 5×401 → 429 + `Retry-After: 900` +
+  friendly message rendered inline in the login form; demo login +
+  fail-then-succeed reset semantics verified; 400s never consume budget.
+- `[SEC]` **Auth rate limiting delivered** (`src/lib/rate-limit.ts` +
+  `src/lib/rate-limit.test.ts`, 12 contract tests, red-first): in-memory
+  `createRateLimiter({ windowMs, max, maxKeys })` — fixed window from the
+  FIRST failure, failures-only counting on login (successes `reset` the
+  key, so transient typos never lock a legitimate user out and the E2E
+  suite's ~6 successful demo logins per run never trip it), every parsed
+  POST counts on signup (creation is the guarded action: enumeration
+  oracle + spam + scrypt on the happy path), expired entries pruned on
+  every check, map capped at `maxKeys` (default 10 000) against
+  key-rotation memory growth. Wired into `POST /api/auth/login` (key
+  `login:${ip}:${email}` — per-email+IP exactly as §10 worded it; gate
+  BEFORE the scrypt work) and `POST /api/auth/signup` (key
+  `signup:${ip}`); blocked requests get 429 + `Retry-After` + the
+  ActionResult envelope (the api-client flows any status's envelope, so
+  the login form renders the message inline — zero client changes). IP
+  extraction: `x-forwarded-for` first hop → `x-real-ip` → `"unknown"`
+  (proxy must sanitize the header — `docs/DEPLOYMENT.md`). In-memory is
+  deliberate: the app is a single Next.js process (§2); a restart merely
+  clears failure counters while the Session table remains the durable
+  auth state. Bounds are module constants (`LOGIN_RATE_LIMIT` 5/15 min,
+  `SIGNUP_RATE_LIMIT` 10/15 min) per the "no speculative knobs" rule —
+  pinned by the unit suite + the new E2E spec. Regression-pinned by
+  `e2e/auth.spec.ts` (unique throwaway email → 5×401 → 429 + header +
+  message; isolated from the demo account's budget by key design).
+- `[GAT]` Unit suite 160→172 (12 rate-limit contract tests: under-max
+  allowed, blocked-at-max with retryAfterSec, check-never-counts,
+  per-key isolation, window expiry, fixed-from-first-failure, retryAfter
+  math, reset semantics, pruning, maxKeys eviction, fresh-window-after-
+  expiry). E2E 12→13 specs (the login rate-limit regression). §7.1's
+  stale unit-test subtotal corrected in the same pass (145→149 for
+  domain+primitives; the v1.12 total of 160 was already correct).
+- `[OPS]` Screenshots re-captured on the remediated codebase (fresh
+  14-surface dev-server set into `docs/screenshots/`); `.env.example`
+  re-verified byte-identical to the working `.env` (no new env vars — the
+  limiter's bounds are module constants).
 
 #### Revision Block — v1.12 (Hover Variant, DB Path Contract, Button Anatomy, Playwright E2E, 2026-09-22)
 
@@ -1265,12 +1319,18 @@ transition to 0.01ms.
 | 6 | No injection surface | Prisma parameterized queries only; no string-built SQL; React escapes all rendered text |
 | 7 | Customer-safe error text | Handlers return human messages; operator detail goes to `console.error` server-side only |
 | 8 | Least-privilege cookies | One cookie, one purpose (session); no client-readable tokens |
+| 9 | Throttle unauthenticated auth attempts | `src/lib/rate-limit.ts` — login 5 failures/15 min per email+IP (successes reset), signup 10 attempts/15 min per IP; 429 + `Retry-After` + envelope |
 
 ### 6.2 Security Utilities
 
 - `src/lib/auth.ts` — `hashPassword` / `verifyPassword` (scrypt +
   `timingSafeEqual` with a length guard), `createSession` / `destroySession`,
   `getSessionUser` (lazy expiry sweep).
+- `src/lib/rate-limit.ts` — `createRateLimiter` (fixed-window, in-memory,
+  failures-only login counting with reset-on-success, all-attempts signup
+  counting, pruning + maxKeys cap) + the `loginLimiter` / `signupLimiter`
+  singletons + `clientIp` (x-forwarded-for first hop → x-real-ip →
+  "unknown").
 - `src/lib/domain.ts` — closed vocabularies keep status/priority enums
   exhaustively validated (Zod `.enum(STATUS_VALUES)`).
 - `scripts/seed.ts` — teammates seeded with random 24-byte-hex passwords
@@ -1291,7 +1351,8 @@ transition to 0.01ms.
 
 | Vector | Mitigation | Status |
 |--------|-----------|--------|
-| Password brute force | scrypt (memory-hard) + uniform 401 | No rate limiting yet — tracked in §10 |
+| Password brute force | scrypt (memory-hard) + uniform 401 + rate limiting (5 failures/15 min per email+IP, gate before the scrypt work) | In place (session 23) |
+| Account-creation spam / email enumeration | signup throttling (10 parsed POSTs/15 min per IP) + 409 stays uniform | In place (session 23) |
 | Session hijack | httpOnly + sameSite=lax + secure(prod); random 256-bit tokens | In place |
 | CSRF on mutations | sameSite=lax cookie + JSON-only bodies (no form-encoded POSTs accepted) | In place |
 | XSS | React auto-escaping; no `dangerouslySetInnerHTML` anywhere | In place |
@@ -1309,9 +1370,10 @@ transition to 0.01ms.
 |----------|-------|----------|------------|
 | Lint gate | 1 suite | `eslint.config.mjs` | ESLint 9, `eslint-config-next` defaults, zero rule weakening |
 | Type gate | 1 run | `tsconfig.json` | `tsc --noEmit` — strict, no overrides; `skills/` + `docs` excluded |
-| Unit tests | 145 tests | `src/lib/domain.test.ts` + `src/components/ui/primitives.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (all seven fields, nulls-last), `visibleColumns`, `groupSummary`, `statusHeaderDots`, `relativeBoardTime`, `VISIBILITY_OPTIONS`, the reference palette hexes, `priorityBadgeStyle`, `visibilityLabel`, `VIEW_TRIGGER_LABELS`, `KANBAN_CARD_BORDER`, `GROUP_COLOR_OPTIONS`, `ROUTE_PATHS`, `notFoundTitle`, `formatRecentTaskTime`, kanban avatars, team workload, modal stats/timestamps, `isOverdueDate` — PLUS the vendored-primitive anatomy contracts (Badge cva + Switch track/thumb + Select trigger/item + Button base/variants/sizes locked to the reference's OLD-shadcn decompiled strings) |
+| Unit tests | 149 tests | `src/lib/domain.test.ts` + `src/components/ui/primitives.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (all seven fields, nulls-last), `visibleColumns`, `groupSummary`, `statusHeaderDots`, `relativeBoardTime`, `VISIBILITY_OPTIONS`, the reference palette hexes, `priorityBadgeStyle`, `visibilityLabel`, `VIEW_TRIGGER_LABELS`, `KANBAN_CARD_BORDER`, `GROUP_COLOR_OPTIONS`, `ROUTE_PATHS`, `notFoundTitle`, `formatRecentTaskTime`, kanban avatars, team workload, modal stats/timestamps, `isOverdueDate` — PLUS the vendored-primitive anatomy contracts (Badge cva + Switch track/thumb + Select trigger/item + Button base/variants/sizes locked to the reference's OLD-shadcn decompiled strings) |
 | DB-path contract | 11 tests | `tests/db-path.test.ts` | Vitest 5 — `resolveDatabaseUrl`: schema-directory anchoring, nested start dirs, first-anchor preference, build-output (`.next`) skip, absolute/postgres passthrough, default fallback |
-| E2E | 12 specs | `e2e/*.spec.ts` | Playwright (Chromium) — auth golden path, board status round-trip persistence, mobile navigation (incl. the hover-variant regression in a `hasTouch` context), route surface (case-insensitivity, styled 404, back/forward) |
+| Rate-limit contract | 12 tests | `src/lib/rate-limit.test.ts` | Vitest 5 (fake timers) — under-max allowed, blocked-at-max with retryAfterSec, check-never-counts, per-key isolation, window expiry + fixed-from-first-failure, retryAfter math, reset semantics, pruning, maxKeys eviction, fresh-window-after-expiry |
+| E2E | 13 specs | `e2e/*.spec.ts` | Playwright (Chromium) — auth golden path (+ login rate limiting: 5×401 → 429 + Retry-After + message), board status round-trip persistence, mobile navigation (incl. the hover-variant regression in a `hasTouch` context), route surface (case-insensitivity, styled 404, back/forward) |
 
 ### 7.2 Test Patterns
 
@@ -1329,7 +1391,9 @@ transition to 0.01ms.
   round-trip persisted across reload (seed state restored); the mobile
   navigation menu in a touch-emulated context (the Tailwind v4
   hover-variant regression); case-insensitive routes + styled 404 +
-  back/forward.
+  back/forward; login rate limiting (session 23: unique throwaway email,
+  5×401 → 429 + `Retry-After` + friendly message — the limiter's
+  regression pin).
 
 ### 7.3 Coverage Thresholds
 
@@ -1448,7 +1512,7 @@ bun run dev                # http://localhost:3000
 | Priority | Issue | Impact | Status |
 |----------|-------|--------|--------|
 | ~~Medium~~ | ~~No E2E suite (unit suite exists)~~ | ~~golden-path regressions rely on manual verification~~ | **Closed in v1.12** — Playwright suite delivered (`e2e/`, 12 specs green against the standalone build) |
-| Medium | No login rate limiting | brute-force surface on public deployments | Open — add per-email+IP limiter before internet exposure |
+| ~~Medium~~ | ~~No login rate limiting~~ | ~~brute-force surface on public deployments~~ | **Closed in v1.13** — `src/lib/rate-limit.ts`: login 5 failures/15 min per email+IP (successes reset) + signup 10 attempts/15 min per IP; 429 + `Retry-After`; pinned by 12 unit tests + an E2E spec |
 | ~~Low~~ | ~~Browser back button doesn't traverse views~~ | ~~view state lives in React context~~ | **Closed in v1.5** — real URL routes; back/forward and deep links work |
 | Low | Google OAuth / password reset are unconfigured states | features absent, honestly surfaced (Integrate/Automate are now full parity modals — v1.9) | By design until credentials exist |
 | Low | Members list = all users | no real multi-tenant membership model | Open — introduce BoardMember when collaboration is real |
@@ -1508,11 +1572,12 @@ bun run dev                # http://localhost:3000
 | `src/lib/domain.ts` | 862 | Vocabulary (incl. `ROUTE_PATHS`, `isNavActive`, `calendarCells`, summary/palette/avatar seams, `distributionEntries`, `teamWorkload`, `recentActivityItems`, `boardStats`, `formatBoardActivityTime`, `isOverdueDate`), DTOs, ActionResult, pure helpers — the contract file |
 | `src/lib/domain.test.ts` | 1123 | Vitest suite over the pure seams (128 tests) |
 | `src/lib/db-path.ts` | 82 | `resolveDatabaseUrl` — repo-anchored SQLite URL resolution (schema-directory anchor, `.next` build-output skip; the operator's db-path contract) |
+| `src/lib/rate-limit.ts` | 118 | `createRateLimiter` (fixed-window in-memory limiter: failures-only login counting + reset-on-success, all-attempts signup counting, pruning + maxKeys cap), `loginLimiter`/`signupLimiter` singletons, `clientIp` |
 | `tests/db-path.test.ts` | 118 | Vitest contract suite over `resolveDatabaseUrl` (11 tests) |
 | `src/lib/db.ts` | 19 | Prisma client singleton with the db-path datasource override |
 | `scripts/prisma-cli.ts` | 37 | Prisma CLI wrapper — runs `prisma <args>` with the resolved absolute DATABASE_URL |
 | `playwright.config.ts` | 42 | E2E config — Chromium, webServer = the standalone production artifact, reuseExistingServer |
-| `e2e/*.spec.ts` + `e2e/helpers.ts` | 400 | Playwright golden-path specs (auth, board persistence, mobile-nav incl. the hover-variant regression, routes) — 12 specs |
+| `e2e/*.spec.ts` + `e2e/helpers.ts` | 425 | Playwright golden-path specs (auth incl. login rate limiting, board persistence, mobile-nav incl. the hover-variant regression, routes) — 13 specs |
 | `src/components/ui/badge.tsx` | 54 | OLD-shadcn Badge anatomy (decompiled cva; px-2.5/semibold, shadow on default) |
 | `src/components/ui/button.tsx` | 73 | OLD-shadcn Button anatomy (transition-colors, ring-1 keyboard focus, h-9 w-9 icon — decompiled session 21) |
 | `src/components/ui/switch.tsx` | 43 | OLD-shadcn Switch anatomy (h-5 w-9 border-2; thumb shadow-lg translate-x-4) — exports the class constants |

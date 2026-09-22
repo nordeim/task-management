@@ -296,3 +296,21 @@ Work Log:
 Stage Summary:
 - Session-21 remediation fully delivered: the mobile-menu Tailwind v4 hover bug fixed with a pinned regression test; the database-location contract implemented and verified across CLI/seed/dev/standalone; the Button joined the OLD-shadcn anatomy lock; the Playwright golden-path suite delivered green against the production artifact; the seed hardened; .env.example verified true against the tree
 - Parity re-verified post-fix (VLM 3/3 MATCH on fresh pairs + computed-style equality on the fixed surface); reference left pristine; atomic commits on main + SSH-wrapper push with key shredded after use
+
+---
+Task ID: 15
+Agent: main (Super Z)
+Task: Session 23 (cycle 20) — full re-verification + auth rate limiting (the PAD §10 open Medium item), screenshots, docs, push
+
+Work Log:
+- git pull brought in 9e9f6ab (operator's session_22 transcript, zero code delta); reviewed AGENTS/CLAUDE/README/PAD v1.12/SKILL.md + session_21/22, worklog, remediation-plan-session21; every session-21 marker re-confirmed in the tree; baseline gates green (lint 0, tsc 0, 160/160); one documented Turbopack cache panic resolved per runbook
+- Parity re-verification: reference bundle unchanged (index-BuEJAhK4.js); logged into the reference (pristine 1 board/1 task); mobile-nav computed-style probe in a (hover: none) context — both apps' hamburger = rgb(225,229,243) (the session-21 fix holds); panel content + tap-navigation-closes-panel verified; fresh 5-pair VLM sweep 5/5 MATCH (mobile-nav-open, dashboard, boards, board-table, analytics); kanban drag smoke persisted with coupling intact and was restored (DB task-for-task at seed)
+- Audit: code hygiene clean, DB contract intact, all suites green — ONE actionable finding: no login/signup rate limiting (PAD §10's only open Medium row; brute-force + scrypt-amplification + enumeration surface)
+- Wrote docs/remediation-plan-session23.md and validated it against the tree before executing; then executed TDD: RED src/lib/rate-limit.test.ts (12 contract tests; one test bug caught in the loop — a check()-based pruning assertion, fixed to recordFailure) → GREEN src/lib/rate-limit.ts (fixed-window-from-first-failure, failures-only login counting + reset-on-success, all-attempts signup counting, pruning, maxKeys cap, clientIp) → wired login (gate before scrypt; 429 + Retry-After + envelope; success resets) + signup; E2E regression spec added (unique throwaway email → 5×401 → 429)
+- Gates: lint 0, tsc 0, 172/172 unit tests, standalone build green, 13/13 Playwright specs against the artifact; live probes: 5×401 → 429 + Retry-After: 900 + friendly message rendered inline in the login form; demo login unaffected; fail-then-succeed reset verified; 400s never consume budget
+- Fresh 14-screenshot dev-server set into docs/screenshots/; .env.example re-verified byte-identical to .env (no new env vars — bounds are module constants)
+- Docs aligned: PAD v1.13 (revision block, §6.1/§6.2/§6.4 security, §7 testing incl. corrected 145→149 subtotal, §10 row closed, §11 key files), README (auth row, testing table, TDD paragraph), AGENTS.md (auth-limiter invariant), CLAUDE.md (counts/inventory), task-management_SKILL.md v1.1.0 (frontmatter, invariants row, counts, audit history), session_23.md, this worklog append
+
+Stage Summary:
+- Session-23 remediation fully delivered: the repository's last open Medium item closed with TDD and pinned by 12 unit tests + an E2E regression spec; parity re-verified (5/5 VLM MATCH + computed-style mobile-nav equality); all gates green (172 unit / 13 E2E)
+- Reference left pristine; atomic commits on main + SSH-wrapper push with key shredded after use

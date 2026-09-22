@@ -1,9 +1,9 @@
 ---
 name: task-management
-description: "Tuesday.com — a monday.com-style task management platform: Next.js 16.1.3 + React 19.2 + Tailwind v4 CSS-first (plain :hover variant) + Prisma 6.19/SQLite (repo-anchored db-path) + shadcn OLD-anatomy primitives — boards/groups/tasks with five views, real URL routes, ActionResult envelopes, Vitest 160 + Playwright 12"
-version: 1.0.0
+description: "Tuesday.com — a monday.com-style task management platform: Next.js 16.1.3 + React 19.2 + Tailwind v4 CSS-first (plain :hover variant) + Prisma 6.19/SQLite (repo-anchored db-path) + shadcn OLD-anatomy primitives — boards/groups/tasks with five views, real URL routes, ActionResult envelopes, auth rate limiting, Vitest 172 + Playwright 13"
+version: 1.1.0
 last_updated: 2026-09-22
-project_state: "Parity-converged (10 MATCH + 2 documented-deviation DIFF across 12 VLM pairs, sweeps 15-19), session-21 remediation delivered (hover variant, db-path contract, Button anatomy, Playwright E2E), 160 unit tests + 12 E2E specs green"
+project_state: "Parity-converged (10 MATCH + 2 documented-deviation DIFF across 12 VLM pairs, sweeps 15-19; 5/5 MATCH re-verified session 23), session-21 remediation delivered (hover variant, db-path contract, Button anatomy, Playwright E2E), session-23 auth rate limiting delivered, 172 unit tests + 13 E2E specs green"
 audience: "engineers + AI agents extending, debugging, onboarding, or replicating this task-management codebase"
 tags: [nextjs16, react19, tailwind-v4, prisma, sqlite, shadcn, zod, vitest, playwright, dnd-kit]
 ---
@@ -84,10 +84,12 @@ tokens (`src/app/globals.css:47-90`).
 | **All mutations return `ActionResult<T>`** | Route handlers never throw across the boundary; the client never parses throws | `src/lib/domain.ts` + `src/lib/api-client.ts:1` |
 | **Closed vocabulary, one file** | Statuses/priorities/colors/visibility are `const` arrays in `domain.ts`; components and Zod schemas derive from them — never hardcode a status string | `src/lib/domain.ts` |
 | **DB path goes through `src/lib/db-path.ts`** | Prisma's .env-relative resolution lands the SQLite file OUTSIDE the repo; the contract pins it at `<repo>/db/custom.db` | `src/lib/db-path.ts:1`, pinned by `tests/db-path.test.ts:1` |
+| **Auth attempts are rate-limited (failures-only on login)** | `login:${ip}:${email}` counts FAILURES (5/15 min) and a success `reset`s the key — counting successes would lock out the E2E suite's demo logins and real users; signup counts every parsed POST (10/15 min per IP); the gate runs BEFORE the scrypt work; bounds are module constants, not env | `src/lib/rate-limit.ts:1`, pinned by `src/lib/rate-limit.test.ts:1` + `e2e/auth.spec.ts:31` |
 
 **North-star state:** parity-converged across 12 VLM view pairs (10 direct
-MATCH + 2 fully-triaged documented deviations — PAD §10), gates at lint 0 /
-tsc 0 / **160 unit tests** / **12 Playwright specs** / standalone build.
+MATCH + 2 fully-triaged documented deviations — PAD §10; re-verified 5/5
+MATCH on a fresh 5-pair sweep, session 23), gates at lint 0 /
+tsc 0 / **172 unit tests** / **13 Playwright specs** / standalone build.
 
 ---
 
@@ -124,8 +126,8 @@ Versions below are the installed pins (verified `bun pm ls`, 2026-09-22).
 | `bun run dev` | Dev server on :3000 (Turbopack) |
 | `bun run lint` | ESLint 9 flat config — must exit 0 |
 | `bun run typecheck` | `tsc --noEmit` — must report no errors |
-| `bun run test` | Vitest unit suite (160 tests) |
-| `bun run test:e2e` | Playwright suite (12 specs) — run after `bun run build` |
+| `bun run test` | Vitest unit suite (172 tests) |
+| `bun run test:e2e` | Playwright suite (13 specs) — run after `bun run build` |
 | `bun run build` | Standalone production build |
 | `bun run start` | Serve the standalone build on :3000 |
 
@@ -468,9 +470,9 @@ coupling.
 ```bash
 bun run lint          # exit 0
 bun run typecheck     # no errors (skills/docs excluded)
-bun run test          # 160/160
+bun run test          # 172/172
 bun run build         # standalone build green
-bun run test:e2e      # 12/12 against the build (boots the standalone artifact)
+bun run test:e2e      # 13/13 against the build (boots the standalone artifact)
 ```
 
 Then the live smoke: dev server boots → login as the demo user → one
@@ -752,6 +754,7 @@ all inputs Zod-parsed.
 | 15 | System font, Select anatomy, mock chrome, overdue boundary | 143 tests, 12-pair convergence |
 | 16–19 | Verification sweeps (drift checks) + `docs/screenshots/` + `.env.example` | 10 MATCH + 2 triaged DIFF ×4 cycles |
 | 21 | Hover variant, db-path contract, Button anatomy, Playwright E2E | 160 tests + 12 E2E specs, VLM 3/3 MATCH (mobile menu/dashboard/boards), mutation-probe DB verification |
+| 23 | Auth rate limiting (login 5 failures/15 min per email+IP w/ reset-on-success; signup 10/15 min per IP) — the PAD §10 open Medium item closed | 172 tests + 13 E2E specs, VLM 5/5 MATCH re-verification, live 429 + Retry-After probes |
 
 ## Appendix C — Deliberate Deviations from the Reference
 
