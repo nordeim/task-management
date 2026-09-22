@@ -1,12 +1,42 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.15
+# Tuesday.com — Master Project Architecture Document (PAD) v1.16
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
 **Companion Documents:** `README.md` (onboarding), `AGENTS.md` (agent gotchas), `CLAUDE.md` (workflow contract)
-**Last Updated:** 2026-09-22
+**Last Updated:** 2026-09-23
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.16 (Third Platform-Login Redeploy: Identical Design, Mobile Spacer Footer Port, 2026-09-23)
+
+- `[SYN]` Sixteenth pass (session 29,
+  `docs/remediation-plan-session29.md`): the reference's platform login
+  page was redeployed a THIRD time (new `/static/index-BZ3m2EKw.js` +
+  `index-DuUT6T6n.css`) — again a rebuild with an IDENTICAL design (login +
+  signup modes DOM-dumped end to end; every class string matches the
+  session-25/27 port; the v3 play CDN is still the compiler). The authed
+  SPA is UNCHANGED (`/assets/index-BuEJAhK4.js` + `index-DjjZtFMQ.css`).
+  Fresh 7-pair VLM sweep 7/7 MATCH; the session-27 computed-style contracts
+  re-verified live on BOTH apps (button shadow `rgba(0,0,0,0.05) 0 1px 2px`,
+  card `blur(4px)`, slate-400 focus ring); mobile-nav hover feedback
+  re-verified in a touch context.
+- `[UI]` **Mobile spacer footer ported to the platform login page** — the
+  reference renders `<div class="mt-8 text-center text-xs text-slate-400
+  sm:hidden"><p>&nbsp;</p></div>` AFTER the card, INSIDE the `max-w-md`
+  wrapper, in BOTH login and signup modes (mobile-only whitespace strip:
+  32px top margin + one 12px text line, hidden ≥640px — measured 343×16 at
+  y≈755 on the reference at 375×812). The gap had escaped prior port
+  audits (the footer carries no interactive role and is invisible on
+  desktop captures). The clone now renders it at pixel-identical geometry;
+  `e2e/auth.spec.ts` pins presence + geometry + sm-hiding (22nd spec).
+- `[UI]` **Google button's trailing `group` class ported verbatim** —
+  inert on the reference (no `group-hover:` consumer inside its subtree),
+  carried for class-string parity with the decompiled source.
+- `[GAT]` E2E 21→**22 specs** (the mobile spacer footer contract);
+  unit suite unchanged at 185. Screenshots refreshed (15-surface set;
+  `login.png`/`signup.png` byte-identical — the footer is mobile-only and
+  `group` is inert, so the desktop render is unchanged).
 
 #### Revision Block — v1.15 (Second Platform-Login Redeploy: v3 Play-CDN Compile Semantics, Shadow/Blur Ports, Slate-400 Focus Ring, 2026-09-22)
 
@@ -1496,7 +1526,7 @@ transition to 0.01ms.
 | Unit tests | 162 tests | `src/lib/domain.test.ts` + `src/components/ui/primitives.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (all seven fields, nulls-last), `visibleColumns`, `groupSummary`, `statusHeaderDots`, `relativeBoardTime`, `VISIBILITY_OPTIONS`, the reference palette hexes, `priorityBadgeStyle`, `visibilityLabel`, `VIEW_TRIGGER_LABELS`, `KANBAN_CARD_BORDER`, `GROUP_COLOR_OPTIONS`, `ROUTE_PATHS`, `notFoundTitle`, `formatRecentTaskTime`, kanban avatars, team workload, modal stats/timestamps, `isOverdueDate`, `deriveSignupName` (email-prefix display name) — PLUS the vendored-primitive anatomy contracts (Badge cva + Switch track/thumb + Select trigger/item + Button base/variants/sizes + Input/Textarea/Label bases locked to the reference's OLD-shadcn decompiled strings) |
 | DB-path contract | 11 tests | `tests/db-path.test.ts` | Vitest 5 — `resolveDatabaseUrl`: schema-directory anchoring, nested start dirs, first-anchor preference, build-output (`.next`) skip, absolute/postgres passthrough, default fallback |
 | Rate-limit contract | 12 tests | `src/lib/rate-limit.test.ts` | Vitest 5 (fake timers) — under-max allowed, blocked-at-max with retryAfterSec, check-never-counts, per-key isolation, window expiry + fixed-from-first-failure, retryAfter math, reset semantics, pruning, maxKeys eviction, fresh-window-after-expiry |
-| E2E | 21 specs | `e2e/*.spec.ts` | Playwright (Chromium) — auth golden path (+ login rate limiting: 5×401 → 429 + Retry-After + message; + the login/signup surface structure specs pinning the platform redesign: hero/Google/divider/footer, Back-to-sign-in + three-field signup round-trip, mismatched-passwords inline error), board status round-trip persistence, mobile navigation (incl. the hover-variant regression in a `hasTouch` context), route surface (case-insensitivity, styled 404, back/forward), **computed-style parity contracts (session 27: the v3→v4 shadow/blur/ring values on the platform-login and dashboard surfaces)** |
+| E2E | 22 specs | `e2e/*.spec.ts` | Playwright (Chromium) — auth golden path (+ login rate limiting: 5×401 → 429 + Retry-After + message; + the login/signup surface structure specs pinning the platform redesign: hero/Google/divider/footer, Back-to-sign-in + three-field signup round-trip, mismatched-passwords inline error, **mobile spacer footer presence + geometry + sm-hiding**), board status round-trip persistence, mobile navigation (incl. the hover-variant regression in a `hasTouch` context), route surface (case-insensitivity, styled 404, back/forward), **computed-style parity contracts (session 27: the v3→v4 shadow/blur/ring values on the platform-login and dashboard surfaces)** |
 
 ### 7.2 Test Patterns
 
@@ -1643,6 +1673,7 @@ bun run dev                # http://localhost:3000
 | Low | Timeline bars are single-day (due date only) | the data model has no task start dates | Open — add `startDate` to Task for span bars |
 | Info | Reference was redeployed (2026-09-22): unauthenticated `/login` is now a platform page (new `/static/index-CWZT4F4c.js` + Tailwind v4 runtime); the authed SPA bundle is unchanged (`/assets/index-BuEJAhK4.js`) | drift-watch: re-check BOTH asset hashes each cycle; the login/signup surfaces were re-cloned at computed-style equality in v1.14 | Closed in v1.14 — platform login/signup parity delivered |
 | Info | The platform login page was redeployed again (2026-09-22, session 27: `/static/index-BFhVa28D.js` + `index-D2_CMDc1.css`) — a rebuild with an identical design; it compiles under the Tailwind v3 play CDN, and the authed app is a customized v4 build pinning v3-era `shadow-sm`/`backdrop-blur-sm` values | drift-watch: re-check both hashes each cycle; the v3-play-CDN compile semantics are now documented and the affected values ported at computed equality (v1.15) | Closed in v1.15 — shadow/blur/ring parity delivered, `e2e/parity.spec.ts` pins it |
+| Info | The platform login page was redeployed a third time (2026-09-23, session 29: `/static/index-BZ3m2EKw.js` + `index-DuUT6T6n.css`) — a rebuild with an identical design (v3 play CDN still the compiler; authed SPA unchanged); the audit found one structural gap: the clone lacked the reference's mobile-only spacer footer (`mt-8 text-xs sm:hidden`, both modes) and the Google button's inert trailing `group` class | drift-watch: re-check both hashes each cycle (login page + authed SPA); the footer is now ported at pixel-identical geometry and pinned by the 22nd E2E spec | Closed in v1.16 — mobile spacer footer + group-class parity delivered |
 | Info | Reference analytics reports Medium priority for a Low task | reference-side inconsistency | Deliberate deviation — we count actual priorities |
 | Info | Reference boards-page Filter button is inert | reference-side dead control | Parity as of v1.5 — our Filter button matches (inert); favorites toggle from the board header where the reference actually works |
 | Info | Reference popovers stay mounted after Escape | focus-management quirk | Deliberate deviation — standard Radix dismiss |

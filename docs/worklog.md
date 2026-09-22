@@ -363,3 +363,25 @@ Stage Summary:
 - Session-27 remediation fully delivered: the reference's second platform-login redeploy absorbed (rebuild with identical design); the compile-semantics reframe documented (v3 play CDN on the login page, customized-v4 theme on the authed app) and the four hidden value drifts closed at computed-style equality, pinned by 5 new E2E parity contracts
 - All gates green (185 unit / 21 E2E / build); DB at canonical seed; reference left pristine
 - Atomic commits on main + SSH-wrapper push with key shredded after use
+
+---
+Task ID: 18
+Agent: main (Super Z)
+Task: Session 29 (cycle 26) — third platform-login redeploy absorbed: mobile spacer footer + Google group-class parity, screenshots, docs, push
+
+Work Log:
+- Workspace had been reset; re-cloned https://github.com/nordeim/task-management.git at 4b9525c (== origin/main — session-27 delivery + the operator's session_28.md transcript). Reviewed AGENTS/CLAUDE/README/PAD v1.15/SKILL v1.3.0 + session_27/28, worklog, remediation-plan-session27; every session-27 marker re-confirmed in the tree; cloned scandihaven as the tech-stack pattern reference and reviewed its skills catalog; bootstrapped .env + db:push + db:seed (db/custom.db INSIDE the repo at the canonical 4/9/25/4/7 seed); baseline gates green (lint 0, tsc 0, 185/185)
+- Drift check (the session-27 suggested next): the platform login page was redeployed a THIRD time (/static/index-BZ3m2EKw.js + index-DuUT6T6n.css) — login + signup modes DOM-dumped end to end: identical design, every class string matches the session-25/27 port, v3 play CDN still the compiler. The authed SPA is UNCHANGED (/assets/index-BuEJAhK4.js + index-DjjZtFMQ.css). Fresh 7-pair VLM sweep: 7/7 MATCH. Session-27 computed contracts re-verified live on both apps (button shadow rgba(0,0,0,0.05) 0 1px 2px; card blur(4px); slate-400 input ring). Mobile-nav hover feedback re-verified (clone hamburger rgb(225,229,243) == reference; probe lesson: two "Open main menu" buttons exist — filter on offsetParent when probing)
+- Findings (evidence on both live apps): (1) LOW — the clone lacked the reference's mobile-only spacer footer (mt-8 text-center text-xs text-slate-400 sm:hidden, a whitespace strip below the card on mobile only, rendered in BOTH login and signup modes; measured 343x16 at y~755, mt 32px on the reference at 375x812); (2) INFO — the reference's Google button carries an inert trailing group class (no group-hover consumer). Verified-equal: everything else (authed bundle unchanged, all class strings, rounded-sm, focus rings, .env.example byte-identical)
+- Wrote docs/remediation-plan-session29.md + validated against the tree BEFORE executing; then executed TDD:
+  - RED: one new e2e/auth.spec.ts spec (footer presence + geometry + sm-hiding + signup mode) — 1 failed against the standalone build as expected
+  - GREEN: login-view.tsx footer div added after the card inside max-w-md (outside the mode conditional) + Google button group class + extended porting comment; one in-loop correction (a stray bare hidden on the footer caught before rebuild — sm:hidden alone is the reference's string)
+- Gates: lint 0, tsc 0, 185/185 unit, standalone build green, 22/22 Playwright specs against the rebuilt artifact; DB re-verified at the canonical seed afterwards (via the app's own db-path client)
+- Post-fix verification: live footer geometry on the clone {x:16, y:755, w:343, h:16, mt:32px, fs:12px} == reference pixel-identical; desktop display:none both; signup-mode visible both; VLM mobile-login MATCH (only the documented dev-mode N badge); mobile-nav specs green; board-table screenshot re-captured after a skeleton-state first take
+- Fresh 15-surface dev-server screenshot set into docs/screenshots/ (login/signup byte-identical at desktop — the footer is mobile-only and group is inert); .env.example re-verified byte-identical
+- Docs aligned: PAD v1.16 (revision block, §7 E2E row 21->22, §10 third-redeploy row), AGENTS.md (footer/group invariant + 22-spec count), CLAUDE.md v1.9.0 (counts, E2E inventory), README.md (testing table), task-management_SKILL.md v1.4.0 (frontmatter, audit history row), session_29.md, this worklog append
+
+Stage Summary:
+- Session-29 remediation fully delivered: the reference's third platform-login redeploy absorbed (identical-design rebuild; authed app unchanged 7/7 VLM MATCH); the one structural gap (mobile spacer footer) closed at pixel-identical geometry and pinned by the 22nd E2E spec; Google group class carried for class-string parity
+- All gates green (185 unit / 22 E2E / build); DB at canonical seed; reference left pristine
+- Atomic commits on main + SSH-wrapper push with key shredded after use

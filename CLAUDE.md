@@ -1,8 +1,8 @@
 ---
 IMPORTANT: File is read fresh for every conversation. Be brief and practical.
 project_type: nextjs-single-app
-version: 1.8.0
-last_updated: 2026-09-22
+version: 1.9.0
+last_updated: 2026-09-23
 ---
 
 # Tuesday.com — Task Management
@@ -140,7 +140,7 @@ public demo credentials).
 | `bun run lint` | ESLint — must exit 0 (`eslint-config-next` defaults, no rule weakening) |
 | `bun run typecheck` | `tsc --noEmit` — no errors; `skills/` and `docs/` excluded from the compile |
 | `bun run test` | Vitest unit suite — domain seams + primitive anatomy + db-path + rate-limit contracts (185 tests) |
-| `bun run test:e2e` | Playwright golden-path suite (Chromium, 21 specs) — run after `bun run build` |
+| `bun run test:e2e` | Playwright golden-path suite (Chromium, 22 specs) — run after `bun run build` |
 | `bun run db:push` / `db:seed` / `db:generate` | Schema sync / demo data / client regen (db:push goes through `scripts/prisma-cli.ts`) |
 
 ## Testing Strategy
@@ -192,7 +192,9 @@ public demo credentials).
   Session 27 added `e2e/parity.spec.ts` — computed-style parity contracts
   pinning the v3→v4 shadow/blur values and the slate-400 login focus ring
   against the reference's compilers (color-space-neutral via a same-page
-  `text-slate-400` probe). A red test is a regression or a wrong test —
+  `text-slate-400` probe). Session 29 added the mobile spacer footer
+  contract (presence + geometry + sm-hiding on the platform login page,
+  both modes). A red test is a regression or a wrong test —
   never skip to pass.
 
 ## Code Quality Standards
@@ -260,7 +262,7 @@ src/lib/rate-limit.ts  auth rate limiter (login failures-only + reset; signup al
 src/lib/auth.ts        scrypt + cookie sessions
 src/lib/api-client.ts  typed fetch (never throws)
 tests/db-path.test.ts  db-path contract suite (11 tests)
-e2e/*.spec.ts          Playwright golden-path specs (21) + helpers
+e2e/*.spec.ts          Playwright golden-path specs (22) + helpers
 prisma/schema.prisma   User · Session · Board · Group · Task · Activity
 scripts/seed.ts        idempotent demo dataset
 scripts/prisma-cli.ts  Prisma CLI wrapper (resolved absolute DATABASE_URL)
