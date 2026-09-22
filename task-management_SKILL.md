@@ -1,9 +1,9 @@
 ---
 name: task-management
-description: "Tuesday.com — a monday.com-style task management platform: Next.js 16.1.3 + React 19.2 + Tailwind v4 CSS-first (plain :hover variant, v3 space-y semantics) + Prisma 6.19/SQLite (repo-anchored db-path) + shadcn OLD-anatomy primitives — boards/groups/tasks with five views, real URL routes, ActionResult envelopes, auth rate limiting, platform-parity login/signup, Vitest 185 + Playwright 16"
-version: 1.2.0
+description: "Tuesday.com — a monday.com-style task management platform: Next.js 16.1.3 + React 19.2 + Tailwind v4 CSS-first (plain :hover variant, v3 space-y semantics, v3→v4 shadow/blur renames incl. the v3-play-CDN platform login page) + Prisma 6.19/SQLite (repo-anchored db-path) + shadcn OLD-anatomy primitives — boards/groups/tasks with five views, real URL routes, ActionResult envelopes, auth rate limiting, platform-parity login/signup, Vitest 185 + Playwright 21"
+version: 1.3.0
 last_updated: 2026-09-22
-project_state: "Parity-converged (5/5 MATCH authed sweep session 25; platform login/signup re-cloned at computed-style equality after the reference redeploy), session-21 remediation delivered (hover variant, db-path contract, Button anatomy, Playwright E2E), session-23 auth rate limiting delivered, session-25 reference-redeploy remediation delivered (platform login/signup parity, Input/Textarea/Label anatomy, v3→v4 shadow + space-y ports), 185 unit tests + 16 E2E specs green"
+project_state: "Parity-converged (5/5 MATCH authed sweep session 27; platform login/signup at computed-style equality incl. shadow/blur/ring values), session-21 remediation delivered (hover variant, db-path contract, Button anatomy, Playwright E2E), session-23 auth rate limiting delivered, session-25 reference-redeploy remediation delivered (platform login/signup parity, Input/Textarea/Label anatomy, v3→v4 shadow + space-y ports), session-27 second-redeploy remediation delivered (v3 play-CDN compile semantics documented, shadow/blur ports on login + dashboard, slate-400 focus ring), 185 unit tests + 21 E2E specs green"
 audience: "engineers + AI agents extending, debugging, onboarding, or replicating this task-management codebase"
 tags: [nextjs16, react19, tailwind-v4, prisma, sqlite, shadcn, zod, vitest, playwright, dnd-kit]
 ---
@@ -86,13 +86,14 @@ tokens (`src/app/globals.css:47-90`).
 | **DB path goes through `src/lib/db-path.ts`** | Prisma's .env-relative resolution lands the SQLite file OUTSIDE the repo; the contract pins it at `<repo>/db/custom.db` | `src/lib/db-path.ts:1`, pinned by `tests/db-path.test.ts:1` |
 | **Auth attempts are rate-limited (failures-only on login)** | `login:${ip}:${email}` counts FAILURES (5/15 min) and a success `reset`s the key — counting successes would lock out the E2E suite's demo logins and real users; signup counts every parsed POST (10/15 min per IP); the gate runs BEFORE the scrypt work; bounds are module constants, not env | `src/lib/rate-limit.ts:1`, pinned by `src/lib/rate-limit.test.ts:1` + `e2e/auth.spec.ts:31` |
 | **`space-y` must keep v3 semantics** | Tailwind v4 flipped `space-y-*` to margin-BOTTOM on `:not(:last-child)`; vertical margins are INERT on the inline Radix Label — every `<Label/><Input/>` group collapsed to a 4px gap (reference: 12px). The `@layer utilities` overrides in globals.css restore v3 margin-TOP semantics; removing them silently shrinks every form group | `src/app/globals.css` (space-y restoration block), measured on both apps' dialogs session 25 |
-| **v3→v4 shadow renames on every ported string** | v3 `shadow` → v4 `shadow-sm`, v3 `shadow-sm` → v4 `shadow-xs` (bare `shadow` and `shadow-lg` are identical); a literal v3 `shadow-sm` under v4 renders at DOUBLE the intended value. Exception: the platform login page ports verbatim (both apps compile it against the v4 runtime) | `src/components/ui/*` + app components, computed-verified session 25 |
+| **v3→v4 shadow/blur renames on every ported string** | v3 `shadow` → v4 `shadow-sm`, v3 `shadow-sm` → v4 `shadow-xs`, v3 `backdrop-blur-sm` → v4 `backdrop-blur-xs` (bare `shadow`, `shadow-lg`, `blur-xl` identical; v3 `rounded-sm` NOT renamed — both compilers render 4px); a literal v3 `shadow-sm`/`backdrop-blur-sm` under v4 renders at DOUBLE the intended value. The platform login page is NOT an exception (session 27): it compiles under the reference's Tailwind **v3 play CDN**, so its strings carry the same renames; its `focus:ring-slate-400` consumer needs a `focus-visible:ring-slate-400` twin because v4 sorts `focus:` before `focus-visible:` | `src/components/ui/*` + app components, computed-verified sessions 25 + 27, pinned by `e2e/parity.spec.ts:1` |
 | **Signup derives the display name** | The redesigned platform signup collects no Full name — `POST /api/auth/signup` accepts `{email, password}` and derives the name via `deriveSignupName` (email prefix, "user" fallback); the client's confirm-match check fails fast with no request | `src/lib/domain.ts` (`deriveSignupName`), `e2e/auth.spec.ts` (surface specs) |
 
 **North-star state:** parity-converged (authed app 5/5 MATCH re-verified
-session 25; the platform login/signup surfaces re-cloned at computed-style
-equality after the reference redeploy), gates at lint 0 /
-tsc 0 / **185 unit tests** / **16 Playwright specs** / standalone build.
+session 27; the platform login/signup surfaces at computed-style equality
+including the shadow/blur/ring values after the reference's second
+redeploy), gates at lint 0 /
+tsc 0 / **185 unit tests** / **21 Playwright specs** / standalone build.
 
 ---
 
@@ -130,7 +131,7 @@ Versions below are the installed pins (verified `bun pm ls`, 2026-09-22).
 | `bun run lint` | ESLint 9 flat config — must exit 0 |
 | `bun run typecheck` | `tsc --noEmit` — must report no errors |
 | `bun run test` | Vitest unit suite (185 tests) |
-| `bun run test:e2e` | Playwright suite (16 specs) — run after `bun run build` |
+| `bun run test:e2e` | Playwright suite (21 specs) — run after `bun run build` |
 | `bun run build` | Standalone production build |
 | `bun run start` | Serve the standalone build on :3000 |
 
@@ -759,6 +760,7 @@ all inputs Zod-parsed.
 | 21 | Hover variant, db-path contract, Button anatomy, Playwright E2E | 160 tests + 12 E2E specs, VLM 3/3 MATCH (mobile menu/dashboard/boards), mutation-probe DB verification |
 | 23 | Auth rate limiting (login 5 failures/15 min per email+IP w/ reset-on-success; signup 10/15 min per IP) — the PAD §10 open Medium item closed | 172 tests + 13 E2E specs, VLM 5/5 MATCH re-verification, live 429 + Retry-After probes |
 | 25 | Reference redeploy absorbed: platform login/signup parity (no-Full-name signup via `deriveSignupName`), Input/Textarea/Label OLD anatomy, v3→v4 shadow port (20 sites), v3 space-y semantics restoration (the Label→field collapse) | 185 tests + 16 E2E specs, login VLM MATCH (desktop/mobile/signup), card geometry 746==746px, computed-style equality on nav/dialog/footer surfaces |
+| 27 | Second platform-login redeploy absorbed (rebuild, identical design); compile semantics reframed — the platform page runs the Tailwind **v3 play CDN**, the authed app is a customized v4 build pinning v3-era `shadow-sm`/`backdrop-blur-sm` values; shadow/blur ports on login + dashboard, slate-400 login focus ring (`focus-visible:ring-slate-400` twins) | 185 tests + **21 E2E specs** (`e2e/parity.spec.ts` computed-style contracts), VLM MATCH on login desktop/mobile + signup + 5/5 authed sweep, computed equality on button shadow / card blur / input ring / dashboard 11×blur(4px) |
 
 ## Appendix C — Deliberate Deviations from the Reference
 

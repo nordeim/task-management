@@ -1,4 +1,4 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.14
+# Tuesday.com — Master Project Architecture Document (PAD) v1.15
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
@@ -7,6 +7,51 @@
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.15 (Second Platform-Login Redeploy: v3 Play-CDN Compile Semantics, Shadow/Blur Ports, Slate-400 Focus Ring, 2026-09-22)
+
+- `[SYN]` Fifteenth pass (session 27,
+  `docs/remediation-plan-session27.md`): the reference's platform login
+  page was redeployed AGAIN (new `/static/index-BFhVa28D.js` +
+  `index-D2_CMDc1.css`) — a rebuild with an IDENTICAL design (login +
+  signup modes DOM-dumped; every class string matches the session-25
+  port). The authed SPA is UNCHANGED (`/assets/index-BuEJAhK4.js`);
+  fresh 5-pair VLM sweep 5/5 MATCH. The session-25 "platform page
+  ports VERBATIM (no renames)" rule was **corrected in mechanism**: the
+  platform page compiles under the **Tailwind v3 play CDN**
+  (`cdn.tailwindcss.com` + `window.tailwind.config`), and the authed app
+  is a **customized v4 build** pinning v3-era values (`.shadow-sm` =
+  0 1px 2px 0.05, `.backdrop-blur-sm` = blur(4px)). The mislabeled rule
+  had hidden three real value drifts on the login surface and one on the
+  dashboard — all closed with TDD; post-fix computed-style equality
+  verified live on every affected surface (button shadow, card blur,
+  input ring, dashboard tiles).
+- `[CSS]` **v3→v4 shadow/blur ports completed on the platform-login and
+  dashboard surfaces** — login-view `shadow-sm` → `shadow-xs` (Sign in +
+  Create account buttons + the Google button's hover) and
+  `backdrop-blur-sm` → `backdrop-blur-xs` (the login card);
+  dashboard-view `backdrop-blur-sm` → `backdrop-blur-xs` at the five
+  sites (KPI icon tile, 3 gradient side cards, quick-action tile — 11
+  rendered elements). A literal v3 `shadow-sm`/`backdrop-blur-sm` under
+  our v4 build renders at DOUBLE the reference's value on BOTH compilers'
+  surfaces (v3 CDN on the login page; the authed build's customized theme
+  on the dashboard).
+- `[UI]` **Platform-login focus ring fixed to slate-400** — Tailwind v4
+  sorts `focus:` BEFORE `focus-visible:`, so the vendored Input base's
+  `focus-visible:ring-ring` (near-black) beat the consumer's
+  `focus:ring-slate-400` on every focused login/signup field (the v3 CDN
+  resolves the same strings in class-string order, where slate-400 wins).
+  The five consumer class strings now carry
+  `focus-visible:ring-slate-400` (tailwind-merge drops the base's
+  `ring-ring`, making slate-400 the ring color on every focus path);
+  `rounded-sm` was audited and left alone (4px on BOTH compilers).
+- `[GAT]` E2E 16→**21 specs**: new `e2e/parity.spec.ts` (5 computed-style
+  parity contracts in the `expect.poll` tradition — login button resting
+  shadow, Google hover shadow, card backdrop blur, focused input ring color
+  via a same-page `text-slate-400` probe, signup-mode values, dashboard
+  tile blur). Unit suite unchanged at 185; one in-loop spec correction
+  (Chromium serializes v4's oklch colors as `lab(…)` in computed strings —
+  assertions made color-space-neutral).
 
 #### Revision Block — v1.14 (Reference Redeploy: Platform-Login Parity, Input/Textarea/Label Anatomy, v3→v4 Shadow + space-y Ports, 2026-09-22)
 
@@ -1451,7 +1496,7 @@ transition to 0.01ms.
 | Unit tests | 162 tests | `src/lib/domain.test.ts` + `src/components/ui/primitives.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (all seven fields, nulls-last), `visibleColumns`, `groupSummary`, `statusHeaderDots`, `relativeBoardTime`, `VISIBILITY_OPTIONS`, the reference palette hexes, `priorityBadgeStyle`, `visibilityLabel`, `VIEW_TRIGGER_LABELS`, `KANBAN_CARD_BORDER`, `GROUP_COLOR_OPTIONS`, `ROUTE_PATHS`, `notFoundTitle`, `formatRecentTaskTime`, kanban avatars, team workload, modal stats/timestamps, `isOverdueDate`, `deriveSignupName` (email-prefix display name) — PLUS the vendored-primitive anatomy contracts (Badge cva + Switch track/thumb + Select trigger/item + Button base/variants/sizes + Input/Textarea/Label bases locked to the reference's OLD-shadcn decompiled strings) |
 | DB-path contract | 11 tests | `tests/db-path.test.ts` | Vitest 5 — `resolveDatabaseUrl`: schema-directory anchoring, nested start dirs, first-anchor preference, build-output (`.next`) skip, absolute/postgres passthrough, default fallback |
 | Rate-limit contract | 12 tests | `src/lib/rate-limit.test.ts` | Vitest 5 (fake timers) — under-max allowed, blocked-at-max with retryAfterSec, check-never-counts, per-key isolation, window expiry + fixed-from-first-failure, retryAfter math, reset semantics, pruning, maxKeys eviction, fresh-window-after-expiry |
-| E2E | 16 specs | `e2e/*.spec.ts` | Playwright (Chromium) — auth golden path (+ login rate limiting: 5×401 → 429 + Retry-After + message; + the login/signup surface structure specs pinning the platform redesign: hero/Google/divider/footer, Back-to-sign-in + three-field signup round-trip, mismatched-passwords inline error), board status round-trip persistence, mobile navigation (incl. the hover-variant regression in a `hasTouch` context), route surface (case-insensitivity, styled 404, back/forward) |
+| E2E | 21 specs | `e2e/*.spec.ts` | Playwright (Chromium) — auth golden path (+ login rate limiting: 5×401 → 429 + Retry-After + message; + the login/signup surface structure specs pinning the platform redesign: hero/Google/divider/footer, Back-to-sign-in + three-field signup round-trip, mismatched-passwords inline error), board status round-trip persistence, mobile navigation (incl. the hover-variant regression in a `hasTouch` context), route surface (case-insensitivity, styled 404, back/forward), **computed-style parity contracts (session 27: the v3→v4 shadow/blur/ring values on the platform-login and dashboard surfaces)** |
 
 ### 7.2 Test Patterns
 
@@ -1597,6 +1642,7 @@ bun run dev                # http://localhost:3000
 | Low | Search is client-side title matching only (header + board toolbar) | no deep/full-text search | Open |
 | Low | Timeline bars are single-day (due date only) | the data model has no task start dates | Open — add `startDate` to Task for span bars |
 | Info | Reference was redeployed (2026-09-22): unauthenticated `/login` is now a platform page (new `/static/index-CWZT4F4c.js` + Tailwind v4 runtime); the authed SPA bundle is unchanged (`/assets/index-BuEJAhK4.js`) | drift-watch: re-check BOTH asset hashes each cycle; the login/signup surfaces were re-cloned at computed-style equality in v1.14 | Closed in v1.14 — platform login/signup parity delivered |
+| Info | The platform login page was redeployed again (2026-09-22, session 27: `/static/index-BFhVa28D.js` + `index-D2_CMDc1.css`) — a rebuild with an identical design; it compiles under the Tailwind v3 play CDN, and the authed app is a customized v4 build pinning v3-era `shadow-sm`/`backdrop-blur-sm` values | drift-watch: re-check both hashes each cycle; the v3-play-CDN compile semantics are now documented and the affected values ported at computed equality (v1.15) | Closed in v1.15 — shadow/blur/ring parity delivered, `e2e/parity.spec.ts` pins it |
 | Info | Reference analytics reports Medium priority for a Low task | reference-side inconsistency | Deliberate deviation — we count actual priorities |
 | Info | Reference boards-page Filter button is inert | reference-side dead control | Parity as of v1.5 — our Filter button matches (inert); favorites toggle from the board header where the reference actually works |
 | Info | Reference popovers stay mounted after Escape | focus-management quirk | Deliberate deviation — standard Radix dismiss |
@@ -1656,7 +1702,7 @@ bun run dev                # http://localhost:3000
 | `src/lib/db.ts` | 19 | Prisma client singleton with the db-path datasource override |
 | `scripts/prisma-cli.ts` | 37 | Prisma CLI wrapper — runs `prisma <args>` with the resolved absolute DATABASE_URL |
 | `playwright.config.ts` | 42 | E2E config — Chromium, webServer = the standalone production artifact, reuseExistingServer |
-| `e2e/*.spec.ts` + `e2e/helpers.ts` | 310 | Playwright golden-path specs (auth incl. login rate limiting + login/signup surface structure, board persistence, mobile-nav incl. the hover-variant regression, routes) — 16 specs |
+| `e2e/*.spec.ts` + `e2e/helpers.ts` | 400+ | Playwright golden-path specs (auth incl. login rate limiting + login/signup surface structure, board persistence, mobile-nav incl. the hover-variant regression, routes, **computed-style parity contracts**) — 21 specs |
 | `src/components/ui/badge.tsx` | 54 | OLD-shadcn Badge anatomy (decompiled cva; px-2.5/semibold, shadow on default) |
 | `src/components/ui/button.tsx` | 73 | OLD-shadcn Button anatomy (transition-colors, ring-1 keyboard focus, h-9 w-9 icon — decompiled session 21) |
 | `src/components/ui/switch.tsx` | 43 | OLD-shadcn Switch anatomy (h-5 w-9 border-2; thumb shadow-lg translate-x-4) — exports the class constants |
