@@ -119,7 +119,7 @@ function KanbanColumn({
           <div className="flex items-center gap-3">
             <h3 className="text-lg font-bold text-gray-800">{column.label}</h3>
             <span
-              className="rounded-full px-2.5 py-1 text-sm font-bold shadow-sm"
+              className="rounded-full px-2.5 py-1 text-sm font-bold shadow-xs"
               style={{ backgroundColor: `${column.dotColor}20`, color: column.dotColor }}
             >
               {column.tasks.length}

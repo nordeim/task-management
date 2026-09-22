@@ -554,7 +554,7 @@ export function BoardView({ boardId }: { boardId: string }) {
       <div className="min-h-screen bg-[#F5F6F8]">
         <div className="max-w-full">
           <div className="sticky top-0 z-20 bg-[#F5F6F8] pb-4">
-            <div className="sticky top-16 z-40 border-b border-[#E1E5F3] bg-white shadow-sm">
+            <div className="sticky top-16 z-40 border-b border-[#E1E5F3] bg-white shadow-xs">
               <div className="px-4 py-3">
                 <Skeleton className="h-12 w-72" />
               </div>
@@ -582,7 +582,7 @@ export function BoardView({ boardId }: { boardId: string }) {
           inside: back arrow + tile + [title over view|favorites|meta] on the
           left; Analytics/Integrate/Automate + avatars on the right. */}
       <div className="sticky top-0 z-20 bg-[#F5F6F8] pb-4">
-      <div className="sticky top-16 z-40 border-b border-[#E1E5F3] bg-white shadow-sm">
+      <div className="sticky top-16 z-40 border-b border-[#E1E5F3] bg-white shadow-xs">
         <div
           aria-hidden="true"
           className="absolute left-0 right-0 top-0 h-1 bg-[#0073EA]"
@@ -628,7 +628,7 @@ export function BoardView({ boardId }: { boardId: string }) {
                 }
               }}
               maxLength={120}
-              className="flex h-8 w-64 rounded-md border border-input bg-transparent px-3 py-1 text-xl font-bold shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex h-8 w-64 rounded-md border border-input bg-transparent px-3 py-1 text-xl font-bold shadow-xs outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
             />
           ) : (
             <h1 className="group flex min-w-0 cursor-pointer items-center gap-2 text-xl font-bold text-[#323338] transition-colors hover:text-[#0073EA]">
@@ -786,7 +786,7 @@ export function BoardView({ boardId }: { boardId: string }) {
           Table renders the toolbar card, and it sits mb-6 above the table. */}
       <div className="px-6 py-6">
       {subView === "table" && (
-        <div className="mb-6 flex items-center justify-between rounded-xl border border-[#E1E5F3] bg-white p-4 shadow-sm">
+        <div className="mb-6 flex items-center justify-between rounded-xl border border-[#E1E5F3] bg-white p-4 shadow-xs">
           <div className="flex items-center gap-4">
           <Button
             className="h-10 rounded-lg bg-[#0073EA] px-4 font-medium shadow hover:bg-[#0056B3]"

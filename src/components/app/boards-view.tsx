@@ -158,7 +158,7 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
               className={
                 layout === "grid"
                   ? "h-10 rounded-lg bg-[#0073EA] px-3 py-2 text-white shadow hover:bg-[#0056B3]"
-                  : "h-10 rounded-lg border-[#E1E5F3] bg-background px-3 py-2 text-[#323338] shadow-sm hover:bg-accent hover:text-accent-foreground"
+                  : "h-10 rounded-lg border-[#E1E5F3] bg-background px-3 py-2 text-[#323338] shadow-xs hover:bg-accent hover:text-accent-foreground"
               }
             >
               <Grid3x3 className="h-4 w-4" />
@@ -171,14 +171,14 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
               className={
                 layout === "list"
                   ? "h-10 rounded-lg bg-[#0073EA] px-3 py-2 text-white shadow hover:bg-[#0056B3]"
-                  : "h-10 rounded-lg border-[#E1E5F3] bg-background px-3 py-2 text-[#323338] shadow-sm hover:bg-accent hover:text-accent-foreground"
+                  : "h-10 rounded-lg border-[#E1E5F3] bg-background px-3 py-2 text-[#323338] shadow-xs hover:bg-accent hover:text-accent-foreground"
               }
             >
               <List className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
-              className="h-10 rounded-lg border-[#E1E5F3] bg-background px-3 py-2 text-sm text-[#323338] shadow-sm hover:bg-accent hover:text-accent-foreground"
+              className="h-10 rounded-lg border-[#E1E5F3] bg-background px-3 py-2 text-sm text-[#323338] shadow-xs hover:bg-accent hover:text-accent-foreground"
               onClick={() => navigate("analytics")}
             >
               <ChartNoAxesColumnIncreasing className="mr-1.5 h-4 w-4" /> Analytics
@@ -188,7 +188,7 @@ export function BoardsView({ onCreateBoard }: { onCreateBoard: () => void }) {
                 dead UI on the reference, so it stays non-mutating here. */}
             <Button
               variant="outline"
-              className="h-10 rounded-lg border-[#E1E5F3] bg-background px-3 py-2 text-sm text-[#323338] shadow-sm hover:bg-accent hover:text-accent-foreground"
+              className="h-10 rounded-lg border-[#E1E5F3] bg-background px-3 py-2 text-sm text-[#323338] shadow-xs hover:bg-accent hover:text-accent-foreground"
               aria-label="Filter boards (not available)"
               onClick={() => undefined}
             >

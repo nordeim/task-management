@@ -112,7 +112,7 @@ export function BoardCalendar({ tasks, onOpenTask }: BoardCalendarProps) {
                     type="button"
                     onClick={() => onOpenTask?.(task)}
                     title={task.title}
-                    className="mb-1 w-full cursor-pointer rounded-md border border-[#E1E5F3] bg-white p-1.5 text-left text-xs font-medium text-[#323338] shadow-sm transition-all duration-200 hover:scale-105 hover:bg-gray-50 hover:shadow-md"
+                    className="mb-1 w-full cursor-pointer rounded-md border border-[#E1E5F3] bg-white p-1.5 text-left text-xs font-medium text-[#323338] shadow-xs transition-all duration-200 hover:scale-105 hover:bg-gray-50 hover:shadow-md"
                   >
                     <span className="block truncate">{task.title}</span>
                   </button>

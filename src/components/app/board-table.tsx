@@ -442,7 +442,7 @@ function EmptyGroupZone({ onActivate }: { onActivate: () => void }) {
       <button
         type="button"
         onClick={onActivate}
-        className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#E1E5F3] bg-white px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+        className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#E1E5F3] bg-white px-4 py-2 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
       >
         <Plus className="mr-2 h-4 w-4" /> Add Item
       </button>
@@ -872,7 +872,7 @@ export function BoardTable(props: BoardTableProps) {
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       {/* Reference architecture: ONE white card wraps every group zone plus
           the Add New Group zone (probed 2026-09-17). */}
-      <div className="overflow-hidden rounded-xl border border-[#E1E5F3] bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-[#E1E5F3] bg-white shadow-xs">
         {sections.map((section) => (
           <GroupZone
             key={section.id}

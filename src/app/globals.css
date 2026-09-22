@@ -12,6 +12,56 @@
    other hover surface) shows the reference's tap/hover feedback. */
 @custom-variant hover (&:hover);
 
+/* Reference parity (probed 2026-09-22, session 25): Tailwind v4 flipped
+   `space-y-*` from v3's margin-TOP on every child except the FIRST to
+   margin-BOTTOM on every child except the LAST. Vertical margins are inert
+   on INLINE children, so every form group shaped `<Label/><Input/>` (label
+   = inline) collapsed: the clone rendered a 4px label→field gap where the
+   reference's v3 CSS renders 12px (measured live on both apps' Create Board
+   dialogs and login cards). The reference's v3 rule:
+   `.space-y-N > :not([hidden]) ~ :not([hidden]) { margin-top: N }`.
+   The rules below restore v3 semantics for every space-y value this
+   codebase uses — they sit in the utilities layer AFTER Tailwind's
+   generated rules with the same :where() specificity, so they win the
+   cascade while any consumer's own margin utility (higher specificity)
+   still overrides them. `space-y-reverse` is unused in this codebase. */
+@layer utilities {
+  :where(.space-y-0\.5 > :not(:last-child)) { margin-block-end: 0; }
+  :where(.space-y-0\.5 > :not(:first-child)) { margin-block-start: calc(var(--spacing) * 0.5); }
+  :where(.space-y-1 > :not(:last-child)) { margin-block-end: 0; }
+  :where(.space-y-1 > :not(:first-child)) { margin-block-start: calc(var(--spacing) * 1); }
+  :where(.space-y-1\.5 > :not(:last-child)) { margin-block-end: 0; }
+  :where(.space-y-1\.5 > :not(:first-child)) { margin-block-start: calc(var(--spacing) * 1.5); }
+  :where(.space-y-2 > :not(:last-child)) { margin-block-end: 0; }
+  :where(.space-y-2 > :not(:first-child)) { margin-block-start: calc(var(--spacing) * 2); }
+  :where(.space-y-3 > :not(:last-child)) { margin-block-end: 0; }
+  :where(.space-y-3 > :not(:first-child)) { margin-block-start: calc(var(--spacing) * 3); }
+  :where(.space-y-4 > :not(:last-child)) { margin-block-end: 0; }
+  :where(.space-y-4 > :not(:first-child)) { margin-block-start: calc(var(--spacing) * 4); }
+  :where(.space-y-5 > :not(:last-child)) { margin-block-end: 0; }
+  :where(.space-y-5 > :not(:first-child)) { margin-block-start: calc(var(--spacing) * 5); }
+  :where(.space-y-6 > :not(:last-child)) { margin-block-end: 0; }
+  :where(.space-y-6 > :not(:first-child)) { margin-block-start: calc(var(--spacing) * 6); }
+  :where(.space-y-8 > :not(:last-child)) { margin-block-end: 0; }
+  :where(.space-y-8 > :not(:first-child)) { margin-block-start: calc(var(--spacing) * 8); }
+}
+
+/* Responsive space-y variants used in this codebase (sm:space-y-3/4/5/8) —
+   same v3 restoration, inside the sm: media query so the cascade position
+   stays after Tailwind's generated responsive utilities. */
+@media (min-width: 40rem) {
+  @layer utilities {
+    :where(.sm\:space-y-3 > :not(:last-child)) { margin-block-end: 0; }
+    :where(.sm\:space-y-3 > :not(:first-child)) { margin-block-start: calc(var(--spacing) * 3); }
+    :where(.sm\:space-y-4 > :not(:last-child)) { margin-block-end: 0; }
+    :where(.sm\:space-y-4 > :not(:first-child)) { margin-block-start: calc(var(--spacing) * 4); }
+    :where(.sm\:space-y-5 > :not(:last-child)) { margin-block-end: 0; }
+    :where(.sm\:space-y-5 > :not(:first-child)) { margin-block-start: calc(var(--spacing) * 5); }
+    :where(.sm\:space-y-8 > :not(:last-child)) { margin-block-end: 0; }
+    :where(.sm\:space-y-8 > :not(:first-child)) { margin-block-start: calc(var(--spacing) * 8); }
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

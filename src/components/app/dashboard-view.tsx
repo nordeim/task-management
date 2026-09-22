@@ -195,7 +195,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
           icon row `flex items-center gap-3 mb-3` (tile beside title, centered)
           and a SEPARATE card-level buttons row `flex flex-wrap gap-3 mt-6`
           wrapped in real anchors like the reference. */}
-      <section className="rounded-2xl border border-white/60 bg-gradient-to-br from-white via-white to-blue-50/30 p-6 shadow-sm md:p-8">
+      <section className="rounded-2xl border border-white/60 bg-gradient-to-br from-white via-white to-blue-50/30 p-6 shadow-xs md:p-8">
         <div className="relative z-10">
           <div className="mb-3 flex items-center gap-3">
             <div
@@ -228,7 +228,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
             <Link href="/Analytics">
               <Button
                 variant="outline"
-                className="h-10 rounded-xl border-2 border-[#E1E5F3] bg-background px-5 py-2 font-medium shadow-sm transition-all duration-200 hover:border-[#0073EA] hover:bg-[#0073EA]/5"
+                className="h-10 rounded-xl border-2 border-[#E1E5F3] bg-background px-5 py-2 font-medium shadow-xs transition-all duration-200 hover:border-[#0073EA] hover:bg-[#0073EA]/5"
               >
                 <ChartColumn className="mr-2 h-4 w-4" aria-hidden="true" /> View Analytics
               </Button>
@@ -395,7 +395,7 @@ export function DashboardView({ onCreateBoard }: { onCreateBoard: () => void }) 
                             fills (orange→red private, green→emerald shared). */}
                         <span className="flex shrink-0 items-center gap-3">
                           <span
-                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm transition-colors hover:bg-secondary/80 ${
+                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-xs transition-colors hover:bg-secondary/80 ${
                               board.visibility === "private"
                                 ? "bg-gradient-to-r from-orange-100 to-red-100 text-orange-700"
                                 : "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700"

@@ -90,10 +90,12 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
 
   return (
     // Reference nav (probed 2026-09-17): bg-white border-b border-[#E1E5F3]
-    // shadow-sm sticky top-0 z-50; the inner row is max-w-full with
+    // shadow-sm sticky top-0 z-50 — the reference's v3 `shadow-sm` compiles
+    // at half of v4's, so we port it as `shadow-xs` (computed-equivalent).
+    // The inner row is max-w-full with
     // px-4 sm:px-6 lg:px-8 gutters (not a capped container). The mobile
     // menu is an INLINE collapsible panel under the row (not a sheet).
-    <header className="sticky top-0 z-50 border-b border-[#E1E5F3] bg-white shadow-sm">
+    <header className="sticky top-0 z-50 border-b border-[#E1E5F3] bg-white shadow-xs">
       <div className="mx-auto max-w-full px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-6 lg:gap-10">
@@ -335,7 +337,7 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={searchKeyDown}
-                  className="block h-9 w-full rounded-md border border-gray-300 bg-white py-2 pl-10 pr-3 text-base leading-5 shadow-sm transition-colors placeholder-gray-500 focus:border-[#0073EA] focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-[#0073EA] sm:text-sm"
+                  className="block h-9 w-full rounded-md border border-gray-300 bg-white py-2 pl-10 pr-3 text-base leading-5 shadow-xs transition-colors placeholder-gray-500 focus:border-[#0073EA] focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-[#0073EA] sm:text-sm"
                 />
               </div>
               {query.length > 0 && boards !== null && (
