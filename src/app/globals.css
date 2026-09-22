@@ -3,6 +3,15 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Reference parity (probed 2026-09-22): Tailwind v4 guards every `hover:*`
+   utility behind `@media (hover: hover)`, which disables hover feedback on
+   touch devices and headless browsers; the reference's v3-compiled CSS
+   applies plain `:hover` unconditionally (verified in its stylesheet:
+   `.hover\:bg-\[\#E1E5F3\]:hover { … }` with no media guard). Overriding the
+   built-in variant restores the v3 behavior so the mobile menu (and every
+   other hover surface) shows the reference's tap/hover feedback. */
+@custom-variant hover (&:hover);
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
