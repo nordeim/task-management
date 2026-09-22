@@ -19,6 +19,7 @@ import {
   distinctOwnerNames,
   filterTasks,
   formatBoardActivityTime,
+  deriveSignupName,
   isNavActive,
   isOverdueDate,
   recentActivityItems,
@@ -1119,5 +1120,33 @@ describe("formatBoardActivityTime (Board Analytics modal 24-hour stamp)", () => 
     expect(formatBoardActivityTime(new Date(2026, 8, 17, 22, 1))).toBe("Sep 17, 22:01");
     expect(formatBoardActivityTime(new Date(2026, 8, 5, 9, 5))).toBe("Sep 5, 09:05");
     expect(formatBoardActivityTime(new Date(2026, 0, 2, 0, 0))).toBe("Jan 2, 00:00");
+  });
+});
+
+describe("deriveSignupName (platform signup display name, session 25)", () => {
+  /**
+   * The redesigned platform signup form (reference redeploy, 2026-09-22)
+   * collects NO Full name — the display name is derived from the email
+   * prefix (observable on the reference: the demo account
+   * sepnetflix2023@outlook.com renders as "sepnetflix2023"). See
+   * docs/remediation-plan-session25.md, Finding 1.
+   */
+  it("derives the local part of a plain email", () => {
+    expect(deriveSignupName("sepnetflix2023@outlook.com")).toBe("sepnetflix2023");
+    expect(deriveSignupName("ada.lovelace@example.com")).toBe("ada.lovelace");
+  });
+
+  it("trims surrounding whitespace before splitting", () => {
+    expect(deriveSignupName("  pete@pop-os.dev ")).toBe("pete");
+  });
+
+  it("returns the whole string when there is no @ (defensive)", () => {
+    expect(deriveSignupName("nope")).toBe("nope");
+  });
+
+  it("falls back to 'user' for an empty local part", () => {
+    expect(deriveSignupName("@example.com")).toBe("user");
+    expect(deriveSignupName("")).toBe("user");
+    expect(deriveSignupName("   ")).toBe("user");
   });
 });

@@ -3,11 +3,15 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { createSession, hashPassword } from "@/lib/auth";
 import { clientIp, signupLimiter } from "@/lib/rate-limit";
+import { deriveSignupName } from "@/lib/domain";
 
 const AVATAR_COLORS = ["#00d5c0", "#0073ea", "#a25ddb", "#ff642e", "#e2445c", "#fcc203"];
 
 const signupSchema = z.object({
-  name: z.string().trim().min(2, "Name must be at least 2 characters"),
+  // The redesigned platform signup form (session 25) collects no Full name —
+  // accounts render under their email prefix (deriveSignupName). An explicit
+  // name is still accepted for API callers that have one.
+  name: z.string().trim().min(2, "Name must be at least 2 characters").optional(),
   email: z.string().email(),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
@@ -55,7 +59,7 @@ export async function POST(request: NextRequest) {
 
   const user = await db.user.create({
     data: {
-      name: parsed.data.name,
+      name: parsed.data.name ?? deriveSignupName(email),
       email,
       passwordHash: hashPassword(parsed.data.password),
       avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],

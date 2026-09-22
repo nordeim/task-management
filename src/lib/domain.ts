@@ -757,6 +757,17 @@ export function formatRecentTaskTime(date: Date): string {
 
 // ---------- API payload contracts ----------
 
+/**
+ * Display name for the platform signup form (session 25): the redesigned
+ * reference signup collects no Full name — the account renders under its
+ * email prefix (the reference's demo account sepnetflix2023@outlook.com
+ * shows as "sepnetflix2023"). Trimmed local part, "user" when empty.
+ */
+export function deriveSignupName(email: string): string {
+  const local = email.trim().split("@")[0] ?? "";
+  return local.length > 0 ? local : "user";
+}
+
 export interface UserDTO {
   id: string;
   email: string;

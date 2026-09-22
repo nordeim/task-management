@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Lock, Mail } from "lucide-react";
+import { ArrowLeft, Loader2, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,9 +12,9 @@ type Mode = "login" | "signup";
 
 export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
   const [mode, setMode] = useState<Mode>("login");
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"google" | "form" | null>(null);
 
@@ -22,10 +22,16 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
     e.preventDefault();
     if (busy) return;
     setError(null);
+    if (mode === "signup" && password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
     setBusy("form");
     try {
+      // The redesigned platform signup (session 25) sends no name — the
+      // account renders under its email prefix (deriveSignupName server-side).
       const path = mode === "login" ? "/api/auth/login" : "/api/auth/signup";
-      const body = mode === "login" ? { email, password } : { name, email, password };
+      const body = mode === "login" ? { email, password } : { email, password };
       const result = await api<UserDTO>(path, { method: "POST", body });
       if (result.ok) {
         onAuth(result.data);
@@ -43,12 +49,19 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
     setError("Google sign-in is not configured on this deployment — use email and password below.");
   }
 
+  function switchMode(next: Mode) {
+    setMode(next);
+    setError(null);
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
       <div className="w-full max-w-md">
-        {/* Reference card (probed 2026-09-17): padding lives on an INNER div
-            with md: variants; every section (logo, title, Google, divider,
-            form, footer) stacks inside ONE space-y-6 sm:space-y-8 column. */}
+        {/* Reference card (probed 2026-09-17, re-probed 2026-09-22 after the
+            platform redeploy): padding lives on an INNER div with md:
+            variants; every section stacks inside ONE space-y-6 sm:space-y-8
+            column. The platform page compiles under the Tailwind v4 RUNTIME —
+            class strings port VERBATIM (no v3→v4 renames on this surface). */}
         <div className="relative overflow-hidden rounded-2xl border-0 bg-white/95 text-card-foreground shadow-2xl backdrop-blur-sm">
           <div
             className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200"
@@ -56,6 +69,8 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
           />
           <div className="p-8 sm:p-10 md:px-10 md:pb-10 md:pt-12">
             <div className="flex flex-col items-center space-y-6 text-center sm:space-y-8">
+              {mode === "login" ? (
+                <>
               <div className="group relative">
                 <div
                   className="absolute inset-0 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 opacity-30 blur-xl transition-opacity group-hover:opacity-40"
@@ -74,45 +89,45 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                 <p className="text-sm font-medium text-slate-500 sm:text-base">Sign in to continue</p>
               </div>
 
-              {/* Reference (probed 2026-09-18): the Google button, the OR
-                  divider, and the form live inside ONE w-full wrapper — a
-                  single column child — with the divider carrying `my-6`
-                  itself. Nesting it as a sibling column child doubled the
-                  OR→Email gap (56px vs the reference's 28px). */}
+              {/* Reference (probed 2026-09-18, re-probed 2026-09-22): the
+                  Google button, the OR divider, and the form live inside ONE
+                  w-full wrapper — a single column child — with the divider
+                  carrying `my-6` itself. The platform's Google button is a
+                  PLAIN button (no shadcn base classes — verbatim port below,
+                  classic "G" svg paths). */}
               <div className="w-full">
                 <div className="space-y-3">
-                  <Button
+                  <button
                     type="button"
-                    variant="outline"
-                    className="flex h-auto w-full items-center justify-center gap-3 rounded-xl border-slate-200 bg-white px-5 py-3.5 text-base font-medium text-slate-700 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
+                    className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3.5 font-medium text-[16px] text-slate-700 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
                     onClick={handleGoogle}
                     disabled={busy !== null}
                   >
                     {/* Reference quirk: the icon rides in a -ml-4 wrapper so the
                         Google logo sits left of optical center, balancing the
                         trailing text. */}
-                    <span className="-ml-4">
+                    <span className="-ml-4 transition-transform duration-200">
                       <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
                         <path
                           fill="#4285F4"
-                          d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                         />
                         <path
                           fill="#34A853"
-                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
                         />
                         <path
                           fill="#FBBC05"
-                          d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
                         />
                         <path
                           fill="#EA4335"
-                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                         />
                       </svg>
                     </span>
                     Continue with Google
-                  </Button>
+                  </button>
                 </div>
 
                 <div className="relative my-6">
@@ -126,25 +141,8 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
 
                 <form onSubmit={handleSubmit} className="w-full space-y-4 sm:space-y-5" noValidate>
                 <div className="space-y-3 sm:space-y-4">
-                  {mode === "signup" && (
-                    <div className="space-y-1.5">
-                      <Label htmlFor="name" className="text-slate-700">
-                        Full name
-                      </Label>
-                      <Input
-                        id="name"
-                        autoComplete="name"
-                        placeholder="Ada Lovelace"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        required
-                        minLength={2}
-                        className="h-11 rounded-xl border-slate-200 bg-slate-50/50 pl-10 placeholder:text-slate-600 focus:border-slate-400 focus:ring-slate-400 sm:h-12"
-                      />
-                    </div>
-                  )}
                   <div className="space-y-1.5">
-                    <Label htmlFor="email" className="text-slate-700">
+                    <Label htmlFor="email" className="text-slate-700 leading-5">
                       Email
                     </Label>
                     <div className="relative">
@@ -160,12 +158,12 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
-                        className="h-11 rounded-xl border-slate-200 bg-slate-50/50 pl-10 placeholder:text-slate-600 focus:border-slate-400 focus:ring-slate-400 sm:h-12"
+                        className="h-11 rounded-xl border-slate-200 bg-slate-50/50 py-2 pl-10 placeholder:text-slate-600 focus:border-slate-400 focus:ring-slate-400 focus-visible:ring-2 focus-visible:ring-offset-2 shadow-none sm:h-12"
                       />
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="password" className="text-slate-700">
+                    <Label htmlFor="password" className="text-slate-700 leading-5">
                       Password
                     </Label>
                     <div className="relative">
@@ -181,13 +179,9 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
-                        minLength={mode === "signup" ? 8 : undefined}
-                        className="h-11 rounded-xl border-slate-200 bg-slate-50/50 pl-10 placeholder:text-slate-600 focus:border-slate-400 focus:ring-slate-400 sm:h-12"
+                        className="h-11 rounded-xl border-slate-200 bg-slate-50/50 py-2 pl-10 placeholder:text-slate-600 focus:border-slate-400 focus:ring-slate-400 focus-visible:ring-2 focus-visible:ring-offset-2 shadow-none sm:h-12"
                       />
                     </div>
-                    {mode === "signup" && (
-                      <p className="text-xs text-muted-foreground">Use at least 8 characters.</p>
-                    )}
                   </div>
                 </div>
 
@@ -200,18 +194,16 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                 <div className="space-y-3">
                   <Button
                     type="submit"
-                    className="h-11 w-full rounded-xl bg-slate-900 px-3 py-2 font-medium text-white shadow-sm transition-all duration-200 hover:bg-slate-800 sm:h-12"
+                    className="h-11 w-full gap-1 rounded-xl bg-slate-900 px-3 py-2 font-medium text-white shadow-sm transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-2 hover:bg-slate-800 sm:h-12"
                     disabled={busy !== null}
                   >
                     {busy === "form" ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                        {mode === "login" ? "Signing in…" : "Creating account…"}
+                        Signing in…
                       </>
-                    ) : mode === "login" ? (
-                      "Sign in"
                     ) : (
-                      "Sign up"
+                      "Sign in"
                     )}
                   </Button>
 
@@ -219,45 +211,136 @@ export function LoginView({ onAuth }: { onAuth: (user: UserDTO) => void }) {
                       form's actions section. "Need an account? Sign up" is ONE
                       button with a font-medium slate-700 span on "Sign up". */}
                   <div className="flex flex-col items-center justify-between gap-2 sm:flex-row sm:gap-0">
-                    {mode === "login" ? (
-                      <>
-                        <button
-                          type="button"
-                          className="text-sm font-medium text-slate-500 transition-colors hover:text-slate-700"
-                          onClick={() =>
-                            setError("Password reset is not available on this deployment.")
-                          }
-                        >
-                          Forgot password?
-                        </button>
-                        <button
-                          type="button"
-                          className="text-sm text-slate-500 transition-colors hover:text-slate-700"
-                          onClick={() => {
-                            setMode("signup");
-                            setError(null);
-                          }}
-                        >
-                          Need an account? <span className="font-medium text-slate-700">Sign up</span>
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        className="text-sm text-slate-500 transition-colors hover:text-slate-700"
-                        onClick={() => {
-                          setMode("login");
-                          setError(null);
-                        }}
-                      >
-                        Already have an account?{" "}
-                        <span className="font-medium text-slate-700">Sign in</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-slate-500 transition-colors hover:text-slate-700"
+                      onClick={() =>
+                        setError("Password reset is not available on this deployment.")
+                      }
+                    >
+                      Forgot password?
+                    </button>
+                    <button
+                      type="button"
+                      className="text-sm text-slate-500 transition-colors hover:text-slate-700"
+                      onClick={() => switchMode("signup")}
+                    >
+                      Need an account? <span className="font-medium text-slate-700">Sign up</span>
+                    </button>
                   </div>
                 </div>
-              </form>
+                </form>
               </div>
+                </>
+              ) : (
+                /* Signup mode (platform redesign, probed 2026-09-22): NO logo,
+                   NO Google button, NO footer — a Back-to-sign-in link, an h2,
+                   and Email / Password / Confirm Password (no Full name; the
+                   account renders under its email prefix). Inputs are
+                   h-10 sm:h-11 with slate-400 placeholders/icons. */
+                <div className="w-full">
+                  <div className="space-y-4">
+                    <button
+                      type="button"
+                      className="-mb-2 flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-slate-700"
+                      onClick={() => switchMode("login")}
+                    >
+                      <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to sign in
+                    </button>
+                    <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Create your account</h2>
+                    <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4" noValidate>
+                      <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="signup-email" className="text-slate-700 leading-5">
+                            Email
+                          </Label>
+                          <div className="relative">
+                            <Mail
+                              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                              aria-hidden="true"
+                            />
+                            <Input
+                              id="signup-email"
+                              type="email"
+                              autoComplete="email"
+                              placeholder="you@example.com"
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                              required
+                              className="h-10 rounded-xl border-slate-200 bg-slate-50/50 py-2 pl-10 text-sm placeholder:text-slate-400 focus:border-slate-400 focus:ring-slate-400 focus-visible:ring-2 focus-visible:ring-offset-2 shadow-none sm:h-11 sm:text-base"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="signup-password" className="text-slate-700 leading-5">
+                            Password
+                          </Label>
+                          <div className="relative">
+                            <Lock
+                              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                              aria-hidden="true"
+                            />
+                            <Input
+                              id="signup-password"
+                              type="password"
+                              autoComplete="new-password"
+                              placeholder="Min. 8 characters"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              required
+                              minLength={8}
+                              className="h-10 rounded-xl border-slate-200 bg-slate-50/50 py-2 pl-10 text-sm placeholder:text-slate-400 focus:border-slate-400 focus:ring-slate-400 focus-visible:ring-2 focus-visible:ring-offset-2 shadow-none sm:h-11 sm:text-base"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="signup-confirm" className="text-slate-700 leading-5">
+                            Confirm Password
+                          </Label>
+                          <div className="relative">
+                            <Lock
+                              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                              aria-hidden="true"
+                            />
+                            <Input
+                              id="signup-confirm"
+                              type="password"
+                              autoComplete="new-password"
+                              placeholder="Re-enter password"
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              required
+                              minLength={8}
+                              className="h-10 rounded-xl border-slate-200 bg-slate-50/50 py-2 pl-10 text-sm placeholder:text-slate-400 focus:border-slate-400 focus:ring-slate-400 focus-visible:ring-2 focus-visible:ring-offset-2 shadow-none sm:h-11 sm:text-base"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {error && (
+                        <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                          {error}
+                        </p>
+                      )}
+
+                      <Button
+                        type="submit"
+                        className="h-10 w-full gap-1 rounded-xl bg-slate-900 px-3 py-2 font-medium text-white shadow-sm transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-2 hover:bg-slate-800 sm:h-11"
+                        disabled={busy !== null}
+                      >
+                        {busy === "form" ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                            Creating account…
+                          </>
+                        ) : (
+                          "Create account"
+                        )}
+                      </Button>
+                    </form>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

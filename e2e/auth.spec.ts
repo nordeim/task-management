@@ -53,3 +53,54 @@ test.describe("auth golden path", () => {
     expect(body.error).toMatch(/too many attempts/i);
   });
 });
+
+test.describe("login surface structure (platform redesign, session 25)", () => {
+  // Pins the redesigned reference login/signup surfaces — DOM-dumped from the
+  // redeployed platform page 2026-09-22 (docs/remediation-plan-session25.md,
+  // Finding 1). No account is created: the signup form is toggled and
+  // validated structurally only, keeping the DB at the canonical seed.
+  test("login mode renders the reference hero, Google button, divider, and footer", async ({ page }) => {
+    await page.goto("/login");
+    await expect(page.getByRole("heading", { name: "Welcome to Task Management" })).toBeVisible();
+    await expect(page.getByText("Sign in to continue")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+    await expect(page.getByText("or", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Email")).toBeVisible();
+    await expect(page.getByLabel("Password")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Forgot password?" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Need an account? Sign up" })).toBeVisible();
+  });
+
+  test("signup mode: Back to sign in + three fields + Create account round-trip", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByRole("button", { name: "Need an account? Sign up" }).click();
+
+    // The redesigned signup surface: no logo hero, no Google button, no footer.
+    await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Back to sign in" })).toBeVisible();
+    await expect(page.getByLabel("Email")).toBeVisible();
+    await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Confirm Password")).toBeVisible();
+    await expect(page.getByPlaceholder("Min. 8 characters")).toBeVisible();
+    await expect(page.getByPlaceholder("Re-enter password")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create account" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Continue with Google" })).toHaveCount(0);
+
+    // Back to sign in returns to the login surface.
+    await page.getByRole("button", { name: "Back to sign in" }).click();
+    await expect(page.getByRole("heading", { name: "Welcome to Task Management" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+  });
+
+  test("signup mode flags mismatched passwords inline (no request sent)", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByRole("button", { name: "Need an account? Sign up" }).click();
+    await page.getByLabel("Email").fill(`structure-${Date.now()}@example.test`);
+    await page.getByLabel("Password", { exact: true }).fill("Abcd1234");
+    await page.getByLabel("Confirm Password").fill("Different99");
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(page.getByText(/passwords do not match/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+  });
+});
