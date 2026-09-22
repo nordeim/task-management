@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { createSession, hashPassword } from "@/lib/auth";
+import { clientIp, signupLimiter } from "@/lib/rate-limit";
 
 const AVATAR_COLORS = ["#00d5c0", "#0073ea", "#a25ddb", "#ff642e", "#e2445c", "#fcc203"];
 
@@ -10,6 +11,17 @@ const signupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
+
+function tooManyAttempts(retryAfterSec: number): NextResponse {
+  const minutes = Math.max(1, Math.ceil(retryAfterSec / 60));
+  return NextResponse.json(
+    {
+      ok: false,
+      error: `Too many attempts. Please try again in about ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+    },
+    { status: 429, headers: { "Retry-After": String(retryAfterSec) } },
+  );
+}
 
 export async function POST(request: NextRequest) {
   let body: unknown;
@@ -24,6 +36,16 @@ export async function POST(request: NextRequest) {
     const first = parsed.error.issues[0];
     return NextResponse.json({ ok: false, error: first?.message ?? "Invalid input" }, { status: 400 });
   }
+
+  // Every parsed POST counts (not just failures) — the guarded action is
+  // account creation itself: enumeration oracle + spam + scrypt on the happy
+  // path. See src/lib/rate-limit.ts.
+  const key = `signup:${clientIp(request.headers)}`;
+  const gate = signupLimiter.check(key);
+  if (!gate.allowed) {
+    return tooManyAttempts(gate.retryAfterSec);
+  }
+  signupLimiter.recordFailure(key);
 
   const email = parsed.data.email.toLowerCase();
   const existing = await db.user.findUnique({ where: { email } });
