@@ -39,9 +39,12 @@ tool-results/
 examples/
 mini-services/
 .zscripts/
-tests/
 Caddyfile
 worklog.md
 
 # TypeScript incremental build cache
 tsconfig.tsbuildinfo
+
+# Playwright artifacts
+test-results/
+playwright-report/

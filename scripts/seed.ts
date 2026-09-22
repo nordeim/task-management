@@ -5,10 +5,16 @@
  *
  * Idempotent: re-running skips any user whose email already exists.
  */
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { randomBytes, scryptSync } from "crypto";
+import { resolveDatabaseUrl } from "../src/lib/db-path";
 
-const db = new PrismaClient();
+// The seed writes through the same URL resolution as the app (db-path),
+// so the file it seeds is <repo>/db/custom.db — not a parent-directory
+// copy created by the Prisma CLI's .env-relative resolution.
+const db = new PrismaClient({
+  datasources: { db: { url: resolveDatabaseUrl() } },
+});
 
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");
@@ -286,7 +292,19 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error("Seed failed:", error);
-    process.exit(1);
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2021") {
+      // Missing tables: the schema was never pushed to this database file.
+      console.error(
+        "Seed failed: the database schema does not exist yet. Run `bun run db:push` first, then re-run `bun run db:seed`.",
+      );
+    } else {
+      console.error("Seed failed:", error);
+    }
+    process.exitCode = 1;
   })
-  .finally(() => db.$disconnect());
+  .finally(() => {
+    // A rejected $disconnect (e.g. SQLite contention with a running dev
+    // server) must not fail an otherwise-successful seed run — the data is
+    // committed by the time we get here.
+    void db.$disconnect().catch(() => undefined);
+  });
