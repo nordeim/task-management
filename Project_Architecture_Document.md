@@ -1,4 +1,4 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.16
+# Tuesday.com — Master Project Architecture Document (PAD) v1.17
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
@@ -7,6 +7,45 @@
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.17 (Zero-Drift Verification Cycle + E2E Mutation-Pin Coverage, 2026-09-23)
+
+- `[SYN]` Seventeenth pass (session 31,
+  `docs/remediation-plan-session31.md`): the reference was NOT redeployed —
+  both bundles re-verified UNCHANGED (platform login still
+  `/static/index-BZ3m2EKw.js` + `index-DuUT6T6n.css`; authed SPA still
+  `/assets/index-BuEJAhK4.js` + `index-DjjZtFMQ.css`). Fresh VLM parity
+  sweep extended to **12 surfaces — 12 effective MATCH** (every DIFF flag
+  triaged with DOM evidence: data-only board records, and the Board
+  Analytics modal's conditional Team Workload card, absent on the
+  reference's ownerless board exactly like `board-analytics-dialog.tsx:142`).
+  All standing computed-style contracts re-verified live on BOTH apps
+  (button shadow, card blur, slate-400 ring, mobile footer geometry at
+  375×812, hamburger hover `#E1E5F3` under a real pointer move — with the
+  probe lesson recorded: synthetic `mouseover` dispatches do NOT activate
+  CSS `:hover`). Functional smoke over **12 mutation paths** all passed
+  API-confirmed against SQLite (task CRUD, checkbox↔status coupling, kanban
+  drag, group collapse, favorite, search filter, board CRUD, group CRUD);
+  API probes (users, dashboard, analytics windows incl. the invalid-days
+  fallback, and the rate limiter's 5×401 → 429 + `Retry-After: 900`)
+  verified. Zero code defects.
+- `[GAT]` **E2E 22→25 specs — the dialog-based mutation paths are now
+  pinned.** The audit's one genuine gap: task creation via the New Task
+  dialog, row-trash deletion, board create/edit/delete via the Options
+  menu, and group-collapse persistence were re-verified MANUALLY every
+  session (worklog sessions 19–29) but had no automated regression
+  coverage. Three new specs in `e2e/board.spec.ts` pin them with the
+  established restore-to-seed pattern. Two hard-won spec lessons baked in:
+  (1) Playwright's `name` matching is substring-based — the task-title
+  locator needs `exact: true` or it strict-mode-collides with the row's
+  "Actions for <title>" trigger; (2) Playwright's request contexts
+  (`page.request`/`context.request`) do NOT carry the browser session
+  cookie (401, reproduced) — the specs' self-heal residue sweeps run through
+  in-page `fetch` via `page.evaluate` instead (200, verified). The sweeps
+  make the specs idempotent: a previously failed run's residue is cleaned
+  at start (proven by injecting a leftover task and re-running). Unit
+  suite unchanged at 185. Screenshots refreshed (15-surface set;
+  `login.png`/`signup.png` byte-identical again — desktop render unchanged).
 
 #### Revision Block — v1.16 (Third Platform-Login Redeploy: Identical Design, Mobile Spacer Footer Port, 2026-09-23)
 
@@ -1526,7 +1565,7 @@ transition to 0.01ms.
 | Unit tests | 162 tests | `src/lib/domain.test.ts` + `src/components/ui/primitives.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (all seven fields, nulls-last), `visibleColumns`, `groupSummary`, `statusHeaderDots`, `relativeBoardTime`, `VISIBILITY_OPTIONS`, the reference palette hexes, `priorityBadgeStyle`, `visibilityLabel`, `VIEW_TRIGGER_LABELS`, `KANBAN_CARD_BORDER`, `GROUP_COLOR_OPTIONS`, `ROUTE_PATHS`, `notFoundTitle`, `formatRecentTaskTime`, kanban avatars, team workload, modal stats/timestamps, `isOverdueDate`, `deriveSignupName` (email-prefix display name) — PLUS the vendored-primitive anatomy contracts (Badge cva + Switch track/thumb + Select trigger/item + Button base/variants/sizes + Input/Textarea/Label bases locked to the reference's OLD-shadcn decompiled strings) |
 | DB-path contract | 11 tests | `tests/db-path.test.ts` | Vitest 5 — `resolveDatabaseUrl`: schema-directory anchoring, nested start dirs, first-anchor preference, build-output (`.next`) skip, absolute/postgres passthrough, default fallback |
 | Rate-limit contract | 12 tests | `src/lib/rate-limit.test.ts` | Vitest 5 (fake timers) — under-max allowed, blocked-at-max with retryAfterSec, check-never-counts, per-key isolation, window expiry + fixed-from-first-failure, retryAfter math, reset semantics, pruning, maxKeys eviction, fresh-window-after-expiry |
-| E2E | 22 specs | `e2e/*.spec.ts` | Playwright (Chromium) — auth golden path (+ login rate limiting: 5×401 → 429 + Retry-After + message; + the login/signup surface structure specs pinning the platform redesign: hero/Google/divider/footer, Back-to-sign-in + three-field signup round-trip, mismatched-passwords inline error, **mobile spacer footer presence + geometry + sm-hiding**), board status round-trip persistence, mobile navigation (incl. the hover-variant regression in a `hasTouch` context), route surface (case-insensitivity, styled 404, back/forward), **computed-style parity contracts (session 27: the v3→v4 shadow/blur/ring values on the platform-login and dashboard surfaces)** |
+| E2E | 25 specs | `e2e/*.spec.ts` | Playwright (Chromium) — auth golden path (+ login rate limiting: 5×401 → 429 + Retry-After + message; + the login/signup surface structure specs pinning the platform redesign: hero/Google/divider/footer, Back-to-sign-in + three-field signup round-trip, mismatched-passwords inline error, **mobile spacer footer presence + geometry + sm-hiding**), board status round-trip persistence, **dialog-based mutation paths (session 31: New Task dialog create → row-trash delete, board create → Options edit → delete round-trip, group-collapse persistence — each with self-healing residue sweeps via in-page fetch)**, mobile navigation (incl. the hover-variant regression in a `hasTouch` context), route surface (case-insensitivity, styled 404, back/forward), **computed-style parity contracts (session 27: the v3→v4 shadow/blur/ring values on the platform-login and dashboard surfaces)** |
 
 ### 7.2 Test Patterns
 
@@ -1664,6 +1703,7 @@ bun run dev                # http://localhost:3000
 
 | Priority | Issue | Impact | Status |
 |----------|-------|--------|--------|
+| ~~Low~~ | ~~Dialog-based mutation paths (task create/delete, board CRUD, group collapse) re-verified manually every session — no automated E2E coverage~~ | ~~the most regression-prone flows (Radix dialogs, dropdown triggers, optimistic updates, cascades) relied on per-session hand-testing~~ | **Closed in v1.17** — three `e2e/board.spec.ts` specs pin them (restore-to-seed + self-healing residue sweeps via in-page fetch; idempotency + sweep proven) |
 | ~~Medium~~ | ~~No E2E suite (unit suite exists)~~ | ~~golden-path regressions rely on manual verification~~ | **Closed in v1.12** — Playwright suite delivered (`e2e/`, 12 specs green against the standalone build) |
 | ~~Medium~~ | ~~No login rate limiting~~ | ~~brute-force surface on public deployments~~ | **Closed in v1.13** — `src/lib/rate-limit.ts`: login 5 failures/15 min per email+IP (successes reset) + signup 10 attempts/15 min per IP; 429 + `Retry-After`; pinned by 12 unit tests + an E2E spec |
 | ~~Low~~ | ~~Browser back button doesn't traverse views~~ | ~~view state lives in React context~~ | **Closed in v1.5** — real URL routes; back/forward and deep links work |
