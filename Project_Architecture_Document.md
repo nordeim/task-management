@@ -1,4 +1,4 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.17
+# Tuesday.com — Master Project Architecture Document (PAD) v1.18
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
@@ -7,6 +7,76 @@
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.18 (Background-Token Parity: White `--background`, Separator Color, 2026-09-23)
+
+- `[SYN]` Eighteenth pass (session 33,
+  `docs/remediation-plan-session32.md`): the reference was NOT redeployed —
+  FOURTH consecutive stable cycle (platform login still
+  `/static/index-BZ3m2EKw.js` + `index-DuUT6T6n.css`; authed SPA still
+  `/assets/index-BuEJAhK4.js` + `index-DjjZtFMQ.css`, verified in the live
+  post-login DOM). Fresh 12-surface VLM sweep: **12/12 effective MATCH**
+  after triage (per-record board data, the dev-mode N badge, the Add New
+  Group button below the fold on the taller clone board — verified present
+  in the DOM — and the §10-documented Team Workload conditional). Mobile
+  KPI deco circles re-verified identical at 2× zoom crop. The reference
+  left pristine throughout (1 board / 1 pending / 0 completed — no
+  mutations performed).
+- `[SYN]` **The session's audit deepened the token level**: probing the
+  reference's `document.documentElement` revealed its shadcn token values
+  (`--background 0 0% 100%`, `--popover`/`--card` white, `--primary 0 0%
+  9%`, `--accent`/`--secondary`/`--muted 0 0% 96.1%`, `--muted-foreground
+  0 0% 45.1%`). Every token matched ours except `--background`, `--muted`,
+  and `--muted-foreground`.
+- `[UI]` **HIGH — the `--background` token was drifted to the page gray
+  `#f5f6f8`** (the reference resolves it to WHITE). `bg-background` is a
+  live consumer across six rendered surface classes, EVERY one probed
+  different on the two apps this session: all Radix dialog panels
+  (`rgb(245,246,248)` here vs the reference's `rgb(255,255,255)` — its
+  Board Analytics panel is an explicit `bg-white`), the board toolbar
+  outline buttons (Person/Filter/Sort/Hide/Group by — reference ALL white,
+  probed each by name), the board header buttons
+  (Analytics/Integrate/Automate — reference all white), the boards-page
+  buttons (Filter probed white), the dashboard hero's View Analytics
+  button (the drift the mobile VLM pair surfaced), and switch thumbs
+  (reference thumb `rgb(255,255,255)` on track `rgb(229,231,235)`).
+  **Fixed:** `--background: hsl(0 0% 100%)` in `globals.css` `:root` (one
+  line — every consumer renders the reference's white; the `<body>` is
+  fully covered by every page root's own background, so nothing else
+  shifts). `--muted` aligned to the reference's `0 0% 96.1%` as zero-risk
+  hygiene (its `bg-muted` consumers live only in unused vendored
+  primitives — verified none render).
+- `[UI]` **MEDIUM — the board-header sub-row separators rendered the wrong
+  color**: `text-muted-foreground/50` (blue-tinted ≈rgb(179,180,188) from
+  the monday-gray token) vs the reference's `|` spans at
+  `text-[#A0A0A0]` (probed: `rgb(160,160,160)`, opaque — the same explicit
+  color our adjacent "N items ▪ Saved" meta already uses). Both separator
+  spans fixed to `text-[#A0A0A0]`; `--muted-foreground` deliberately KEPT
+  at `#676879` (its remaining consumers are micro/transient/deviation
+  surfaces not probed against the reference — changing them without probe
+  evidence would violate the verification-labeling rule).
+- `[GAT]` E2E 25→**27 specs** — two new computed-style parity contracts in
+  `e2e/parity.spec.ts` (the session-27 tradition: `expect.poll` +
+  same-page probes): `bg-background surfaces render the reference's white
+  token` (dialog panel, toolbar + header + boards + dashboard buttons,
+  switch thumb — six probes against a same-page `bg-white` probe) and
+  `board header sub-row separators render #A0A0A0`. Written RED first
+  (both failed against the pre-fix standalone build exactly as predicted),
+  then GREEN after the two fixes; the other 25 specs unaffected (verified
+  none asserts a `#F5F6F8`-dependent value). Idempotency proven: 27/27
+  twice consecutively, DB at the canonical seed after both runs. Unit
+  suite unchanged at 185. All 9 fixed surfaces re-probed live on the
+  remediated dev server — every value equals the reference's probed
+  value; post-fix VLM pairs (dashboard, boards, board-table, Board
+  Analytics modal) all effective MATCH. Screenshots refreshed (15-surface
+  set; `login.png`/`signup.png` byte-identical — the login backdrop is its
+  own gradient, unaffected by the token).
+- `[DOC]` §10's unassigned-view row strengthened with this session's DOM
+  evidence: the reference's Unassigned view is a structural no-op
+  (content container `innerHTML: ""`, `childCount: 0`, even with its
+  ownerless task — the owner cell renders the "Assign" placeholder),
+  confirming the "reference-side defect" rationale for our deliberate
+  deviation.
 
 #### Revision Block — v1.17 (Zero-Drift Verification Cycle + E2E Mutation-Pin Coverage, 2026-09-23)
 
@@ -1565,7 +1635,7 @@ transition to 0.01ms.
 | Unit tests | 162 tests | `src/lib/domain.test.ts` + `src/components/ui/primitives.test.ts` | Vitest 5 — pure seams: statusMeta/priorityMeta, vocabulary order, `resolveStatusCompletedPatch` (the status↔completed coupling), `timelineRange` (Day/Week/Month math), `groupTasksByStatus`/`groupTasksByPerson`, `distributionBars`, `formatSavedAt`, `filterTasks` (toolbar pipeline), `sortTasks` (all seven fields, nulls-last), `visibleColumns`, `groupSummary`, `statusHeaderDots`, `relativeBoardTime`, `VISIBILITY_OPTIONS`, the reference palette hexes, `priorityBadgeStyle`, `visibilityLabel`, `VIEW_TRIGGER_LABELS`, `KANBAN_CARD_BORDER`, `GROUP_COLOR_OPTIONS`, `ROUTE_PATHS`, `notFoundTitle`, `formatRecentTaskTime`, kanban avatars, team workload, modal stats/timestamps, `isOverdueDate`, `deriveSignupName` (email-prefix display name) — PLUS the vendored-primitive anatomy contracts (Badge cva + Switch track/thumb + Select trigger/item + Button base/variants/sizes + Input/Textarea/Label bases locked to the reference's OLD-shadcn decompiled strings) |
 | DB-path contract | 11 tests | `tests/db-path.test.ts` | Vitest 5 — `resolveDatabaseUrl`: schema-directory anchoring, nested start dirs, first-anchor preference, build-output (`.next`) skip, absolute/postgres passthrough, default fallback |
 | Rate-limit contract | 12 tests | `src/lib/rate-limit.test.ts` | Vitest 5 (fake timers) — under-max allowed, blocked-at-max with retryAfterSec, check-never-counts, per-key isolation, window expiry + fixed-from-first-failure, retryAfter math, reset semantics, pruning, maxKeys eviction, fresh-window-after-expiry |
-| E2E | 25 specs | `e2e/*.spec.ts` | Playwright (Chromium) — auth golden path (+ login rate limiting: 5×401 → 429 + Retry-After + message; + the login/signup surface structure specs pinning the platform redesign: hero/Google/divider/footer, Back-to-sign-in + three-field signup round-trip, mismatched-passwords inline error, **mobile spacer footer presence + geometry + sm-hiding**), board status round-trip persistence, **dialog-based mutation paths (session 31: New Task dialog create → row-trash delete, board create → Options edit → delete round-trip, group-collapse persistence — each with self-healing residue sweeps via in-page fetch)**, mobile navigation (incl. the hover-variant regression in a `hasTouch` context), route surface (case-insensitivity, styled 404, back/forward), **computed-style parity contracts (session 27: the v3→v4 shadow/blur/ring values on the platform-login and dashboard surfaces)** |
+| E2E | 27 specs | `e2e/*.spec.ts` | Playwright (Chromium) — auth golden path (+ login rate limiting: 5×401 → 429 + Retry-After + message; + the login/signup surface structure specs pinning the platform redesign: hero/Google/divider/footer, Back-to-sign-in + three-field signup round-trip, mismatched-passwords inline error, **mobile spacer footer presence + geometry + sm-hiding**), board status round-trip persistence, **dialog-based mutation paths (session 31: New Task dialog create → row-trash delete, board create → Options edit → delete round-trip, group-collapse persistence — each with self-healing residue sweeps via in-page fetch)**, mobile navigation (incl. the hover-variant regression in a `hasTouch` context), route surface (case-insensitivity, styled 404, back/forward), **computed-style parity contracts (session 27: the v3→v4 shadow/blur/ring values on the platform-login and dashboard surfaces; session 33: the white `--background` token across dialog panels, outline buttons, and switch thumbs + the `#A0A0A0` sub-row separators)** |
 
 ### 7.2 Test Patterns
 
@@ -1718,7 +1788,8 @@ bun run dev                # http://localhost:3000
 | Info | Reference boards-page Filter button is inert | reference-side dead control | Parity as of v1.5 — our Filter button matches (inert); favorites toggle from the board header where the reference actually works |
 | Info | Reference popovers stay mounted after Escape | focus-management quirk | Deliberate deviation — standard Radix dismiss |
 | Info | Presence dots are `User.online` mock data | reference hardcodes presence on a mock team | Parity — dots render per-user; the flag is seeded demo data, never real presence |
-| Info | Reference 'Unassigned' view renders an empty content area even when unassigned tasks exist (broken owner filter) | reference-side defect | Deliberate deviation — we list the unassigned tasks |
+| Info | Reference 'Unassigned' view renders an empty content area even when unassigned tasks exist (broken owner filter) | reference-side defect | Deliberate deviation — we list the unassigned tasks. Session-33 DOM evidence: the reference's unassigned content container is a structural no-op (`innerHTML: ""`, `childCount: 0`, even with its ownerless task rendering the "Assign" owner-cell placeholder) |
+| ~~High~~ | ~~`--background` token drifted to the page gray `#f5f6f8` — every `bg-background` consumer (dialog panels, outline buttons, switch thumbs) rendered `rgb(245,246,248)` vs the reference's white~~ | ~~subtle gray tint on every dialog and outline-button surface~~ | **Closed in v1.18** — token restored to `hsl(0 0% 100%)`; six surface classes re-probed equal to the reference; pinned by the two session-33 parity specs (E2E 27) |
 | Info | Reference timeline silently drops tasks without due dates | dateless work vanishes on the reference | Deliberate deviation — ours keeps a reachable "without a due date" section |
 | Info | Reference timeline never renders bars (its bar component requires a literal `data.startDate` key that no current column model produces) | dateless AND dated work shows no bars on the reference (verified with 10 seeded tasks) | Deliberate deviation — ours renders due-date bars (28px rounded, board-color, 0.9 opacity, 40px/day — the reference's spec, captured by API-injecting startDate) |
 | Info | Reference analytics priority distribution counts the server-default top-level `priority` field | every task counts as "Medium" on the reference | Deliberate deviation — we count real priorities |

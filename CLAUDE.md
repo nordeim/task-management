@@ -1,7 +1,7 @@
 ---
 IMPORTANT: File is read fresh for every conversation. Be brief and practical.
 project_type: nextjs-single-app
-version: 1.10.0
+version: 1.11.0
 last_updated: 2026-09-23
 ---
 
@@ -25,6 +25,11 @@ its strings carry the same renames) · shadcn/ui (new-york, OLD-shadcn
 anatomy: Card/Badge/Button/Switch/Select/Input/Textarea/Label) on Radix ·
 Prisma 6.19 + SQLite (repo-anchored via `src/lib/db-path.ts`) · Zod 4 ·
 @dnd-kit 6 · date-fns 4 · lucide-react · Vitest (unit) + Playwright (E2E).
+Design tokens: shadcn semantic tokens in `globals.css` `:root` mirror the
+reference's probed values — **`--background` is WHITE** (`hsl(0 0% 100%)`;
+the page gray `#F5F6F8` lives only on explicit shell/page-root classes),
+`--muted-foreground` is the monday gray `#676879` (micro consumers), and
+`--muted` is the reference's `0 0% 96.1%`.
 
 ## Core Identity & Purpose
 
@@ -140,7 +145,7 @@ public demo credentials).
 | `bun run lint` | ESLint — must exit 0 (`eslint-config-next` defaults, no rule weakening) |
 | `bun run typecheck` | `tsc --noEmit` — no errors; `skills/` and `docs/` excluded from the compile |
 | `bun run test` | Vitest unit suite — domain seams + primitive anatomy + db-path + rate-limit contracts (185 tests) |
-| `bun run test:e2e` | Playwright golden-path suite (Chromium, 25 specs) — run after `bun run build` |
+| `bun run test:e2e` | Playwright golden-path suite (Chromium, 27 specs) — run after `bun run build` |
 | `bun run db:push` / `db:seed` / `db:generate` | Schema sync / demo data / client regen (db:push goes through `scripts/prisma-cli.ts`) |
 
 ## Testing Strategy
@@ -194,7 +199,10 @@ public demo credentials).
   against the reference's compilers (color-space-neutral via a same-page
   `text-slate-400` probe). Session 29 added the mobile spacer footer
   contract (presence + geometry + sm-hiding on the platform login page,
-  both modes). A red test is a regression or a wrong test —
+  both modes). Session 33 added the background-token parity contracts (the
+  white `--background` across dialog panels, outline buttons, and switch
+  thumbs, plus the `#A0A0A0` board-header sub-row separators — same-page
+  probes). A red test is a regression or a wrong test —
   never skip to pass.
 - **E2E spec conventions** (session 31): mutation specs follow the
   restore-to-seed pattern with unique-per-run titles and a start-of-spec
@@ -268,7 +276,7 @@ src/lib/rate-limit.ts  auth rate limiter (login failures-only + reset; signup al
 src/lib/auth.ts        scrypt + cookie sessions
 src/lib/api-client.ts  typed fetch (never throws)
 tests/db-path.test.ts  db-path contract suite (11 tests)
-e2e/*.spec.ts          Playwright golden-path specs (25) + helpers
+e2e/*.spec.ts          Playwright golden-path specs (27) + helpers
 prisma/schema.prisma   User · Session · Board · Group · Task · Activity
 scripts/seed.ts        idempotent demo dataset
 scripts/prisma-cli.ts  Prisma CLI wrapper (resolved absolute DATABASE_URL)
