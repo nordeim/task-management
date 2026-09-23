@@ -106,11 +106,19 @@
 :root {
   --radius: 0.5rem;
   /* Tuesday.com palette — matches the reference app's light, airy surfaces.
-     Grayscale tokens mirror the reference's shadcn defaults (probed
-     2026-09-17): --primary 0 0% 9%, --foreground 0 0% 3.9%, --accent
-     0 0% 96.1% — every blue in the app is hardcoded #0073EA exactly like
-     the reference, which keeps shadcn's neutral tokens. */
-  --background: #f5f6f8;
+     Grayscale tokens mirror the reference's shadcn defaults (probed live on
+     its documentElement 2026-09-23): --background 0 0% 100% (WHITE — the
+     page gray #F5F6F8 lives on explicit shell/page-root classes, NEVER on
+     this token; `bg-background` consumers are dialogs, outline buttons,
+     switch thumbs, all white on the reference), --primary 0 0% 9%,
+     --foreground 0 0% 3.9%, --accent 0 0% 96.1%, --muted 0 0% 96.1% —
+     every blue in the app is hardcoded #0073EA exactly like the reference,
+     which keeps shadcn's neutral tokens. --muted-foreground stays at the
+     monday gray #676879: its rendered consumers (title placeholder,
+     date-cell hover icon, empty states) are micro/deviation surfaces, and
+     the always-visible sub-row separators use explicit text-[#A0A0A0]
+     (probed on the reference — session 33). */
+  --background: hsl(0 0% 100%);
   --foreground: hsl(0 0% 3.9%);
   --card: #ffffff;
   --card-foreground: hsl(0 0% 3.9%);
@@ -120,7 +128,7 @@
   --primary-foreground: hsl(0 0% 98%);
   --secondary: hsl(0 0% 96.1%);
   --secondary-foreground: hsl(0 0% 9%);
-  --muted: #f0f1f2;
+  --muted: hsl(0 0% 96.1%);
   --muted-foreground: #676879;
   --accent: hsl(0 0% 96.1%);
   --accent-foreground: hsl(0 0% 9%);

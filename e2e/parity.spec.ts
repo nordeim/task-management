@@ -116,3 +116,105 @@ test.describe("dashboard backdrop-blur parity (session 27)", () => {
       .toBe("blur(4px)");
   });
 });
+
+/**
+ * Background-token parity (session 33, remediation-plan-session32.md).
+ *
+ * The reference's authed build resolves the shadcn `--background` token to
+ * WHITE (`0 0% 100%` — probed on its documentElement), and every
+ * `bg-background` consumer renders `rgb(255, 255, 255)`: dialog panels
+ * (its Board Analytics panel is an explicit `bg-white`), the board toolbar
+ * and header outline buttons (Person/Filter/Sort/Hide/Group by +
+ * Analytics/Integrate/Automate — probed each by name), the boards-page
+ * buttons, the dashboard hero's View Analytics button, and switch thumbs
+ * (thumb `rgb(255, 255, 255)` on track `rgb(229, 231, 235)`).
+ *
+ * This app's `:root` had drifted the token to the page gray `#f5f6f8`
+ * (every consumer above rendered `rgb(245, 246, 248)`), and the
+ * board-header sub-row separators used `text-muted-foreground/50`
+ * (a blue-tinted ≈rgb(179,180,188)) where the reference renders its
+ * `|` spans as `text-[#A0A0A0]` (opaque rgb(160,160,160) — the same
+ * explicit color the clone's adjacent "N items ▪ Saved" meta already uses).
+ *
+ * If these fail, the token was reverted to a page-gray value or a
+ * `bg-background` consumer was given an explicit gray override.
+ */
+test.describe("background-token parity (session 33)", () => {
+  test("bg-background surfaces render the reference's white token", async ({ page }) => {
+    await login(page);
+
+    // Same-page probe keeps the assertion engine/serialization-neutral.
+    const whiteOf = (target: ReturnType<typeof page.locator>) =>
+      target.evaluate((el) => {
+        const probe = document.createElement("div");
+        probe.className = "bg-white";
+        probe.style.display = "none";
+        document.body.appendChild(probe);
+        const white = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        return { actual: getComputedStyle(el).backgroundColor, white };
+      });
+
+    // 1. Dashboard hero's View Analytics button (variant="outline").
+    const viewAnalytics = page.getByRole("button", { name: "View Analytics" });
+    const dashboardPair = await whiteOf(viewAnalytics);
+    expect(dashboardPair.actual).toBe(dashboardPair.white);
+
+    // 2. Boards page: the Filter button (outline + bg-background consumer).
+    await page.goto("/Boards");
+    const filter = page.getByRole("button", { name: "Filter boards (not available)" });
+    const boardsPair = await whiteOf(filter);
+    expect(boardsPair.actual).toBe(boardsPair.white);
+
+    // 3. Board page: header Analytics + toolbar Person outline buttons.
+    await page.getByRole("link", { name: "Open Website Redesign" }).click();
+    await page.waitForURL(/\/board\?id=/i);
+    await expect(page.getByRole("button", { name: "Person", exact: true })).toBeVisible();
+
+    const personPair = await whiteOf(page.getByRole("button", { name: "Person", exact: true }));
+    expect(personPair.actual).toBe(personPair.white);
+
+    const analyticsPair = await whiteOf(
+      page.getByRole("button", { name: "Analytics", exact: true }),
+    );
+    expect(analyticsPair.actual).toBe(analyticsPair.white);
+
+    // 4. Board Analytics modal: the Radix DialogContent panel (bg-background).
+    await page.getByRole("button", { name: "Analytics", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    const dialogPair = await whiteOf(dialog);
+    expect(dialogPair.actual).toBe(dialogPair.white);
+    await page.keyboard.press("Escape");
+
+    // 5. Integrations modal: the switch THUMB (bg-background) on its track.
+    await page.getByRole("button", { name: "Integrate" }).click();
+    const firstSwitch = page.getByRole("switch").first();
+    await expect(firstSwitch).toBeVisible();
+    const thumbPair = await whiteOf(firstSwitch.locator("span"));
+    expect(thumbPair.actual).toBe(thumbPair.white);
+  });
+
+  test("board header sub-row separators render #A0A0A0 like the reference", async ({ page }) => {
+    await login(page);
+    await page.goto("/Boards");
+    await page.getByRole("link", { name: "Open Website Redesign" }).click();
+    await page.waitForURL(/\/board\?id=/i);
+    await expect(page.getByRole("button", { name: "Person", exact: true })).toBeVisible();
+
+    // The two "|" separator spans in the board header sub-row.
+    const separators = page.locator('span[aria-hidden="true"]').filter({ hasText: /^\|$/ });
+    await expect(separators.first()).toBeVisible();
+
+    const pair = await separators.first().evaluate((el) => {
+      const probe = document.createElement("span");
+      probe.className = "text-[#A0A0A0]";
+      probe.style.display = "none";
+      document.body.appendChild(probe);
+      const expected = getComputedStyle(probe).color;
+      probe.remove();
+      return { actual: getComputedStyle(el).color, expected };
+    });
+    expect(pair.actual).toBe(pair.expected);
+  });
+});

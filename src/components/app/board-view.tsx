@@ -674,7 +674,10 @@ export function BoardView({ boardId }: { boardId: string }) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <span className="text-muted-foreground/50" aria-hidden="true">|</span>
+          {/* Sub-row separators: the reference renders its `|` spans as
+              text-[#A0A0A0] (probed session 33) — the same explicit color as
+              the adjacent item-count/saved meta. */}
+          <span className="text-[#A0A0A0]" aria-hidden="true">|</span>
 
           <Button
             variant="ghost"
@@ -689,7 +692,7 @@ export function BoardView({ boardId }: { boardId: string }) {
             <span>{board.isFavorite ? "Favorited" : "Add to favorites"}</span>
           </Button>
 
-          <span className="text-muted-foreground/50" aria-hidden="true">|</span>
+          <span className="text-[#A0A0A0]" aria-hidden="true">|</span>
 
           {/* Item count + autosave indicator, mirroring the reference header. */}
           <div className="flex items-center gap-2">
