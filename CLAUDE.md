@@ -1,8 +1,8 @@
 ---
 IMPORTANT: File is read fresh for every conversation. Be brief and practical.
 project_type: nextjs-single-app
-version: 1.11.0
-last_updated: 2026-09-23
+version: 1.12.0
+last_updated: 2026-09-30
 ---
 
 # Tuesday.com — Task Management
@@ -202,8 +202,11 @@ public demo credentials).
   both modes). Session 33 added the background-token parity contracts (the
   white `--background` across dialog panels, outline buttons, and switch
   thumbs, plus the `#A0A0A0` board-header sub-row separators — same-page
-  probes). A red test is a regression or a wrong test —
-  never skip to pass.
+  probes). Session 35 verified the fourth platform-login redeploy (new
+  `index-C409vFv3.js` + `index-DiXSDIK_.css` bundles, identical design —
+  class-string + computed + behavioral equality; authed SPA unchanged at
+  `index-BuEJAhK4.js`) with zero code changes. A red test is a regression
+  or a wrong test — never skip to pass.
 - **E2E spec conventions** (session 31): mutation specs follow the
   restore-to-seed pattern with unique-per-run titles and a start-of-spec
   self-heal sweep (in-page `fetch` via `page.evaluate` — Playwright's

@@ -1,12 +1,52 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.18
+# Tuesday.com — Master Project Architecture Document (PAD) v1.19
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
 **Companion Documents:** `README.md` (onboarding), `AGENTS.md` (agent gotchas), `CLAUDE.md` (workflow contract)
-**Last Updated:** 2026-09-23
+**Last Updated:** 2026-09-30
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.19 (Fourth Platform-Login Redeploy Absorbed: Identical Design, Zero-Defect Cycle, 2026-09-30)
+
+- `[SYN]` Nineteenth pass (session 35,
+  `docs/remediation-plan-session35.md`): the reference's platform login
+  page was redeployed a FOURTH time — new bundles
+  `/static/index-C409vFv3.js` + `index-DiXSDIK_.css`, a rebuilt
+  platform-auth app (rolldown runtime + vendor chunks, AuthAPI/AuthContext,
+  WorkspaceAPI, a react-hot-toast mount) — but the design is IDENTICAL,
+  verified at three levels against the clone's session-25/27/29 port: (1)
+  every class string in the live login + signup DOM matches (modulo the
+  documented v3→v4 renames — the v3 play CDN is still the compiler,
+  re-verified); (2) computed styles equal (card blur(4px)/white-95/16px,
+  Sign-in rgb(15,23,42)/12px shadow-sm value, Google 54px white/
+  slate-200 border, inputs 48px/pl-10/slate-50-50); (3) behavior equal
+  (failed login → the same inline "Invalid email or password" alert, no
+  toast; login lands on `/`). The authed SPA is UNCHANGED
+  (`/assets/index-BuEJAhK4.js`, verified in the live post-login DOM).
+- `[SYN]` Fresh 14-surface VLM sweep: **14/14 effective MATCH** after
+  triage (hero task-count text — DOM-probed identical; the cold-route
+  compile race on the first board-table capture — re-captured warm;
+  per-record board colors; the §10-documented Team Workload conditional).
+  login/signup/mobile-dashboard/mobile-nav-open screenshots **byte-
+  identical** to the session-33 set — deterministic re-renders of an
+  unchanged design. Mobile-navigation focus pass (the operator's brief):
+  hamburger hover `#E1E5F3` verified with a REAL pointer move on both
+  apps, panel open/navigate/close verified, `e2e/mobile-nav.spec.ts` 3/3.
+- `[GAT]` Zero code defects. Gates on arrival and after verification:
+  lint 0 · tsc 0 · **185/185 unit** · standalone build · **27/27 E2E** ·
+  DB at the canonical seed (4/9/25/4/7) after the run. Hygiene scan
+  clean (zero TODO/FIXME, zero `console.log`, `next-env.d.ts` unchanged,
+  `.env` byte-identical to `.env.example`, `db/custom.db` inside the
+  repo). Fresh 15-surface screenshot set installed (11 changed — the
+  authed surfaces' relative-time renders; 4 byte-identical). No source
+  changes required this cycle; docs aligned (this block, SKILL v1.6.1,
+  CLAUDE.md v1.12.0, session log, worklog).
+- `[DOC]` §10's redeploy row extended with the fourth-redeploy hashes
+  (drift-watch: re-check BOTH asset hashes each cycle — the login page's
+  bundle GRAPH changed materially this time even though the design did
+  not).
 
 #### Revision Block — v1.18 (Background-Token Parity: White `--background`, Separator Color, 2026-09-23)
 
@@ -1784,6 +1824,7 @@ bun run dev                # http://localhost:3000
 | Info | Reference was redeployed (2026-09-22): unauthenticated `/login` is now a platform page (new `/static/index-CWZT4F4c.js` + Tailwind v4 runtime); the authed SPA bundle is unchanged (`/assets/index-BuEJAhK4.js`) | drift-watch: re-check BOTH asset hashes each cycle; the login/signup surfaces were re-cloned at computed-style equality in v1.14 | Closed in v1.14 — platform login/signup parity delivered |
 | Info | The platform login page was redeployed again (2026-09-22, session 27: `/static/index-BFhVa28D.js` + `index-D2_CMDc1.css`) — a rebuild with an identical design; it compiles under the Tailwind v3 play CDN, and the authed app is a customized v4 build pinning v3-era `shadow-sm`/`backdrop-blur-sm` values | drift-watch: re-check both hashes each cycle; the v3-play-CDN compile semantics are now documented and the affected values ported at computed equality (v1.15) | Closed in v1.15 — shadow/blur/ring parity delivered, `e2e/parity.spec.ts` pins it |
 | Info | The platform login page was redeployed a third time (2026-09-23, session 29: `/static/index-BZ3m2EKw.js` + `index-DuUT6T6n.css`) — a rebuild with an identical design (v3 play CDN still the compiler; authed SPA unchanged); the audit found one structural gap: the clone lacked the reference's mobile-only spacer footer (`mt-8 text-xs sm:hidden`, both modes) and the Google button's inert trailing `group` class | drift-watch: re-check both hashes each cycle (login page + authed SPA); the footer is now ported at pixel-identical geometry and pinned by the 22nd E2E spec | Closed in v1.16 — mobile spacer footer + group-class parity delivered |
+| Info | The platform login page was redeployed a FOURTH time (2026-09-30, session 35: `/static/index-C409vFv3.js` + `index-DiXSDIK_.css`) — a rebuilt platform-auth app (rolldown + vendor chunks, AuthAPI/AuthContext, WorkspaceAPI, a toaster mount) with an IDENTICAL design: every class string, computed value, and behavior verified equal to the session-25/27/29 port (v3 play CDN still the compiler; authed SPA unchanged at `/assets/index-BuEJAhK4.js`) | drift-watch: re-check BOTH asset hashes each cycle (login page + authed SPA) — the bundle GRAPH changed materially this cycle even though the design did not; zero code changes required | Closed in v1.19 — fourth redeploy absorbed at verified parity |
 | Info | Reference analytics reports Medium priority for a Low task | reference-side inconsistency | Deliberate deviation — we count actual priorities |
 | Info | Reference boards-page Filter button is inert | reference-side dead control | Parity as of v1.5 — our Filter button matches (inert); favorites toggle from the board header where the reference actually works |
 | Info | Reference popovers stay mounted after Escape | focus-management quirk | Deliberate deviation — standard Radix dismiss |
