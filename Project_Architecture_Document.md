@@ -1,4 +1,4 @@
-# Tuesday.com — Master Project Architecture Document (PAD) v1.19
+# Tuesday.com — Master Project Architecture Document (PAD) v1.20
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
@@ -7,6 +7,45 @@
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale.
            Nothing is here "because it's popular."
+
+#### Revision Block — v1.20 (Both Bundles Stable + Hamburger DOM-Parity Fix, 2026-09-30)
+
+- `[SYN]` Twentieth pass (session 37,
+  `docs/remediation-plan-session37.md`): the first fully stable drift
+  cycle after the session-35 login redeploy — BOTH bundle surfaces
+  unchanged (platform login still `/static/index-C409vFv3.js` +
+  `index-DiXSDIK_.css`, authed SPA still `/assets/index-BuEJAhK4.js`,
+  both verified live). The session-35 suggested-next i18n probe executed:
+  the new login page's locale bundle is INERT machinery (`lang="en"`, no
+  switcher, all English strings) — no user-visible change, no action.
+  Fresh 15-surface VLM sweep: **15/15 effective MATCH** after triage
+  (both DIFF flags = documented conditionals: the §10 Unassigned
+  structural no-op + the Team Workload `workload.length > 0`
+  conditional; the remaining "N" badge is the dev-mode indicator).
+- `[FIX]` Hamburger DOM parity (the cycle's one code change, TDD — RED
+  spec first, then GREEN): the reference's accessible name comes from a
+  `<span class="sr-only">Open main menu</span>` INSIDE the button (no
+  `aria-label`; probed live in both states — the name never changes) and
+  both state icons carry the `block` utility (`lucide-menu block h-6
+  w-6` / `lucide-x block h-6 w-6`). The clone had used
+  `aria-label="Open main menu"` + bare `h-6 w-6` icons — the session-35
+  log's "the clone already matches this pattern" was inaccurate at the
+  DOM level, corrected here. `app-header.tsx` now renders the reference's
+  exact pattern; `aria-expanded={menuOpen}` deliberately KEPT (our a11y
+  floor per CLAUDE.md — a documented deviation the reference lacks).
+  Pinned by the new `e2e/mobile-nav.spec.ts` spec 4 (suite 27 → 28).
+  Post-fix live probe == reference probe: sr-only span present, no
+  aria-label, `block` icons, 40×40 at the same coordinates, hover still
+  `#E1E5F3` under a REAL pointer move, open/navigate/close intact.
+- `[GAT]` Gates on arrival and after the fix: lint 0 · tsc 0 ·
+  **185/185 unit** · standalone build · **28/28 E2E** · DB at the
+  canonical seed (4/9/25/4/7) after the run (self-healing re-confirmed).
+  Hygiene scan clean (zero TODO/FIXME, zero `console.log` in app code,
+  `next-env.d.ts` unchanged, `.env` byte-identical to `.env.example`,
+  `db/custom.db` inside the repo). Fresh 15-surface screenshot set
+  installed; docs aligned (this block, SKILL v1.6.2, CLAUDE.md v1.13.0,
+  AGENTS.md spec count + hamburger pattern note, README testing table,
+  session log, worklog).
 
 #### Revision Block — v1.19 (Fourth Platform-Login Redeploy Absorbed: Identical Design, Zero-Defect Cycle, 2026-09-30)
 
@@ -730,7 +769,13 @@
   obsolete). The **mobile menu is an inline collapsible panel** under the
   header (not a Sheet): nav links, a `search-mobile` field, a user section
   (40px gradient avatar, name/email, bell), and three footer links; the
-  hamburger is a `h-10 w-10` ghost on the RIGHT whose icon swaps Menu↔X.
+  hamburger is a `h-10 w-10` ghost on the RIGHT whose icon swaps Menu↔X
+  (`lucide-menu block h-6 w-6` / `lucide-x block h-6 w-6`, session 37) —
+  its accessible name comes from a `<span class="sr-only">Open main
+  menu</span>` INSIDE the button (the reference's pattern, no
+  `aria-label`), with `aria-expanded={menuOpen}` kept as our a11y floor
+  (a documented deviation the reference lacks; pinned by
+  `e2e/mobile-nav.spec.ts` spec 4).
   Header user avatar is the 32px `bg-gradient-to-r from-[#0073EA]
   to-[#00C875]` circle; the user menu is a plain "My Account" label +
   separator + three standard-color items. **Team row + popover** re-architected
@@ -1825,6 +1870,7 @@ bun run dev                # http://localhost:3000
 | Info | The platform login page was redeployed again (2026-09-22, session 27: `/static/index-BFhVa28D.js` + `index-D2_CMDc1.css`) — a rebuild with an identical design; it compiles under the Tailwind v3 play CDN, and the authed app is a customized v4 build pinning v3-era `shadow-sm`/`backdrop-blur-sm` values | drift-watch: re-check both hashes each cycle; the v3-play-CDN compile semantics are now documented and the affected values ported at computed equality (v1.15) | Closed in v1.15 — shadow/blur/ring parity delivered, `e2e/parity.spec.ts` pins it |
 | Info | The platform login page was redeployed a third time (2026-09-23, session 29: `/static/index-BZ3m2EKw.js` + `index-DuUT6T6n.css`) — a rebuild with an identical design (v3 play CDN still the compiler; authed SPA unchanged); the audit found one structural gap: the clone lacked the reference's mobile-only spacer footer (`mt-8 text-xs sm:hidden`, both modes) and the Google button's inert trailing `group` class | drift-watch: re-check both hashes each cycle (login page + authed SPA); the footer is now ported at pixel-identical geometry and pinned by the 22nd E2E spec | Closed in v1.16 — mobile spacer footer + group-class parity delivered |
 | Info | The platform login page was redeployed a FOURTH time (2026-09-30, session 35: `/static/index-C409vFv3.js` + `index-DiXSDIK_.css`) — a rebuilt platform-auth app (rolldown + vendor chunks, AuthAPI/AuthContext, WorkspaceAPI, a toaster mount) with an IDENTICAL design: every class string, computed value, and behavior verified equal to the session-25/27/29 port (v3 play CDN still the compiler; authed SPA unchanged at `/assets/index-BuEJAhK4.js`) | drift-watch: re-check BOTH asset hashes each cycle (login page + authed SPA) — the bundle GRAPH changed materially this cycle even though the design did not; zero code changes required | Closed in v1.19 — fourth redeploy absorbed at verified parity |
+| Info | Fifth drift check (2026-09-30, session 37): BOTH bundles STABLE — login still `index-C409vFv3.js` + `index-DiXSDIK_.css`, authed SPA still `index-BuEJAhK4.js`; the login redeploy's i18n bundle probed INERT (lang="en", no switcher, all English strings — no user-visible change). The audit's two micro class-string gaps on the mobile hamburger closed: the accessible name now comes from the reference's sr-only span (no `aria-label`) and the state icons carry the `block` utility | `aria-expanded={menuOpen}` on the hamburger is a DELIBERATE a11y-floor deviation (CLAUDE.md requires it on toggles; the reference lacks it) — keep, do not "fix" to match; the pattern is pinned by `e2e/mobile-nav.spec.ts` spec 4 (suite 28) | Closed in v1.20 — hamburger DOM parity delivered |
 | Info | Reference analytics reports Medium priority for a Low task | reference-side inconsistency | Deliberate deviation — we count actual priorities |
 | Info | Reference boards-page Filter button is inert | reference-side dead control | Parity as of v1.5 — our Filter button matches (inert); favorites toggle from the board header where the reference actually works |
 | Info | Reference popovers stay mounted after Escape | focus-management quirk | Deliberate deviation — standard Radix dismiss |

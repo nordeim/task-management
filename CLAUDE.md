@@ -1,7 +1,7 @@
 ---
 IMPORTANT: File is read fresh for every conversation. Be brief and practical.
 project_type: nextjs-single-app
-version: 1.12.0
+version: 1.13.0
 last_updated: 2026-09-30
 ---
 
@@ -145,7 +145,7 @@ public demo credentials).
 | `bun run lint` | ESLint — must exit 0 (`eslint-config-next` defaults, no rule weakening) |
 | `bun run typecheck` | `tsc --noEmit` — no errors; `skills/` and `docs/` excluded from the compile |
 | `bun run test` | Vitest unit suite — domain seams + primitive anatomy + db-path + rate-limit contracts (185 tests) |
-| `bun run test:e2e` | Playwright golden-path suite (Chromium, 27 specs) — run after `bun run build` |
+| `bun run test:e2e` | Playwright golden-path suite (Chromium, 28 specs) — run after `bun run build` |
 | `bun run db:push` / `db:seed` / `db:generate` | Schema sync / demo data / client regen (db:push goes through `scripts/prisma-cli.ts`) |
 
 ## Testing Strategy
@@ -205,8 +205,11 @@ public demo credentials).
   probes). Session 35 verified the fourth platform-login redeploy (new
   `index-C409vFv3.js` + `index-DiXSDIK_.css` bundles, identical design —
   class-string + computed + behavioral equality; authed SPA unchanged at
-  `index-BuEJAhK4.js`) with zero code changes. A red test is a regression
-  or a wrong test — never skip to pass.
+  `index-BuEJAhK4.js`) with zero code changes. Session 37 added the
+  hamburger DOM-parity spec (the reference's sr-only accessible-name
+  span + `block` state icons; `aria-expanded` kept as our a11y floor) —
+  suite 27 → 28. A red test is a regression or a wrong test — never skip
+  to pass.
 - **E2E spec conventions** (session 31): mutation specs follow the
   restore-to-seed pattern with unique-per-run titles and a start-of-spec
   self-heal sweep (in-page `fetch` via `page.evaluate` — Playwright's
@@ -279,7 +282,7 @@ src/lib/rate-limit.ts  auth rate limiter (login failures-only + reset; signup al
 src/lib/auth.ts        scrypt + cookie sessions
 src/lib/api-client.ts  typed fetch (never throws)
 tests/db-path.test.ts  db-path contract suite (11 tests)
-e2e/*.spec.ts          Playwright golden-path specs (27) + helpers
+e2e/*.spec.ts          Playwright golden-path specs (28) + helpers
 prisma/schema.prisma   User · Session · Board · Group · Task · Activity
 scripts/seed.ts        idempotent demo dataset
 scripts/prisma-cli.ts  Prisma CLI wrapper (resolved absolute DATABASE_URL)
