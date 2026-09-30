@@ -278,17 +278,21 @@ export function AppHeader({ searchPlaceholder }: { searchPlaceholder?: string })
             </DropdownMenu>
           </div>
 
-          {/* Mobile hamburger — sits on the RIGHT like the reference. */}
+          {/* Mobile hamburger — sits on the RIGHT like the reference. The
+              accessible name comes from the sr-only span (the reference's
+              pattern — it carries no aria-label; probed live both states,
+              session 37), and both state icons render with the reference's
+              `block` utility. aria-expanded stays: our a11y floor. */}
           <div className="flex items-center md:hidden">
             <Button
               variant="ghost"
               size="icon"
               className="h-10 w-10 rounded-lg hover:bg-[#E1E5F3]"
-              aria-label="Open main menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
             >
-              {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {menuOpen ? <X className="block h-6 w-6" /> : <Menu className="block h-6 w-6" />}
+              <span className="sr-only">Open main menu</span>
             </Button>
           </div>
         </div>

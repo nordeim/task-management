@@ -69,4 +69,34 @@ test.describe("mobile navigation menu", () => {
       "false",
     );
   });
+
+  /**
+   * Hamburger DOM parity (session 37, remediation-plan Findings 1–2):
+   * the reference's accessible name comes from an sr-only span INSIDE the
+   * button — it carries no aria-label — and both state icons render with
+   * the `block` utility (`lucide-menu block h-6 w-6` / `lucide-x block
+   * h-6 w-6`, probed live in both states). The clone originally used
+   * aria-label + bare h-6 w-6 icons; this spec pins the ported pattern.
+   * (`aria-expanded` stays: the CLAUDE.md a11y floor — a documented
+   * deliberate deviation the reference lacks.)
+   */
+  test("hamburger DOM mirrors the reference's sr-only accessible-name pattern", async ({ page }) => {
+    await login(page);
+    const menuButton = page.getByRole("button", { name: "Open main menu" });
+
+    // No aria-label: the name comes from the sr-only span (reference pattern).
+    await expect(menuButton).not.toHaveAttribute("aria-label");
+    const srOnly = menuButton.locator("span.sr-only");
+    await expect(srOnly).toHaveText("Open main menu");
+
+    // Closed state: Menu icon with the reference's `block` utility.
+    await expect(menuButton.locator("svg.lucide-menu")).toHaveClass(/block/);
+    await expect(menuButton.locator("svg.lucide-menu")).toHaveClass(/h-6 w-6/);
+
+    // Open state: X icon, same utilities, sr-only name unchanged.
+    await menuButton.click();
+    await expect(menuButton.locator("svg.lucide-x")).toHaveClass(/block/);
+    await expect(menuButton.locator("svg.lucide-x")).toHaveClass(/h-6 w-6/);
+    await expect(menuButton.locator("span.sr-only")).toHaveText("Open main menu");
+  });
 });
