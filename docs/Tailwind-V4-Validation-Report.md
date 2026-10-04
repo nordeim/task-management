@@ -221,3 +221,199 @@ Your text correctly warns that certain legacy config options are outright unsupp
 
 #### Conclusion
 The text you provided is a meticulously researched and factually sound summary of Tailwind CSS v4's migration path. The quotes and links provided align perfectly with the official documentation and verified community discussions.
+
+---
+
+## Appendix — Project Trap Log (bugs found in THIS codebase)
+
+Three engine-level v3→v4 differences were found and fixed during the build (see
+`AGENTS.md` gotchas + `Project_Architecture_Document.md` ADR-004/005 and §4.4):
+
+1. **Bare-HSL transparent theme** — under `@theme inline`, `--background: 0 0% 100%`
+   (a bare triplet) silently resolves to *transparent*; theme vars must be full
+   `hsl(…)` color values.
+2. **oklch palette drift** — v4's default palette drifts 1–3 sRGB units per channel
+   from the v3 hexes; the v3-era palette is pinned in `@theme` for byte-identical
+   computed colors.
+3. **in-oklab gradient interpolation** — v4 interpolates `bg-gradient-to-*` in oklab;
+   the hero gradient ships the sRGB-equivalent arbitrary `bg-[linear-gradient(…)]`
+   form to keep the computed gradient identical.
+
+**4. The space-y/space-x selector rewrite (session 9)** — the newest find, and the
+first one that changes *layout* rather than color:
+
+- **v3 (the reference app's compiled CSS):**
+  `.space-y-1 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(.25rem * …) }`
+  — the margin lands on subsequent siblings and the selector's specificity (0,2,0)
+  **overrides a child's own `.mt-3`** (0,1,0).
+- **v4 (this codebase):**
+  `:where(.space-y-1 > :not(:last-child)) { margin-block-end: calc(var(--spacing) * …) }`
+  — the margin moves to margin-bottom-of-all-but-last-children and the `:where()`
+  wrapper contributes **zero specificity**, so a child's `.mt-3` **wins**.
+
+Consequences for a v3→v4 port with byte-identical class attributes: (a) the
+margin-side swap is visually equivalent *when no child carries explicit margin
+utilities* (a computed-margin walk of every `space-*` container on every route
+confirmed this app has exactly one violation), but (b) any `space-y-*` container
+with an explicit `mt-*`/`mb-*` child renders **different gaps and a different total
+height**. The one case: the mobile nav panel's Dashboard CTA (`block mt-3`) — the
+reference's v3 engine overrides the `mt-3` to a 4px space-y gap (405px panel),
+while v4's engine resurrects it into a 12px gap (413px panel). Fix: ship the CTA
+without the `mt-3` (an engine-variance class-form fix, the same precedent as trap 3),
+pinned by the session-9 e2e specs (`tests/e2e/mobile-navigation.spec.ts`).
+
+---
+
+## Appendix: Project Trap Log — Trap 5: The Shadow-Scale Shift (session 12)
+
+**Found by**: the session-12 computed box-shadow + border-radius sweep (walk every
+visible element per route, bucket the computed `boxShadow`/`borderRadius`, diff live
+vs clone). Class-set diffs are structurally blind to this trap — the class strings
+are byte-identical; only the token VALUE changed between engines.
+
+- **v3 (the reference app's compiled CSS):**
+  `.shadow-sm { --tw-shadow: 0 1px 2px 0 #0000000d; … }`
+- **v4 (this codebase, pre-fix):**
+  `.shadow-xs { --tw-shadow: 0 1px 2px 0 var(--tw-shadow-color, #0000000d); … }`
+  `.shadow-sm { --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, #0000001a), 0 1px 2px -1px var(--tw-shadow-color, #0000001a); … }`
+
+v4 inserted `shadow-xs` at v3's `shadow-sm` position and moved `shadow-sm` up to
+v3's bare-`shadow` geometry — so every byte-identical `shadow-sm` class renders ONE
+NOTCH heavier on v4. Measured live vs clone: the white navbar rendered
+`rgba(0,0,0,0.05) 0px 1px 2px 0px` on the live vs
+`rgba(0,0,0,0.1) 0px 1px 3px 0px, rgba(0,0,0,0.1) 0px 1px 2px -1px` on the clone —
+a visibly heavier drop shadow under the fixed navbar on EVERY white-nav route. The
+same shift hit 21 `shadow-sm` usages (Navbar, LoginForm, the hero secondary CTA,
+ContactForm, NewsletterForm, AIAssistantChat, CourseCatalog, MyCourses, ui/card,
+ui/select, ui/input, ui/button variants) plus every `hover:shadow-sm` (the
+380-per-course lesson rows, the Google button hover). The bare `shadow` and
+md/lg/xl/2xl levels are UNCHANGED in v4 (verified computed-identical).
+
+Fix: the token pin in `src/app/globals.css` `@theme inline` (the ADR-005
+palette-pin precedent — pin the token, keep every class byte-identical; one line
+fixes all usages):
+
+```css
+--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+```
+
+Pinned by the session-12 e2e specs (computed box-shadow assertions on the white
+navbar, the login Sign in button, the hero secondary CTA and the lesson-row hover —
+v4's empty `rgba(0, 0, 0, 0) 0px 0px 0px 0px` composition slots stripped — plus
+GUARD specs proving shadow-lg/2xl were never shifted).
+
+**Related session-12 methodology findings** (documented in AGENTS.md gotchas 31–32):
+(a) v4 wraps every `hover:` variant in `@media (hover: hover)` — touch-emulating
+headless browsers (the agent-browser daemon) produce FALSE hover-parity failures;
+probe hovers in Playwright. (b) v4 renders `translate-y-*`/`scale-*`/`rotate-*`
+through the standalone CSS properties, not `transform: matrix(...)` — computed-style
+assertions must read the right property per stack. (c) Next 16's dev-origin
+protection silently blocks dev chunks for the `127.0.0.1` origin (unhydrated page,
+native form GET fallbacks) — `allowedDevOrigins: ["127.0.0.1"]` in next.config.ts
+restores both origins.
+
+---
+
+## Appendix: Project Trap Log — Trap 6: The Radius-Scale Shift (session 7)
+
+**Found by**: the session-7 computed-radius map (scan every element per route,
+bucket `class → computed borderRadius`, diff live vs clone). Same blindness class
+as trap 5 — the class strings are byte-identical (`rounded-xl`, `rounded-lg`), only
+the token VALUE differs between engines.
+
+- **The live reference (v3 + base44's custom config):** `rounded-lg` AND
+  `rounded-xl` BOTH compute **12px** (measured on the streak day cells, the mobile
+  menu items, the Course-Lessons rows, the p_ panel's icon tiles, the login inputs
+  — 17 DOM instances across /demo, /courses, /login, the mobile menu).
+- **v4 (this codebase, pre-fix):** `rounded-xl` = `0.875rem` = **14px** (the engine
+  default), `rounded-lg` = `0.5rem` = **8px**. The codebase had even PINNED the
+  wrong value (`--radius-xl: 0.875rem /* 12px/14px form controls */`) — the "14px"
+  half of that comment was a misdiagnosis: the reference's 14px surfaces (the quiz
+  option grid, the Next-Question button) are `rounded-[14px]` ARBITRARY classes on
+  BOTH sides, never `rounded-xl`.
+
+Consequences: 41 usages rendered +2px (xl) or −4px (lg) off the reference — the
+mobile menu items, the p_ tiles, the streak cells, the lesson rows, the login
+form controls, the Nori send button. Visually subtle (a 2px radius delta), which
+is exactly why six sessions of class-string parity never caught it: **computed
+styles are the ground truth, class strings are the approximation.**
+
+Fix: pin BOTH tokens in `globals.css` `@theme` (the ADR-005 token-pin precedent):
+
+```css
+--radius-lg: 0.75rem; /* 12px — p_ icon tiles, hub menu tiles, chat send */
+--radius-xl: 0.75rem; /* 12px — menu items, streak cells, lesson rows, form controls */
+```
+
+Pinned by the session-7 e2e specs (computed border-radius assertions on the
+Course-Lessons rows, the p_ All-Courses tile, and the mobile menu items —
+`tests/e2e/session7-parity.spec.ts` + `mobile-navigation.spec.ts`).
+
+---
+
+## Appendix: Project Trap Log — Trap 7: The Blur-Scale Shift (session 7)
+
+**Found by**: the same computed-style sweep, on `backdrop-filter`. The
+shadow-scale shift (trap 5) has a sibling: v4 renamed `blur` → `blur-sm` and
+`blur-sm` → `blur-xs`, moving every named blur level up one notch.
+
+- **The live reference (v3):** the login card's `backdrop-blur-sm` computes
+  **blur(4px)**.
+- **v4 (this codebase, pre-fix):** `backdrop-blur-sm` computes **blur(8px)** —
+  2× the reference, softening the card's frosted-glass edge over the gradient.
+
+Fix: pin the token (the `--shadow-sm` precedent, one line):
+
+```css
+--blur-sm: 4px;
+```
+
+Pinned by the session-7 e2e spec (`auth.spec.ts`: the login card must compute
+`backdrop-filter: blur(4px)` + `border-radius: 16px`). No other blur consumer
+exists in the codebase, so the pin is collision-free.
+
+**Session-7 methodology corollary (recorded for future audits):** the app-wide
+base `font-weight` is ALSO a computed-style-only signal — the live's `body`
+computes **300** (font-light is the app default, inherited by every weight-less
+text node: mode-card descriptions, category tags, "N/6 lessons completed"),
+while the clone shipped `body { font-weight: 400 }`. A leaf-text font-weight
+HISTOGRAM per route (bucket every visible text node by computed weight, diff the
+distributions) is the cheapest audit that surfaces this class of drift; it also
+surfaced the Course-Lessons icon-column drift (six 600-weight "✓" text nodes on
+the clone that have no counterpart on the live).
+
+---
+
+## Appendix: Project Trap Log — Trap 8: The Alpha-Color Serialization Shift (session 8)
+
+**Found by**: the computed-style color histogram (the session-7 doctrine,
+extended to text/overlay colors). Tailwind v4 generates alpha-modified
+colors via `color-mix(in oklab, …)`; v3 emitted plain `rgba()` — the
+COMPUTED serialization differs even when the rendered color is identical.
+
+- **The live reference (v3):** `text-black/40` computes
+  `rgba(0, 0, 0, 0.4)`; the challenge modal's overlay computes
+  `rgba(0, 0, 0, 0.5)`.
+- **v4 (this codebase, pre-fix):** the SAME class strings compute
+  `oklab(0 0 0 / 0.4)` and `oklab(0 0 0 / 0.5)` — invisible on screen for
+  achromatic alpha, but a computed-value mismatch the histogram doctrine
+  flags (and the e2e `toHaveCSS` pins catch immediately).
+
+**Scope**: achromatic alpha (black/white + opacity) renders identically in
+both engines — this app uses ZERO chromatic alpha classes (audited), so the
+drift is serialization-only. The risk family: a CHROMATIC alpha
+(`bg-purple/50`) WOULD mix in oklab (perceptual) on v4 vs sRGB (linear) on
+v3 — a real visual difference. Audit for chromatic alpha before porting.
+
+Fix: pinned surfaces normalize via inline `rgba()` (the session-7
+later-lesson-icon precedent):
+
+```tsx
+style={{ color: "rgba(0, 0, 0, 0.4)" }}        // streak weekday letters
+style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }} // challenge modal overlay
+```
+
+Pinned by `tests/e2e/session8-parity.spec.ts` (the letters compute
+`rgba(0, 0, 0, 0.4)`; the overlay computes `rgba(0, 0, 0, 0.5)` with
+`backdrop-filter: none`). Unpinned surfaces may keep the utility classes —
+the rendering is identical.
